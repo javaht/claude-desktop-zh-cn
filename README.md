@@ -4,6 +4,10 @@
 
 本汉化方案仅支持使用 API 的方式。
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=javaht/claude-desktop-zh-cn&type=Date)](https://www.star-history.com/#javaht/claude-desktop-zh-cn&Date)
+
 ## 功能特点
 
 - 一键安装 Claude Desktop 中文界面资源。

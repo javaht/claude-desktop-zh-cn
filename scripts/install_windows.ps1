@@ -85,6 +85,27 @@ function Find-ClaudePath {
 }
 
 function Get-ClaudeResourcesPath {
+    # 优先查找非打包安装（通常版本更新）
+    $localAppData = [Environment]::GetFolderPath('LocalApplicationData')
+    if ($localAppData) {
+        $unpackagedBase = Join-Path $localAppData "AnthropicClaude"
+        if (Test-Path $unpackagedBase) {
+            $latest = Get-ChildItem $unpackagedBase -Directory -Filter "app-*" -ErrorAction SilentlyContinue |
+                Sort-Object LastWriteTime -Descending |
+                Select-Object -First 1
+            if ($latest) {
+                $resourcesPath = Join-Path $latest.FullName "resources"
+                if (Test-Path $resourcesPath) {
+                    return @{
+                        App = $latest.FullName
+                        Resources = $resourcesPath
+                    }
+                }
+            }
+        }
+    }
+
+    # 回退到 AppX 查找
     $claudePath = Find-ClaudePath
     if (-not $claudePath) {
         throw "未找到 Claude Desktop 安装。"
@@ -1327,6 +1348,8 @@ function Restart-Claude {
     Stop-ClaudeProcesses
 
     $exeCandidates = @(
+        (Join-Path $ClaudePath "Claude.exe"),
+        (Join-Path $ClaudePath "claude.exe"),
         (Join-Path $ClaudePath "app\Claude.exe"),
         (Join-Path $ClaudePath "app\claude.exe")
     )

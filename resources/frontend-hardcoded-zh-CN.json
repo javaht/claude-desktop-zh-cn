@@ -292,16 +292,36 @@
     "cancelText:l=\"取消\""
   ],
   [
+    "confirmText:o=\"Confirm\",cancelText:a=\"Cancel\"",
+    "confirmText:o=\"Confirm\",cancelText:a=\"取消\""
+  ],
+  [
     "title:F?\"Archive selected\"",
     "title:F?\"归档所选\""
   ],
   [
     "message:F?`Archive ${j.items.length} ${1===j.items.length?b.noun:b.nouns}? You can find ${1===j.items.length?\"it\":\"them\"} in the Archived tab.`",
-    "message:F?`归档 ${j.items.length} ${1===j.items.length?b.noun:b.nouns}？你可以在“已归档”标签页中找到${1===j.items.length?\"它\":\"它们\"}。`"
+    "message:F?`归档 ${j.items.length} 个${1===j.items.length?b.noun:b.nouns}？你可以在“已归档”标签页中找到${1===j.items.length?\"它\":\"它们\"}。`"
+  ],
+  [
+    "message:F?`归档 ${j.items.length} ${1===j.items.length?b.noun:b.nouns}？你可以在“已归档”标签页中找到${1===j.items.length?\"它\":\"它们\"}。`",
+    "message:F?`归档 ${j.items.length} 个${1===j.items.length?b.noun:b.nouns}？你可以在“已归档”标签页中找到${1===j.items.length?\"它\":\"它们\"}。`"
   ],
   [
     "confirmText:F?\"Archive\":\"Delete\"",
     "confirmText:F?\"归档\":\"Delete\""
+  ],
+  [
+    "s>0&&C(`${s} ${1===s?b.noun:b.nouns} ${F?\"archived\":\"deleted\"}`)",
+    "s>0&&C(F?`${s} 个${1===s?b.noun:b.nouns}已归档`:`${s} ${1===s?b.noun:b.nouns} deleted`)"
+  ],
+  [
+    "n>0?g(`${n} ${1===n?b.noun:b.nouns} could not be ${F?\"archived\":\"deleted\"}. You can try again.`,{messageForLogging:\"ChatsSurface bulk delete partial failure\"})",
+    "n>0?g(F?`${n} 个${1===n?b.noun:b.nouns}无法归档。你可以再试一次。`:`${n} ${1===n?b.noun:b.nouns} could not be deleted. You can try again.`,{messageForLogging:\"ChatsSurface bulk delete partial failure\"})"
+  ],
+  [
+    "g(`Failed to ${F?\"archive\":\"delete\"} some ${b.nouns}. You can try again.`,{error:a,messageForLogging:\"ChatsSurface bulk action failure\"})",
+    "g(F?`部分${b.nouns}归档失败。你可以再试一次。`:`Failed to delete some ${b.nouns}. You can try again.`,{error:a,messageForLogging:\"ChatsSurface bulk action failure\"})"
   ],
   [
     "children:\"All\"",

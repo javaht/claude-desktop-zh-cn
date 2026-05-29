@@ -188,6 +188,18 @@
     "Ca=\"本機\""
   ],
   [
+    "Qf=\"Local\"",
+    "Qf=\"本機\""
+  ],
+  [
+    "Gf=\"Cloud\"",
+    "Gf=\"雲端\""
+  ],
+  [
+    "Yf=\"All\"",
+    "Yf=\"全部\""
+  ],
+  [
     "DJt={recents:\"最近使用\",shared:\"Shared\"}",
     "DJt={recents:\"最近使用\",shared:\"已共享\"}"
   ],
@@ -792,16 +804,48 @@
     "Claude 會以無參數方式執行該可執行檔，並讀取 **stdout**（去除前後空白）。結束代碼必須為 `0`；**stderr** 上的任何輸出都會被記錄但會被忽略。**Stdout 只能包含以下格式之一**（不要有橫幅、提示或日誌行）。\\n\\n**輸出格式** 為：\\n- 一個裸 token（API 金鑰 / bearer token），或\\n- 一個 JSON 物件 `{\"token\": \"...\", \"headers\": {\"Name\": \"Value\", ...}}`，用於需要依請求設定請求標頭的情境（會覆蓋**自訂推論請求標頭**，衝突時輔助腳本優先）\\n\\n結果會依下方 TTL 快取。TTL 到期後會透明地重新呼叫輔助腳本（不會提示使用者，也不需要重新啟動）。\\n\\n**典型用途：** 從 Keychain、1Password CLI 或內部憑證代理擷取憑證的 shell 腳本。範例：\\n\\n`security find-generic-password -s anthropic-api -w`\\n\\n設定此欄位後，靜態憑證欄位（API 金鑰、bearer token）會被忽略。輔助腳本永遠優先。"
   ],
   [
+    "defaultMessage:\"Allowed surfaces\",id:\"XhBz9JhRHE\"",
+    "defaultMessage:\"允許的功能介面\",id:\"XhBz9JhRHE\""
+  ],
+  [
+    "defaultMessage:\"General restrictions\",id:\"fHh9zisMLR\"",
+    "defaultMessage:\"一般限制\",id:\"fHh9zisMLR\""
+  ],
+  [
+    "defaultMessage:\"These apply regardless of which surfaces are enabled.\",id:\"kTD7aU+1xd\"",
+    "defaultMessage:\"無論啟用哪些功能介面，這些限制都會生效。\",id:\"kTD7aU+1xd\""
+  ],
+  [
+    "defaultMessage:\"Enable the Cowork tab. Claude works on longer tasks like research, analysis, and documents.\",id:\"eMWhsJ8TiO\"",
+    "defaultMessage:\"啟用 Cowork 分頁。Claude 會處理較長任務，例如研究、分析和文件。\",id:\"eMWhsJ8TiO\""
+  ],
+  [
+    "defaultMessage:\"Enable the Code tab. Claude writes and runs code.\",id:\"By5fKNRgdP\"",
+    "defaultMessage:\"啟用 Code 分頁。Claude 會撰寫並執行程式碼。\",id:\"By5fKNRgdP\""
+  ],
+  [
+    "defaultMessage:\"Hostnames the agent's tools may reach from the Cowork and Code tabs. Also surfaced under Egress Requirements.\",id:\"fyxtQTQ7BA\"",
+    "defaultMessage:\"代理工具可從 Cowork 和 Code 分頁存取的主機名稱。也會顯示在輸出要求中。\",id:\"fyxtQTQ7BA\""
+  ],
+  [
+    "help:{body:\"Applies to both the Cowork and Code tabs.\\n\\n",
+    "help:{body:\"適用於 Cowork 和 Code 分頁。\\n\\n"
+  ],
+  [
+    "message:z?`Archive ${j.items.length} ${1===j.items.length?y.noun:y.nouns}? You can find ${1===j.items.length?\"it\":\"them\"} in the Archived tab.`",
+    "message:z?`歸檔 ${j.items.length} 個${1===j.items.length?y.noun:y.nouns}？你可以在「已歸檔」分頁中找到${1===j.items.length?\"它\":\"它們\"}。`"
+  ],
+  [
     "Only affects **tool calls**. Inference and MCP traffic are covered by their own allowlists elsewhere.\\n\\nWhen unset, only the inference endpoint is reachable from the sandbox; the agent's package installs (pip/npm) and web fetches will fail with a 403.\\n\\nAccepts exact hostnames (`api.github.com`), wildcards (`*.corp.com` matches one subdomain level), and `*` to allow all.\\n\\nWildcards don't cross schemes. `*.corp.com` matches `docs.corp.com` but not `corp.com` itself; add both if you need the apex.\\n\\nIP literals and localhost always resolve regardless of this list; this is a public-egress filter, not a sandbox.\\n\\nHosts you add here also need to be open on your network firewall. See **Egress Requirements** for the full allowlist.",
     "僅影響**工具呼叫**。推論和 MCP 流量由各自的允許清單另外控制。\\n\\n未設定時，沙箱只能連到推論端點；代理程式的套件安裝（pip/npm）和網頁擷取會因 403 失敗。\\n\\n接受精確主機名稱（`api.github.com`）、萬用字元（`*.corp.com` 符合一層子網域）以及用於允許全部的 `*`。\\n\\n萬用字元不會跨越層級。`*.corp.com` 符合 `docs.corp.com`，但不符合 `corp.com` 本身；如果需要根網域，請兩者都新增。\\n\\nIP 字面值和 localhost 一律可解析，不受此清單影響；這是公開輸出過濾器，不是沙箱。\\n\\n你在這裡新增的主機還需要在網路防火牆中開放。完整允許清單請參閱**輸出要求**。"
   ],
   [
     "\\\"Essential\\\" means the signals Anthropic needs to keep your deployment working: **crash stacks**, **startup failure reasons**, and **version/OS metadata**. No prompts, completions, file contents, or identifiers beyond a random install ID.\\n\\n**What you lose when this is on:** when a Cowork build hits a bug that only reproduces on your OS version or locale, Anthropic can't see it unless a user manually reports. Fixes ship slower.\\n\\n**Why this is discouraged, not blocked:** some air-gapped environments require zero outbound telemetry as a matter of policy. The switch exists for them. If you don't have that constraint, leave it off.",
-    "「必要」指 Anthropic 維持你的部署正常運作所需的信號：**崩潰堆疊**、**啟動失敗原因**和**版本/OS 中繼資料**。不包含提示、補全、檔案內容，也不包含隨機安裝 ID 以外的識別碼。\\n\\n**啟用此項會失去什麼：** 當 Cowork 建置遇到只在你的 OS 版本或地區設定下重現的 bug 時，除非使用者手動回報，否則 Anthropic 看不到。修正發布會更慢。\\n\\n**為什麼不建議但不阻止：** 一些隔離網路環境因政策要求零輸出遙測。此開關就是為它們準備的。如果你沒有這個限制，請保持關閉。"
+    "「必要」指 Anthropic 維持你的部署正常運作所需的信號：**崩潰堆疊**、**啟動失敗原因**和**版本/OS 中繼資料**。不包含提示、補全、檔案內容，也不包含隨機安裝 ID 以外的識別碼。\\n\\n**啟用此項會失去什麼：** 當 Cowork 建置遇到只在你的 OS 版本或地區設定下重現的 bug 時，除非使用者手動回報，否則 Anthropic 看不到。修正發布會更慢。\\n\\n**為什麼不建議但不阻止：** 一些隔離網路環境因政策要求零輸出診斷資料。此開關就是為它們準備的。如果你沒有這個限制，請保持關閉。"
   ],
   [
     "\"Nonessential\" covers two things: **product-usage analytics** (which features get used, navigation patterns; no prompts or completions) and the **Send** action in Help → Generate Diagnostic Report. Turning this on stops both.\\n\\nDestination for both: `claude.ai`. Already listed under Egress Requirements → Nonessential telemetry.",
-    "「非必要」包括兩類內容：**產品使用分析**（使用了哪些功能、導覽模式；不含提示或補全）以及「說明 → 產生診斷報告」中的**傳送**操作。啟用此項會同時停止兩者。\\n\\n兩者的目標位址均為：`claude.ai`。已列在「輸出要求 → 非必要遙測」下。"
+    "「非必要」包括兩類內容：**產品使用分析**（使用了哪些功能、導覽模式；不含提示或補全）以及「說明 → 產生診斷報告」中的**傳送**操作。啟用此項會同時停止兩者。\\n\\n兩者的目標位址均為：`claude.ai`。已列在「輸出要求 → 非必要診斷資料」下。"
   ],
   [
     "defaultMessage:\"Configure third-party inference\"",

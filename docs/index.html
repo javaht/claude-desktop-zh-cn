@@ -1,0 +1,1436 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Claude Desktop 中文补丁</title>
+  <meta name="description" content="Claude Desktop 中文补丁：一键安装、安全恢复、截图反馈、全流程验证。">
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #201a15;
+      --ink-soft: #4f463d;
+      --muted: #786c60;
+      --paper: #fbf3e6;
+      --paper-deep: #f1dfc6;
+      --card: rgba(255, 252, 245, 0.9);
+      --card-strong: #fffdf8;
+      --line: rgba(92, 66, 38, 0.16);
+      --line-strong: rgba(92, 66, 38, 0.25);
+      --clay: #c76543;
+      --clay-dark: #9f472f;
+      --green: #1e725f;
+      --blue: #315f86;
+      --shadow: 0 28px 80px rgba(82, 61, 38, 0.15);
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "Microsoft YaHei", "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+      line-height: 1.58;
+      line-break: strict;
+      background:
+        radial-gradient(circle at var(--glow-x, 18%) var(--glow-y, 8%), rgba(255, 232, 197, 0.62) 0, transparent 34%),
+        radial-gradient(circle at 88% 16%, rgba(206, 158, 103, 0.22) 0, transparent 32%),
+        radial-gradient(circle at 22px 28px, rgba(92, 66, 38, 0.11) 0 1px, transparent 1.4px),
+        radial-gradient(circle at 70px 86px, rgba(255, 255, 255, 0.58) 0 1px, transparent 1.4px),
+        repeating-linear-gradient(105deg, rgba(117, 83, 45, 0.042) 0 1px, transparent 1px 10px),
+        linear-gradient(180deg, #fbf4e9 0%, #f6eadb 100%);
+      background-size: auto, auto, 96px 96px, 132px 132px, auto, auto;
+      min-height: 100vh;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.18), transparent 18%, transparent 82%, rgba(120, 82, 43, 0.08)),
+        radial-gradient(circle at center, transparent 44%, rgba(87, 58, 25, 0.13) 100%);
+      mix-blend-mode: multiply;
+      z-index: 0;
+    }
+
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image: linear-gradient(rgba(89, 60, 30, 0.025) 1px, transparent 1px);
+      background-size: 100% 7px;
+      opacity: 0.48;
+      z-index: 0;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    img {
+      display: block;
+      max-width: 100%;
+    }
+
+    p,
+    li,
+    .hero-lead,
+    .section-desc,
+    .stat span,
+    .flow-node span,
+    .ticket p,
+    .coverage-card p,
+    .feedback-list span,
+    .run-note span {
+      text-wrap: pretty;
+    }
+
+    .nowrap,
+    .term {
+      white-space: nowrap;
+    }
+
+    .progress {
+      position: fixed;
+      inset: 0 0 auto;
+      height: 3px;
+      transform: scaleX(0);
+      transform-origin: left;
+      background: linear-gradient(90deg, var(--clay), #e8a06f, var(--green));
+      z-index: 20;
+    }
+
+    .page {
+      position: relative;
+      z-index: 1;
+      width: min(1480px, calc(100vw - 72px));
+      margin: 0 auto;
+      padding: 14px 0 64px;
+    }
+
+    .nav {
+      position: sticky;
+      top: 14px;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 22px;
+      min-height: 66px;
+      padding: 10px 12px 10px 18px;
+      border: 1px solid rgba(232, 217, 199, 0.82);
+      border-radius: 999px;
+      background: rgba(255, 252, 245, 0.72);
+      box-shadow: 0 18px 42px rgba(82, 61, 38, 0.08);
+      backdrop-filter: blur(18px);
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 11px;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      white-space: nowrap;
+    }
+
+    .brand-mark {
+      width: 15px;
+      height: 15px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, var(--clay), #f0bb8b);
+      box-shadow: 0 0 0 7px rgba(199, 101, 67, 0.13);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .nav-links a {
+      padding: 10px 13px;
+      border-radius: 999px;
+      text-decoration: none;
+      transition: color 0.25s ease, background 0.25s ease, transform 0.25s var(--ease);
+    }
+
+    .nav-links a:hover {
+      color: var(--ink);
+      background: rgba(255, 255, 255, 0.72);
+      transform: translateY(-1px);
+    }
+
+    .nav-action {
+      color: #fff !important;
+      background: linear-gradient(135deg, var(--clay), #d77b55) !important;
+      box-shadow: 0 12px 30px rgba(199, 101, 67, 0.22);
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(520px, 0.95fr) minmax(570px, 1.05fr);
+      gap: 58px;
+      align-items: center;
+      padding: clamp(52px, 7vh, 86px) 0 46px;
+    }
+
+    .hero-copy {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 13px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 252, 245, 0.76);
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 900;
+      box-shadow: 0 14px 32px rgba(82, 61, 38, 0.08);
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--green);
+      box-shadow: 0 0 0 5px rgba(30, 114, 95, 0.13);
+    }
+
+    h1 {
+      margin: 24px 0 22px;
+      max-width: 720px;
+      font-size: clamp(64px, 6vw, 112px);
+      line-height: 0.94;
+      letter-spacing: -0.075em;
+    }
+
+    .hero-lead {
+      max-width: 690px;
+      margin: 0;
+      color: var(--ink-soft);
+      font-size: clamp(19px, 1.26vw, 24px);
+      letter-spacing: -0.02em;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 13px;
+      margin: 34px 0 0;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 52px;
+      padding: 14px 22px;
+      border: 1px solid transparent;
+      border-radius: 999px;
+      font-size: 15px;
+      font-weight: 900;
+      text-decoration: none;
+      transition:
+        transform 0.28s var(--ease),
+        box-shadow 0.28s ease,
+        background 0.28s ease,
+        border-color 0.28s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+    }
+
+    .btn-primary {
+      color: #fff;
+      background: linear-gradient(135deg, var(--clay), #d77b55);
+      box-shadow: 0 20px 40px rgba(199, 101, 67, 0.27);
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 25px 50px rgba(199, 101, 67, 0.31);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 252, 245, 0.8);
+      border-color: var(--line);
+      color: var(--ink);
+    }
+
+    .hero-stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      width: 100%;
+      max-width: 720px;
+      margin-top: 28px;
+    }
+
+    .stat {
+      min-height: 116px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: rgba(255, 252, 245, 0.74);
+      box-shadow: 0 18px 46px rgba(82, 61, 38, 0.08);
+      transition: transform 0.28s var(--ease), box-shadow 0.28s ease;
+    }
+
+    .stat:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 24px 56px rgba(82, 61, 38, 0.11);
+    }
+
+    .stat b {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 24px;
+      letter-spacing: -0.04em;
+    }
+
+    .stat span {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .repair-board {
+      position: relative;
+      min-height: 640px;
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: 38px;
+      background: rgba(255, 252, 245, 0.84);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .repair-board::before {
+      content: "";
+      position: absolute;
+      inset: auto -80px -120px auto;
+      width: 310px;
+      height: 310px;
+      border-radius: 999px;
+      background: #f1b58a;
+      opacity: 0.32;
+      filter: blur(3px);
+    }
+
+    .board-top {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 16px;
+    }
+
+    .board-title {
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 900;
+    }
+
+    .board-chip {
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #e4f4ea;
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .screen-card {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: minmax(0, 1.08fr) minmax(220px, 0.92fr);
+      gap: 16px;
+      padding: 17px;
+      border-radius: 27px;
+      background: #282522;
+      color: #fbefe0;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+    }
+
+    .mock-window {
+      min-height: 244px;
+      padding: 15px;
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 20px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent),
+        rgba(255, 255, 255, 0.02);
+    }
+
+    .dots {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 18px;
+    }
+
+    .dots i {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: #73685f;
+    }
+
+    .mock-lines {
+      display: grid;
+      gap: 11px;
+      margin-bottom: 18px;
+    }
+
+    .mock-lines span {
+      height: 13px;
+      border-radius: 999px;
+      background: #514a43;
+    }
+
+    .mock-lines span:nth-child(1) { width: 46%; background: #6f655d; }
+    .mock-lines span:nth-child(2) { width: 84%; }
+    .mock-lines span:nth-child(3) { width: 64%; }
+    .mock-lines span:nth-child(4) { width: 52%; }
+
+    .missing-text {
+      padding: 13px 14px;
+      border: 2px solid #ff6b4a;
+      border-radius: 16px;
+      background: rgba(255, 107, 74, 0.09);
+      color: #fff3e8;
+      font-size: 15px;
+      font-weight: 900;
+      line-height: 1.28;
+    }
+
+    .mock-note {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 18px;
+      min-height: 244px;
+      padding: 17px;
+      border: 1px solid rgba(232, 217, 199, 0.9);
+      border-radius: 20px;
+      background: rgba(255, 253, 248, 0.95);
+      color: var(--ink);
+      box-shadow: 0 18px 34px rgba(0, 0, 0, 0.13);
+    }
+
+    .note-state {
+      align-self: flex-start;
+      padding: 5px 8px;
+      border-radius: 999px;
+      background: #ffe0d1;
+      color: #943f27;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .mock-note h2 {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1.04;
+      letter-spacing: -0.045em;
+    }
+
+    .mock-note p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .board-flow {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin: 16px 0;
+    }
+
+    .flow-node {
+      min-height: 92px;
+      padding: 13px 12px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 253, 248, 0.88);
+    }
+
+    .flow-node b {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 14px;
+    }
+
+    .flow-node span {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .ticket-list {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      gap: 11px;
+    }
+
+    .ticket {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 12px;
+      align-items: start;
+      padding: 15px;
+      border: 1px solid var(--line);
+      border-radius: 21px;
+      background: rgba(255, 253, 248, 0.9);
+      transition: transform 0.28s var(--ease), box-shadow 0.28s ease;
+    }
+
+    .ticket:hover {
+      transform: translateX(4px);
+      box-shadow: 0 16px 36px rgba(82, 61, 38, 0.09);
+    }
+
+    .tag {
+      padding: 5px 9px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .tag.orange { color: #943f27; background: #ffe0d1; }
+    .tag.blue { color: #2f567d; background: #dcecff; }
+    .tag.green { color: #17624f; background: #dff5eb; }
+
+    .ticket h3 {
+      margin: 0 0 5px;
+      font-size: 17px;
+      line-height: 1.25;
+    }
+
+    .ticket p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .section {
+      padding: 86px 0;
+    }
+
+    .section-head {
+      display: grid;
+      grid-template-columns: minmax(300px, 0.58fr) minmax(420px, 0.42fr);
+      gap: 34px;
+      align-items: end;
+      margin-bottom: 28px;
+    }
+
+    .kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      color: var(--clay-dark);
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .kicker::before {
+      content: "";
+      width: 24px;
+      height: 2px;
+      border-radius: 999px;
+      background: currentColor;
+    }
+
+    .section h2 {
+      margin: 0;
+      max-width: 760px;
+      font-size: clamp(34px, 4.2vw, 68px);
+      line-height: 1;
+      letter-spacing: -0.065em;
+      text-wrap: balance;
+    }
+
+    .title-line {
+      display: block;
+      white-space: nowrap;
+    }
+
+    .title-quote {
+      display: inline-block;
+      transform: translateY(-0.03em);
+    }
+
+    .section-desc {
+      margin: 0;
+      color: var(--muted);
+      font-size: 17px;
+    }
+
+    .loop-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+
+    .loop-card,
+    .coverage-card,
+    .install-card,
+    .feedback-card {
+      position: relative;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255, 253, 248, 0.93), rgba(255, 248, 238, 0.78));
+      box-shadow: 0 22px 54px rgba(82, 61, 38, 0.09);
+      overflow: hidden;
+      transition: transform 0.32s var(--ease), box-shadow 0.32s ease, border-color 0.32s ease;
+    }
+
+    .loop-card:hover,
+    .coverage-card:hover,
+    .install-card:hover,
+    .feedback-card:hover {
+      transform: translateY(-5px);
+      border-color: var(--line-strong);
+      box-shadow: 0 30px 68px rgba(82, 61, 38, 0.13);
+    }
+
+    .loop-card {
+      min-height: 260px;
+      padding: 24px;
+      border-radius: 30px;
+    }
+
+    .loop-card::after {
+      content: attr(data-step);
+      position: absolute;
+      right: 18px;
+      top: 8px;
+      color: rgba(199, 101, 67, 0.13);
+      font-size: 76px;
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: -0.08em;
+    }
+
+    .loop-card h3 {
+      position: relative;
+      z-index: 1;
+      margin: 0 0 12px;
+      font-size: 22px;
+      letter-spacing: -0.035em;
+    }
+
+    .loop-card p {
+      position: relative;
+      z-index: 1;
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .loop-card small {
+      position: absolute;
+      left: 24px;
+      bottom: 22px;
+      color: var(--green);
+      font-weight: 900;
+    }
+
+    .coverage-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 18px;
+    }
+
+    .coverage-grid .coverage-card:last-child {
+      grid-column: 1 / -1;
+      max-width: calc(50% - 9px);
+      justify-self: center;
+    }
+
+    .coverage-card {
+      display: flex;
+      flex-direction: column;
+      min-height: 250px;
+      padding: 24px;
+      border-radius: 31px;
+    }
+
+    .coverage-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      margin-bottom: 28px;
+      border-radius: 15px;
+      background: rgba(199, 101, 67, 0.12);
+      color: var(--clay-dark);
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .coverage-card h3 {
+      margin: 0 0 9px;
+      font-size: 21px;
+      letter-spacing: -0.035em;
+    }
+
+    .coverage-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .coverage-points {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: auto;
+      padding-top: 22px;
+    }
+
+    .coverage-points span {
+      padding: 7px 10px;
+      border: 1px solid rgba(92, 66, 38, 0.12);
+      border-radius: 999px;
+      background: rgba(255, 253, 248, 0.72);
+      color: var(--clay-dark);
+      font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .gallery {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .gallery .shot-card:first-child {
+      grid-column: 1 / -1;
+    }
+
+    @media (max-width: 768px) {
+      .gallery {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 480px) {
+      .gallery {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .shot-card {
+      position: relative;
+      border: 1px solid var(--line);
+      border-radius: 32px;
+      background: rgba(255, 253, 248, 0.82);
+      box-shadow: 0 24px 60px rgba(82, 61, 38, 0.11);
+      overflow: hidden;
+      cursor: zoom-in;
+      transition: transform 0.35s var(--ease), box-shadow 0.35s ease;
+    }
+
+    .shot-card:hover {
+      transform: translateY(-6px) scale(1.01);
+      box-shadow: 0 34px 78px rgba(82, 61, 38, 0.16);
+    }
+
+    .shot-card img {
+      width: 100%;
+      height: auto;
+      object-fit: contain;
+      transition: transform 0.6s var(--ease);
+    }
+
+    .shot-card:hover img {
+      transform: scale(1.045);
+    }
+
+    .shot-caption {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 15px 17px;
+      border-top: 1px solid var(--line);
+      background: rgba(255, 253, 248, 0.92);
+      font-weight: 900;
+    }
+
+    .shot-caption span {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .install-wrap {
+      display: grid;
+      grid-template-columns: 0.92fr 1.08fr;
+      gap: 20px;
+      align-items: stretch;
+    }
+
+    .install-card,
+    .feedback-card {
+      padding: 26px;
+      border-radius: 32px;
+    }
+
+    .install-card h3,
+    .feedback-card h3 {
+      margin: 0 0 12px;
+      font-size: 25px;
+      letter-spacing: -0.045em;
+    }
+
+    .install-card p,
+    .feedback-card p {
+      margin: 0 0 18px;
+      color: var(--muted);
+    }
+
+    .steps {
+      display: grid;
+      gap: 12px;
+      margin: 20px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .steps li {
+      display: grid;
+      grid-template-columns: 32px 1fr;
+      gap: 12px;
+      align-items: start;
+      color: var(--ink-soft);
+    }
+
+    .steps b {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      background: #f3dfca;
+      color: var(--clay-dark);
+      font-size: 13px;
+    }
+
+    .run-note {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 12px;
+      align-items: center;
+      margin: 20px 0 0;
+      padding: 15px 16px;
+      border: 1px solid rgba(199, 101, 67, 0.18);
+      border-radius: 22px;
+      background: rgba(255, 242, 226, 0.72);
+      color: var(--ink-soft);
+      font-size: 14px;
+    }
+
+    .run-note b {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      background: #f3dfca;
+      color: var(--clay-dark);
+      font-size: 14px;
+    }
+
+    .run-note strong {
+      color: var(--ink);
+    }
+
+    .feedback-card {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .feedback-copy {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 14px 18px;
+      align-items: start;
+      min-width: 0;
+    }
+
+    .feedback-copy h3,
+    .feedback-copy p {
+      grid-column: 1;
+    }
+
+    .feedback-copy .btn {
+      grid-column: 2;
+      grid-row: 1 / span 2;
+      align-self: center;
+      white-space: nowrap;
+    }
+
+    .feedback-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      align-content: start;
+    }
+
+    .feedback-list div {
+      display: grid;
+      gap: 6px;
+      min-height: 96px;
+      padding: 15px 16px;
+      border: 1px solid var(--line);
+      border-radius: 19px;
+      background: rgba(255, 253, 248, 0.76);
+      color: var(--ink-soft);
+      font-size: 14px;
+    }
+
+    .feedback-list b {
+      color: var(--clay-dark);
+      font-size: 14px;
+    }
+
+    .feedback-list span {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .final-cta {
+      margin-top: 20px;
+      padding: 44px;
+      border: 1px solid var(--line);
+      border-radius: 38px;
+      background:
+        radial-gradient(circle at 14% 24%, rgba(255, 226, 190, 0.72), transparent 35%),
+        linear-gradient(135deg, rgba(255, 253, 248, 0.94), rgba(247, 232, 212, 0.78));
+      box-shadow: var(--shadow);
+      text-align: center;
+    }
+
+    .final-cta h2 {
+      margin: 0 0 12px;
+      font-size: clamp(34px, 4.4vw, 72px);
+      line-height: 1;
+      letter-spacing: -0.07em;
+    }
+
+    .final-cta p {
+      max-width: 680px;
+      margin: 0 auto 26px;
+      color: var(--muted);
+      font-size: 17px;
+    }
+
+    footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 30px 2px 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    footer a {
+      color: var(--clay-dark);
+      text-decoration: none;
+      font-weight: 900;
+    }
+
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 28px;
+      background: rgba(30, 24, 19, 0.86);
+      backdrop-filter: blur(18px);
+      cursor: zoom-out;
+    }
+
+    .lightbox.active {
+      display: flex;
+    }
+
+    .lightbox img {
+      max-width: min(1500px, 94vw);
+      max-height: 92vh;
+      border-radius: 18px;
+      box-shadow: 0 32px 100px rgba(0, 0, 0, 0.48);
+      transform: scale(0.96);
+      animation: zoomIn 0.32s var(--ease) forwards;
+    }
+
+    body:not(.motion-ready) [data-reveal] {
+      opacity: 1;
+      transform: none;
+    }
+
+    body.motion-ready [data-reveal] {
+      opacity: 0.72;
+      transform: translateY(18px) scale(0.99);
+      transition:
+        opacity 0.78s ease,
+        transform 0.78s var(--ease);
+      transition-delay: var(--delay, 0ms);
+    }
+
+    body.motion-ready [data-reveal].is-visible {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+
+    @keyframes zoomIn {
+      to { transform: scale(1); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+      }
+
+      body.motion-ready [data-reveal],
+      body:not(.motion-ready) [data-reveal] {
+        opacity: 1;
+        transform: none;
+      }
+    }
+
+    @media (max-width: 1240px) {
+      .page {
+        width: min(1180px, calc(100vw - 52px));
+      }
+
+      .hero {
+        grid-template-columns: 1fr;
+        gap: 34px;
+      }
+
+      .hero-copy {
+        align-items: center;
+        text-align: center;
+      }
+
+      .repair-board {
+        min-height: auto;
+      }
+    }
+
+    @media (max-width: 980px) {
+      .nav {
+        align-items: flex-start;
+        border-radius: 28px;
+      }
+
+      .nav-links {
+        display: none;
+      }
+
+      .hero-stats,
+      .section-head,
+      .loop-grid,
+      .coverage-grid,
+      .install-wrap,
+      .feedback-copy,
+      .feedback-list {
+        grid-template-columns: 1fr;
+      }
+
+      .feedback-copy .btn {
+        grid-column: 1;
+        grid-row: auto;
+        justify-self: start;
+      }
+
+      .screen-card,
+      .board-flow {
+        grid-template-columns: 1fr;
+      }
+
+    }
+
+    @media (max-width: 640px) {
+      .page {
+        width: min(100% - 30px, 560px);
+        padding-top: 10px;
+      }
+
+      .nav {
+        top: 10px;
+      }
+
+      h1 {
+        font-size: clamp(54px, 18vw, 74px);
+      }
+
+      .title-line {
+        white-space: normal;
+      }
+
+      .actions {
+        width: 100%;
+      }
+
+      .btn {
+        width: 100%;
+      }
+
+      .section {
+        padding: 62px 0;
+      }
+
+      .repair-board,
+      .final-cta {
+        border-radius: 28px;
+        padding: 18px;
+      }
+
+      footer {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="progress" aria-hidden="true"></div>
+  <main class="page">
+    <nav class="nav" aria-label="主导航">
+      <a class="brand" href="#top" aria-label="返回顶部">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>Claude Desktop Chinese</span>
+      </a>
+      <div class="nav-links">
+        <a href="#loop">修复闭环</a>
+        <a href="#coverage">覆盖范围</a>
+        <a href="#screenshots">效果截图</a>
+        <a href="#install">安装反馈</a>
+        <a class="nav-action" href="https://github.com/Leo-sunshine/claude-desktop-zh-cn/releases/latest">下载补丁</a>
+      </div>
+    </nav>
+
+    <section class="hero" id="top">
+      <div class="hero-copy">
+        <div class="eyebrow" data-reveal>社区驱动 · 截图定位 · 全流程验证</div>
+        <h1 data-reveal style="--delay:80ms">翻漏必补</h1>
+        <p class="hero-lead" data-reveal style="--delay:160ms"><span class="term">Claude Desktop</span> 中文补丁不只替换资源文件，也会追踪设置页、第三方供应商、<span class="term">Remote Control</span>、<span class="term">Markdown</span> 渲染和异常提示里的漏翻，把问题从截图带到补丁和回归验证。</p>
+        <div class="actions" data-reveal style="--delay:240ms">
+          <a class="btn btn-primary" href="https://github.com/Leo-sunshine/claude-desktop-zh-cn/releases/latest">立即安装补丁</a>
+          <a class="btn btn-secondary" href="https://github.com/Leo-sunshine/claude-desktop-zh-cn/issues/new">提交漏翻截图</a>
+          <a class="btn btn-secondary" href="https://github.com/Leo-sunshine/claude-desktop-zh-cn/issues">查看修复进度</a>
+        </div>
+        <div class="hero-stats" data-reveal style="--delay:320ms">
+          <div class="stat"><b>截图优先</b><span>全屏截图、页面入口、期望中文一起进入定位。</span></div>
+          <div class="stat"><b>来源分层</b><span>区分资源 <span class="term">JSON</span>、<span class="term">chunk</span> 硬编码、模型输出和用户内容。</span></div>
+          <div class="stat"><b>实机闭环</b><span>安装、恢复、覆盖度与渲染补丁都要回归。</span></div>
+        </div>
+      </div>
+
+      <aside class="repair-board" data-reveal style="--delay:220ms" aria-label="漏翻定位示例">
+        <div class="board-top">
+          <div class="board-title">从截图到补丁</div>
+          <div class="board-chip">3 条示例</div>
+        </div>
+        <div class="screen-card">
+          <div class="mock-window">
+            <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
+            <div class="mock-lines" aria-hidden="true">
+              <span></span><span></span><span></span><span></span>
+            </div>
+            <div class="missing-text">Connectors have moved to Customize.</div>
+          </div>
+          <div class="mock-note">
+            <span class="note-state">待定位</span>
+            <div>
+              <h2>先确认它从哪里来</h2>
+              <p>同一段英文可能来自资源文件、前端 <span class="term">chunk</span>、网络返回或用户内容。先定位来源，再决定补丁层级。</p>
+            </div>
+            <span class="board-chip">资源优先 · <span class="term">chunk</span> 兜底</span>
+          </div>
+        </div>
+        <div class="board-flow" aria-label="修复流程摘要">
+          <div class="flow-node"><b>截图</b><span>保留上下文，避免只看孤立英文。</span></div>
+          <div class="flow-node"><b>定位</b><span>搜索资源键、<span class="term">chunk</span> 文案和运行入口。</span></div>
+          <div class="flow-node"><b>修复</b><span>优先补资源，必要时补硬编码。</span></div>
+          <div class="flow-node"><b>验证</b><span>复跑安装链路与覆盖度检查。</span></div>
+        </div>
+        <div class="ticket-list">
+          <div class="ticket">
+            <span class="tag orange">待处理</span>
+            <div><h3>第三方供应商设置页仍有英文</h3><p>收集页面路径与全屏截图后进入下一轮定位。</p></div>
+          </div>
+          <div class="ticket">
+            <span class="tag blue">验证中</span>
+            <div><h3>工具使用详情与 <span class="term">Markdown</span> 渲染</h3><p>修复后必须确认不会触发会话加载失败。</p></div>
+          </div>
+          <div class="ticket">
+            <span class="tag green">已修复</span>
+            <div><h3><span class="term">Remote Control</span> 与连接器迁移提示</h3><p>已纳入回归测试，防止后续版本回退。</p></div>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="section" id="loop">
+      <div class="section-head">
+        <div>
+          <div class="kicker" data-reveal>修复闭环</div>
+          <h2 data-reveal><span class="title-line">不是<span class="title-quote">“翻一下”</span></span><span class="title-line">而是把漏翻修到可验证。</span></h2>
+        </div>
+        <p class="section-desc" data-reveal>社区反馈会被拆成可复现、可定位、可测试的补丁任务。每个修复点都要尽量留下覆盖度检查或行为测试，避免下个 Claude 版本更新后再次漏掉。</p>
+      </div>
+      <div class="loop-grid">
+        <article class="loop-card" data-step="01" data-reveal>
+          <h3>提交上下文</h3>
+          <p>全屏截图优先，红框可选。页面入口、操作路径、原英文和期望中文越完整，定位越快。</p>
+          <small>减少反复确认</small>
+        </article>
+        <article class="loop-card" data-step="02" data-reveal style="--delay:80ms">
+          <h3>定位来源</h3>
+          <p>先判断文本来自 <span class="term">i18n</span> 资源、<span class="term">JS chunk</span>、运行时报错还是用户内容，避免把不该翻译的内容改坏。</p>
+          <small>事实先于判断</small>
+        </article>
+        <article class="loop-card" data-step="03" data-reveal style="--delay:160ms">
+          <h3>补丁落地</h3>
+          <p>资源替换优先，<span class="term">chunk</span> 补丁兜底。品牌词和协议名按官方命名保留或采用中英混排。</p>
+          <small>不做生造翻译</small>
+        </article>
+        <article class="loop-card" data-step="04" data-reveal style="--delay:240ms">
+          <h3>回归验证</h3>
+          <p>验证资源结构、覆盖度报告、补丁行为、安装恢复链路和实机显示，确认不是只改了文件。</p>
+          <small>修完必须能跑</small>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="coverage">
+      <div class="section-head">
+        <div>
+          <div class="kicker" data-reveal>覆盖范围</div>
+          <h2 data-reveal><span class="title-line">把用户真的会遇到的界面</span><span class="title-line">放在优先级前面。</span></h2>
+        </div>
+        <p class="section-desc" data-reveal>补丁覆盖聊天、设置、报错、<span class="term">Cowork</span>、第三方供应商和工具输出。后续新增界面会通过 <span class="term">Issue</span> 与截图继续补齐。</p>
+      </div>
+      <div class="coverage-grid">
+        <article class="coverage-card" data-reveal>
+          <span class="coverage-icon">UI</span>
+          <h3>聊天与设置</h3>
+          <p>常用按钮、设置说明、连接器迁移提示、<span class="term">Remote Control</span> 等高频路径优先修复。</p>
+          <div class="coverage-points"><span>高频入口</span><span>设置说明</span><span>迁移提示</span></div>
+        </article>
+        <article class="coverage-card" data-reveal style="--delay:80ms">
+          <span class="coverage-icon">3P</span>
+          <h3>第三方供应商</h3>
+          <p>覆盖模型供应商配置、连接测试、错误反馈和管理页面中的漏翻候选。</p>
+          <div class="coverage-points"><span>连接测试</span><span>错误反馈</span><span>管理页面</span></div>
+        </article>
+        <article class="coverage-card" data-reveal style="--delay:160ms">
+          <span class="coverage-icon">MD</span>
+          <h3>富文本与 <span class="term">Markdown</span></h3>
+          <p>关注工具使用详情、详细视图、会话加载失败等渲染异常，不只处理表面文案。</p>
+          <div class="coverage-points"><span>工具详情</span><span>详细视图</span><span>加载失败</span></div>
+        </article>
+        <article class="coverage-card" data-reveal>
+          <span class="coverage-icon">IO</span>
+          <h3>安装与恢复</h3>
+          <p><span class="term">WindowsApps</span> 权限、备份、写入失败和恢复路径都有容错，降低补丁安装风险。</p>
+          <div class="coverage-points"><span>备份还原</span><span>权限容错</span><span>写入 <span class="term">fallback</span></span></div>
+        </article>
+        <article class="coverage-card" data-reveal>
+          <span class="coverage-icon">QA</span>
+          <h3>覆盖度检查</h3>
+          <p>保留品牌名和技术词官方写法，同时把明显英文句子留给人工继续追踪。</p>
+          <div class="coverage-points"><span>资源校验</span><span>误报降噪</span><span>人工追踪</span></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="screenshots">
+      <div class="section-head">
+        <div>
+          <div class="kicker" data-reveal>汉化效果</div>
+          <h2 data-reveal><span class="title-line">安装后，核心界面</span><span class="title-line">应该直接可读。</span></h2>
+        </div>
+        <p class="section-desc" data-reveal>截图用于展示当前补丁效果，也用于暴露下一轮需要继续追踪的漏翻点。点击图片可放大查看。</p>
+      </div>
+      <div class="gallery">
+        <article class="shot-card" data-reveal data-lightbox="images/claude-desktop-zh-cn-home.png">
+          <img src="images/claude-desktop-zh-cn-home.png" alt="Claude Desktop 聊天主界面">
+          <div class="shot-caption"><span class="term">聊天</span> 主界面 <span>全新对话体验</span></div>
+        </article>
+        <article class="shot-card" data-reveal style="--delay:80ms" data-lightbox="images/claude-desktop-zh-cn-settings.png">
+          <img src="images/claude-desktop-zh-cn-settings.png" alt="Claude Desktop 设置与计划信息" loading="lazy">
+          <div class="shot-caption"><span class="term">设置</span> 计划信息 <span>免费计划功能列表</span></div>
+        </article>
+        <article class="shot-card" data-reveal style="--delay:160ms" data-lightbox="images/claude-desktop-zh-cn-gateway.png">
+          <img src="images/claude-desktop-zh-cn-gateway.png" alt="Claude Desktop 第三方推理网关配置" loading="lazy">
+          <div class="shot-caption"><span class="term">网关</span> 第三方推理 <span>模型与连接配置</span></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="install">
+      <div class="section-head">
+        <div>
+          <div class="kicker" data-reveal>安装与反馈</div>
+          <h2 data-reveal><span class="title-line">一边保持安装简单，</span><span class="title-line">一边让漏翻反馈可执行。</span></h2>
+        </div>
+        <p class="section-desc" data-reveal>使用者只需要运行入口脚本；反馈者只需要把截图和路径交代清楚。其余定位、补丁和验证由项目流程处理。</p>
+      </div>
+      <div class="install-wrap">
+        <article class="install-card" data-reveal>
+          <h3>安装补丁</h3>
+          <p>下载最新 <span class="term">Release</span> 后，右键以管理员身份运行入口脚本，按提示选择安装中文补丁。</p>
+          <ol class="steps">
+            <li><b>1</b><span>下载最新版本压缩包并解压到本地目录。</span></li>
+            <li><b>2</b><span>右键 <strong class="term">claude-zh-cn.bat</strong>，选择以管理员身份运行。</span></li>
+            <li><b>3</b><span>安装完成后完全关闭 <span class="term">Claude Desktop</span>，再重新打开。</span></li>
+          </ol>
+          <div class="run-note"><b>→</b><span>入口脚本会打开操作菜单，选择 <strong>安装中文补丁</strong> 即可。</span></div>
+        </article>
+        <article class="feedback-card" data-reveal style="--delay:120ms">
+          <div class="feedback-copy">
+            <h3>反馈漏翻</h3>
+            <p>不要只贴一句英文。请尽量给出全屏截图、所在页面、触发操作和你期望看到的中文。</p>
+            <a class="btn btn-secondary" href="https://github.com/Leo-sunshine/claude-desktop-zh-cn/issues/new">提交 Issue</a>
+          </div>
+          <div class="feedback-list" aria-label="反馈信息清单">
+            <div><b>全屏截图</b><span>保留导航、弹窗和上下文。</span></div>
+            <div><b>页面入口</b><span>例如设置页、第三方供应商、工具详情。</span></div>
+            <div><b>触发动作</b><span>点击了哪个按钮，是否有报错。</span></div>
+            <div><b>期望中文</b><span>如果你有更顺的译法，直接写出来。</span></div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="final-cta" data-reveal>
+      <h2><span class="title-line">发现漏翻，</span><span class="title-line">就交给闭环。</span></h2>
+      <p>这个项目的重点不是反复提醒安装，而是在 Claude Desktop 持续更新时，让每个可证实的漏翻都有入口、状态和验证结果。</p>
+      <div class="actions" style="justify-content:center">
+        <a class="btn btn-primary" href="https://github.com/Leo-sunshine/claude-desktop-zh-cn/issues/new">提交漏翻截图</a>
+        <a class="btn btn-secondary" href="https://github.com/Leo-sunshine/claude-desktop-zh-cn">查看 <span class="term">GitHub</span> 仓库</a>
+      </div>
+    </section>
+
+    <footer>
+      <div>由 Github开源社区 维护 · MIT 协议开源</div>
+      <div><a href="https://github.com/Leo-sunshine/claude-desktop-zh-cn/issues">Issue</a> · <a href="https://github.com/Leo-sunshine/claude-desktop-zh-cn/releases/latest">Releases</a></div>
+    </footer>
+  </main>
+
+  <div class="lightbox" id="lightbox" aria-hidden="true">
+    <img src="" alt="">
+  </div>
+
+  <script>
+    (() => {
+      const root = document.documentElement;
+      document.body.classList.add("motion-ready");
+      const progress = document.querySelector(".progress");
+      const revealItems = document.querySelectorAll("[data-reveal]");
+      const lightbox = document.getElementById("lightbox");
+      const lightboxImage = lightbox ? lightbox.querySelector("img") : null;
+
+      const setProgress = () => {
+        if (!progress) return;
+        const max = root.scrollHeight - window.innerHeight;
+        const ratio = max > 0 ? window.scrollY / max : 0;
+        progress.style.transform = `scaleX(${Math.min(1, Math.max(0, ratio))})`;
+      };
+
+      const handlePointer = (event) => {
+        root.style.setProperty("--glow-x", `${(event.clientX / window.innerWidth) * 100}%`);
+        root.style.setProperty("--glow-y", `${(event.clientY / window.innerHeight) * 100}%`);
+      };
+
+      if ("IntersectionObserver" in window) {
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach((entry) => {
+            if (!entry.isIntersecting) return;
+            entry.target.classList.add("is-visible");
+            observer.unobserve(entry.target);
+          });
+        }, { threshold: 0.16, rootMargin: "0px 0px -8% 0px" });
+
+        revealItems.forEach((item) => observer.observe(item));
+      } else {
+        revealItems.forEach((item) => item.classList.add("is-visible"));
+      }
+
+      document.querySelectorAll("[data-lightbox]").forEach((item) => {
+        item.addEventListener("click", () => {
+          if (!lightbox || !lightboxImage) return;
+          const src = item.getAttribute("data-lightbox");
+          if (!src) return;
+          const image = item.querySelector("img");
+          lightboxImage.src = src;
+          lightboxImage.alt = image ? image.alt : "截图预览";
+          lightbox.classList.add("active");
+          lightbox.setAttribute("aria-hidden", "false");
+        });
+      });
+
+      if (lightbox) {
+        lightbox.addEventListener("click", () => {
+          lightbox.classList.remove("active");
+          lightbox.setAttribute("aria-hidden", "true");
+        });
+      }
+
+      window.addEventListener("scroll", setProgress, { passive: true });
+      window.addEventListener("pointermove", handlePointer, { passive: true });
+      setProgress();
+    })();
+  </script>
+</body>
+</html>

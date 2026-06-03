@@ -2333,10 +2333,23 @@ function Remove-LanguageFiles {
 }
 
 function Stop-ClaudeProcesses {
-    Stop-Process -Name "Claude" -Force -ErrorAction SilentlyContinue
-    Stop-Process -Name "claude" -Force -ErrorAction SilentlyContinue
-    Start-Sleep -Seconds 2
-    Write-Host "  stopped Claude Desktop if it was running" -ForegroundColor Green
+    $killed = $false
+    foreach ($proc in Get-Process -Name "claude" -ErrorAction SilentlyContinue) {
+        try {
+            $path = $proc.MainModule.FileName
+            if ($path -and $path -match "WindowsApps\\Claude_") {
+                Write-Host "  正在停止 Claude Desktop (PID $($proc.Id)): $path" -ForegroundColor DarkGray
+                Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+                $killed = $true
+            }
+        } catch {
+            # MainModule inaccessible (permission or 32/64 mismatch) — skip, do NOT kill
+        }
+    }
+    if ($killed) {
+        Start-Sleep -Seconds 2
+        Write-Host "  已停止 Claude Desktop" -ForegroundColor Green
+    }
 }
 
 function Restart-Claude {

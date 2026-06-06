@@ -31,7 +31,7 @@ import tempfile
 import time
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 
 APP_DEFAULT = Path("/Applications/Claude.app")
@@ -325,20 +325,6 @@ def read_asar_header(data: bytes, path: Path) -> tuple[int, str, dict[str, Any]]
     return header_size, header_string, header
 
 
-def encode_asar_header(header_string: str, expected_header_size: int) -> bytes:
-    header_bytes = header_string.encode("utf-8")
-    header_payload_size = align4(4 + len(header_bytes))
-    header_pickle = (
-        struct.pack("<I", header_payload_size)
-        + struct.pack("<i", len(header_bytes))
-        + header_bytes
-        + b"\0" * (header_payload_size - 4 - len(header_bytes))
-    )
-    if len(header_pickle) != expected_header_size:
-        raise SystemExit("Internal patch error: app.asar header length changed.")
-    return struct.pack("<I", 4) + struct.pack("<I", expected_header_size) + header_pickle
-
-
 def encode_asar_header_dynamic(header_string: str) -> bytes:
     header_bytes = header_string.encode("utf-8")
     header_payload_size = align4(4 + len(header_bytes))
@@ -349,6 +335,14 @@ def encode_asar_header_dynamic(header_string: str) -> bytes:
         + b"\0" * (header_payload_size - 4 - len(header_bytes))
     )
     return struct.pack("<I", 4) + struct.pack("<I", len(header_pickle)) + header_pickle
+
+
+def encode_asar_header(header_string: str, expected_header_size: int) -> bytes:
+    encoded = encode_asar_header_dynamic(header_string)
+    actual_size = struct.unpack_from("<I", encoded, 4)[0]
+    if actual_size != expected_header_size:
+        raise SystemExit("Internal patch error: app.asar header length changed.")
+    return encoded
 
 
 def get_asar_file_entry(header: dict[str, Any], file_path: str) -> dict[str, Any]:
@@ -405,10 +399,38 @@ def calculate_file_integrity(data: bytes) -> dict[str, Any]:
     }
 
 
-def replace_asar_file_content(app: Path, file_path: str, patched_content: bytes) -> bool:
+class AsarFileContent(NamedTuple):
+    """Asar 文件解析后的结构化内容。"""
+    data: bytearray
+    header_size: int
+    header: dict[str, Any]
+    entry: dict[str, Any]
+    content: bytes
+
+
+def write_asar_content_in_place(
+    app: Path,
+    data: bytearray,
+    header_size: int,
+    header: dict[str, Any],
+    entry: dict[str, Any],
+    content_offset: int,
+    content_end: int,
+    patched_content: bytes,
+) -> None:
+    path = app / APP_ASAR_REL
+    data[content_offset:content_end] = patched_content
+    entry["integrity"] = calculate_file_integrity(patched_content)
+    updated_header_string = json.dumps(header, ensure_ascii=False, separators=(",", ":"))
+    updated_header = encode_asar_header(updated_header_string, header_size)
+    data[: len(updated_header)] = updated_header
+    path.write_bytes(data)
+    update_electron_asar_integrity(app, updated_header_string)
+
+
+def read_asar_file_content(app: Path, file_path: str) -> AsarFileContent:
     path = app / APP_ASAR_REL
     require_file(path)
-
     data = bytearray(path.read_bytes())
     header_size, _header_string, header = read_asar_header(data, path)
     entry = get_asar_file_entry(header, file_path)
@@ -417,8 +439,22 @@ def replace_asar_file_content(app: Path, file_path: str, patched_content: bytes)
     content_end = content_offset + content_size
     if content_offset < 0 or content_end > len(data):
         raise SystemExit(f"Unsupported app.asar file bounds for {file_path}.")
+    content = bytes(data[content_offset:content_end])
+    return AsarFileContent(data, header_size, header, entry, content)
 
-    old_content = bytes(data[content_offset:content_end])
+
+def replace_asar_file_content(app: Path, file_path: str, patched_content: bytes) -> bool:
+    path = app / APP_ASAR_REL
+
+    asar = read_asar_file_content(app, file_path)
+    data = asar.data
+    header_size = asar.header_size
+    header = asar.header
+    entry = asar.entry
+    content_offset = 8 + header_size + int(entry["offset"])
+    content_end = content_offset + int(entry["size"])
+
+    old_content = asar.content
     if old_content == patched_content:
         return False
 
@@ -788,22 +824,20 @@ def update_electron_asar_integrity(app: Path, header_string: str) -> None:
 
 def patch_custom3p_model_validation(app: Path) -> None:
     path = app / APP_ASAR_REL
-    require_file(path)
 
     old_expr = b'process.env.NODE_ENV!=="production"'
     new_expr = b"false"
     replacement = new_expr + b" " * (len(old_expr) - len(new_expr))
 
-    data = bytearray(path.read_bytes())
-    header_size, _header_string, header = read_asar_header(data, path)
-    entry = get_asar_file_entry(header, ASAR_PATCH_TARGET)
+    asar = read_asar_file_content(app, ASAR_PATCH_TARGET)
+    data = asar.data
+    header_size = asar.header_size
+    header = asar.header
+    entry = asar.entry
     content_offset = 8 + header_size + int(entry["offset"])
-    content_size = int(entry["size"])
-    content_end = content_offset + content_size
-    if content_offset < 0 or content_end > len(data):
-        raise SystemExit(f"Unsupported app.asar file bounds for {ASAR_PATCH_TARGET}.")
+    content_end = content_offset + int(entry["size"])
 
-    content = bytes(data[content_offset:content_end])
+    content = asar.content
     match = find_custom3p_validation_toggle(content, old_expr)
     if match is None:
         patched_match = find_custom3p_validation_toggle(content, replacement)
@@ -838,24 +872,8 @@ def patch_custom3p_model_validation(app: Path) -> None:
 
     if len(patched_content) != len(content):
         raise SystemExit("Internal patch error: app.asar length changed during custom 3P patch.")
-    data[content_offset:content_end] = patched_content
-
-    entry["integrity"] = calculate_file_integrity(patched_content)
-    updated_header_string = json.dumps(header, ensure_ascii=False, separators=(",", ":"))
-    updated_header = encode_asar_header(updated_header_string, header_size)
-    data[: len(updated_header)] = updated_header
-
-    path.write_bytes(data)
-    update_electron_asar_integrity(app, updated_header_string)
+    write_asar_content_in_place(app, data, header_size, header, entry, content_offset, content_end, patched_content)
     print("Patched custom 3P model-name validation in app.asar")
-
-
-def pad_utf8_replacement(source: str, target: str) -> str:
-    source_len = len(source.encode("utf-8"))
-    target_len = len(target.encode("utf-8"))
-    if target_len > source_len:
-        raise SystemExit(f"Internal patch error: replacement is longer than source: {source}")
-    return target + (" " * (source_len - target_len))
 
 
 def get_main_process_menu_replacements(lang_code: str) -> dict[str, str]:
@@ -1050,19 +1068,17 @@ def replace_menu_literal_length_preserving(text: str, source: str, target: str) 
 
 def patch_length_preserving_main_process_menu_labels(app: Path, lang_code: str) -> None:
     path = app / APP_ASAR_REL
-    require_file(path)
     replacements = get_main_process_menu_replacements(lang_code)
 
-    data = bytearray(path.read_bytes())
-    header_size, _header_string, header = read_asar_header(data, path)
-    entry = get_asar_file_entry(header, ASAR_PATCH_TARGET)
+    asar = read_asar_file_content(app, ASAR_PATCH_TARGET)
+    data = asar.data
+    header_size = asar.header_size
+    header = asar.header
+    entry = asar.entry
     content_offset = 8 + header_size + int(entry["offset"])
-    content_size = int(entry["size"])
-    content_end = content_offset + content_size
-    if content_offset < 0 or content_end > len(data):
-        raise SystemExit(f"Unsupported app.asar file bounds for {ASAR_PATCH_TARGET}.")
+    content_end = content_offset + int(entry["size"])
 
-    content = bytes(data[content_offset:content_end])
+    content = asar.content
     text = content.decode("utf-8")
     patched = text
     count = 0
@@ -1077,31 +1093,15 @@ def patch_length_preserving_main_process_menu_labels(app: Path, lang_code: str) 
     if len(patched_content) != len(content):
         raise SystemExit("Internal patch error: length-preserving menu patch changed app.asar content length.")
 
-    data[content_offset:content_end] = patched_content
-    entry["integrity"] = calculate_file_integrity(patched_content)
-    updated_header_string = json.dumps(header, ensure_ascii=False, separators=(",", ":"))
-    updated_header = encode_asar_header(updated_header_string, header_size)
-    data[: len(updated_header)] = updated_header
-    path.write_bytes(data)
-    update_electron_asar_integrity(app, updated_header_string)
+    write_asar_content_in_place(app, data, header_size, header, entry, content_offset, content_end, patched_content)
     print(f"Patched length-preserving main-process menu labels: {count} replacements")
 
 
 def patch_hardcoded_main_process_menu_labels(app: Path, lang_code: str) -> None:
-    path = app / APP_ASAR_REL
-    require_file(path)
     replacements = get_main_process_menu_replacements(lang_code)
 
-    data = bytearray(path.read_bytes())
-    header_size, _header_string, header = read_asar_header(data, path)
-    entry = get_asar_file_entry(header, ASAR_PATCH_TARGET)
-    content_offset = 8 + header_size + int(entry["offset"])
-    content_size = int(entry["size"])
-    content_end = content_offset + content_size
-    if content_offset < 0 or content_end > len(data):
-        raise SystemExit(f"Unsupported app.asar file bounds for {ASAR_PATCH_TARGET}.")
-
-    content = bytes(data[content_offset:content_end])
+    asar = read_asar_file_content(app, ASAR_PATCH_TARGET)
+    content = asar.content
     text = content.decode("utf-8")
     patched = text
     count = 0

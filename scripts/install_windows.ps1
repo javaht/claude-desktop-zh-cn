@@ -5,7 +5,7 @@
     [string]$PatchMode = "full",
 
     [Parameter(Position = 0)]
-    [ValidateSet("install", "uninstall", "disable-updates", "enable-updates", "sync-skills", "unsync-skills")]
+    [ValidateSet("install", "uninstall", "sync-skills", "unsync-skills")]
     [string]$Action = "install",
 
     [Parameter(Position = 1)]
@@ -77,14 +77,18 @@ function Test-SkipReleaseUpdateCheck {
     return $value -match '^(1|true|TRUE|yes|YES|y|Y)$'
 }
 
+function Get-ScriptProjectDirectory {
+    $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
+    return Split-Path -Parent $scriptDir
+}
+
 function Test-GitHubReleaseUpdate {
     if (Test-SkipReleaseUpdateCheck) {
         return
     }
 
     try {
-        $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
-        $projectDir = Split-Path -Parent $scriptDir
+        $projectDir = Get-ScriptProjectDirectory
         $metadataPath = Join-Path $projectDir "resources\release.json"
         $metadata = Get-Content $metadataPath -Raw -ErrorAction Stop | ConvertFrom-Json
         $repo = [string]$metadata.repo
@@ -118,32 +122,20 @@ function Read-InteractiveSelection {
     Write-Host "[2] 安装中文补丁(官方账号登录方式：Cowork 沙箱/工作区不可用)"
     Write-Host "[3] 安装中文补丁(第三方 API 登录方式：同时去除模型限制；Cowork 沙箱/工作区不可用)"
     Write-Host "[4] 恢复原样 / 卸载补丁"
-    Write-Host "[5] 自动更新设置（y=开启自动更新，n=停止自动更新）"
-    Write-Host "[6] 同步 CC Switch skills（y=开启同步，n=删除同步）"
+    Write-Host "[5] 同步 CC Switch skills（y=开启同步，n=删除同步）"
     Write-Host "[Q] 退出"
     Write-Host ""
 
     $patchModeForInstall = "full"
     $actionSelected = $false
     while (-not $actionSelected) {
-        $actionSelection = (Read-Host "请选择操作 [1/2/3/4/5/6/Q]").Trim()
+        $actionSelection = (Read-Host "请选择操作 [1/2/3/4/5/Q]").Trim()
         switch -Regex ($actionSelection) {
             '^[1]$' { $patchModeForInstall = "safe"; $actionSelected = $true }
             '^[2]$' { $patchModeForInstall = "official"; $actionSelected = $true }
             '^[3]$' { $patchModeForInstall = "full"; $actionSelected = $true }
             '^[4]$' { return @{ Action = "uninstall"; Language = "zh-CN"; PatchMode = "safe" } }
             '^[5]$' {
-                $updateChoice = (Read-Host "是否开启自动更新？[y=开启自动更新 / n=停止自动更新]").Trim()
-                switch -Regex ($updateChoice) {
-                    '^[Yy]$' { return @{ Action = "enable-updates"; Language = "zh-CN"; PatchMode = "safe" } }
-                    '^[Nn]$' { return @{ Action = "disable-updates"; Language = "zh-CN"; PatchMode = "safe" } }
-                    default {
-                        Write-Host "无效输入，请输入 y 开启自动更新，或输入 n 停止自动更新。" -ForegroundColor Yellow
-                        continue
-                    }
-                }
-            }
-            '^[6]$' {
                 $skillsChoice = (Read-Host "是否同步 CC Switch skills？[y=开启同步 / n=删除同步]").Trim()
                 switch -Regex ($skillsChoice) {
                     '^[Yy]$' { return @{ Action = "sync-skills"; Language = "zh-CN"; PatchMode = "safe" } }
@@ -155,7 +147,7 @@ function Read-InteractiveSelection {
                 }
             }
             '^[Qq]$' { exit 0 }
-            default { Write-Host "请输入 1、2、3、4、5、6 或 Q。" -ForegroundColor Yellow }
+            default { Write-Host "请输入 1、2、3、4、5 或 Q。" -ForegroundColor Yellow }
         }
     }
 
@@ -574,8 +566,7 @@ function Restore-LatestBackup {
 function Get-LanguageResources {
     param([string]$Lang)
 
-    $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
-    $projectDir = Split-Path -Parent $scriptDir
+    $projectDir = Get-ScriptProjectDirectory
     $resourcesDir = Join-Path $projectDir "resources"
     $resources = @{
         Frontend = Join-Path $resourcesDir "frontend-$Lang.json"
@@ -720,30 +711,6 @@ function Read-AsarHeaderFromFile {
     }
 }
 
-function Encode-AsarHeader {
-    param(
-        [string]$HeaderString,
-        [int]$ExpectedHeaderSize
-    )
-
-    $headerBytes = [System.Text.Encoding]::UTF8.GetBytes($HeaderString)
-    $headerPayloadSize = Align-4 (4 + $headerBytes.Length)
-    if ((4 + $headerPayloadSize) -ne $ExpectedHeaderSize) {
-        throw "app.asar header length changed; refusing to write an unsafe patch."
-    }
-
-    $headerPickle = [byte[]]::new($ExpectedHeaderSize)
-    [System.Array]::Copy([System.BitConverter]::GetBytes([uint32]$headerPayloadSize), 0, $headerPickle, 0, 4)
-    [System.Array]::Copy([System.BitConverter]::GetBytes([int32]$headerBytes.Length), 0, $headerPickle, 4, 4)
-    [System.Array]::Copy($headerBytes, 0, $headerPickle, 8, $headerBytes.Length)
-
-    $encoded = [byte[]]::new(8 + $ExpectedHeaderSize)
-    [System.Array]::Copy([System.BitConverter]::GetBytes([uint32]4), 0, $encoded, 0, 4)
-    [System.Array]::Copy([System.BitConverter]::GetBytes([uint32]$ExpectedHeaderSize), 0, $encoded, 4, 4)
-    [System.Array]::Copy($headerPickle, 0, $encoded, 8, $ExpectedHeaderSize)
-    return $encoded
-}
-
 function Encode-AsarHeaderDynamic {
     param([string]$HeaderString)
 
@@ -759,6 +726,19 @@ function Encode-AsarHeaderDynamic {
     [System.Array]::Copy([System.BitConverter]::GetBytes([uint32]4), 0, $encoded, 0, 4)
     [System.Array]::Copy([System.BitConverter]::GetBytes([uint32]$headerPickleSize), 0, $encoded, 4, 4)
     [System.Array]::Copy($headerPickle, 0, $encoded, 8, $headerPickleSize)
+    return $encoded
+}
+
+function Encode-AsarHeader {
+    param(
+        [string]$HeaderString,
+        [int]$ExpectedHeaderSize
+    )
+    $encoded = Encode-AsarHeaderDynamic $HeaderString
+    $actualSize = [System.BitConverter]::ToUInt32($encoded, 4)
+    if ($actualSize -ne $ExpectedHeaderSize) {
+        throw "app.asar header length changed; refusing to write an unsafe patch."
+    }
     return $encoded
 }
 
@@ -834,6 +814,56 @@ function Set-AsarEntryOffset {
     }
 }
 
+function Read-AsarFileContent {
+    param(
+        [string]$ResourcesPath,
+        [string]$FilePath
+    )
+    $asarPath = Join-Path $ResourcesPath "app.asar"
+    Require-File $asarPath
+    $data = [System.IO.File]::ReadAllBytes($asarPath)
+    $parsed = Read-AsarHeader $data $asarPath
+    $headerSize = $parsed["HeaderSize"]
+    $header = $parsed["Header"]
+    $entry = Get-AsarFileEntry $header $FilePath
+    $contentOffset = [int64](8 + $headerSize + [int64]$entry.offset)
+    $contentSize = [int64]$entry.size
+    $contentEnd = $contentOffset + $contentSize
+    if (($contentOffset -lt 0) -or ($contentEnd -gt $data.Length)) {
+        throw "Unsupported app.asar file bounds for $FilePath."
+    }
+    $content = [byte[]]::new([int]$contentSize)
+    [System.Array]::Copy($data, [int]$contentOffset, $content, 0, [int]$contentSize)
+    return @{
+        Data = $data
+        HeaderSize = $headerSize
+        Header = $header
+        Entry = $entry
+        Content = $content
+        ContentOffset = $contentOffset
+        AsarPath = $asarPath
+    }
+}
+
+function Write-AsarContentInPlace {
+    param(
+        [string]$ResourcesPath,
+        [byte[]]$Data,
+        [string]$HeaderString,
+        [int]$HeaderSize,
+        [object]$Entry,
+        [byte[]]$Content
+    )
+    $asarPath = Join-Path $ResourcesPath "app.asar"
+    Backup-ModifiedFile $ResourcesPath $asarPath
+    $Entry.integrity = Get-AsarFileIntegrity $Content
+    $updatedHeader = Encode-AsarHeader $HeaderString $HeaderSize
+    [System.Array]::Copy($Content, 0, $Data, [int](8 + $HeaderSize + [int64]$Entry.offset), $Content.Length)
+    [System.Array]::Copy($updatedHeader, 0, $Data, 0, $updatedHeader.Length)
+    [System.IO.File]::WriteAllBytes($asarPath, $Data)
+    Sync-ClaudeExeAsarIntegrity $ResourcesPath
+}
+
 function Replace-AsarFileContent {
     param(
         [string]$ResourcesPath,
@@ -841,29 +871,22 @@ function Replace-AsarFileContent {
         [byte[]]$PatchedContent
     )
 
-    $asarPath = Join-Path $ResourcesPath "app.asar"
-    Require-File $asarPath
-
-    $asarInfo = Get-Item -LiteralPath $asarPath
+    $asarInfo = Get-Item -LiteralPath (Join-Path $ResourcesPath "app.asar")
     Write-Host "  reading app.asar ($(Format-ByteSize $asarInfo.Length)): $FilePath" -ForegroundColor DarkGray
     Write-Host "  [进度] 正在读取 app.asar，大文件或共享盘可能需要一些时间..." -ForegroundColor DarkGray
-    $data = [System.IO.File]::ReadAllBytes($asarPath)
+    $asar = Read-AsarFileContent $ResourcesPath $FilePath
     Write-Host "  [进度] app.asar 读取完成，正在解析 asar 头..." -ForegroundColor DarkGray
-    $parsed = Read-AsarHeader $data $asarPath
     Write-Host "  [进度] asar 头解析完成，正在定位目标文件..." -ForegroundColor DarkGray
-    $headerSize = $parsed["HeaderSize"]
-    $header = $parsed["Header"]
-    $entry = Get-AsarFileEntry $header $FilePath
-
-    $contentOffset = [int64](8 + $headerSize + [int64]$entry.offset)
+    $asarPath = $asar.AsarPath
+    $data = $asar.Data
+    $headerSize = $asar.HeaderSize
+    $header = $asar.Header
+    $entry = $asar.Entry
+    $contentOffset = $asar.ContentOffset
     $contentSize = [int64]$entry.size
     $contentEnd = $contentOffset + $contentSize
-    if (($contentOffset -lt 0) -or ($contentEnd -gt $data.Length)) {
-        throw "Unsupported app.asar file bounds for $FilePath."
-    }
 
-    $oldContent = [byte[]]::new([int]$contentSize)
-    [System.Array]::Copy($data, [int]$contentOffset, $oldContent, 0, [int]$contentSize)
+    $oldContent = $asar.Content
     Write-Host "  checking app.asar target content: $(Format-ByteSize $contentSize)" -ForegroundColor DarkGray
     Write-Host "  [进度] 正在比较旧内容和新补丁内容..." -ForegroundColor DarkGray
     $contentMatches = $oldContent.Length -eq $PatchedContent.Length
@@ -918,33 +941,6 @@ function Replace-AsarFileContent {
     Write-Host "  syncing Claude.exe app.asar integrity" -ForegroundColor DarkGray
     Sync-ClaudeExeAsarIntegrity $ResourcesPath
     return $true
-}
-
-function Find-BytePattern {
-    param(
-        [byte[]]$Data,
-        [byte[]]$Pattern
-    )
-
-    $matches = New-Object System.Collections.Generic.List[int]
-    if (($Pattern.Length -eq 0) -or ($Data.Length -lt $Pattern.Length)) {
-        return $matches
-    }
-
-    for ($i = 0; $i -le ($Data.Length - $Pattern.Length); $i++) {
-        $found = $true
-        for ($j = 0; $j -lt $Pattern.Length; $j++) {
-            if ($Data[$i + $j] -ne $Pattern[$j]) {
-                $found = $false
-                break
-            }
-        }
-        if ($found) {
-            $matches.Add($i)
-        }
-    }
-
-    return $matches
 }
 
 function Find-Custom3PValidationToggle {
@@ -1177,17 +1173,23 @@ function Sync-ClaudeExeAsarIntegrity {
     Write-Host "  updated Claude.exe app.asar integrity: $currentHash -> $headerHash" -ForegroundColor Green
 }
 
+function Get-FrontendJsBundleFiles {
+    param([string]$ResourcesPath)
+    $assetsDir = Join-Path $ResourcesPath "ion-dist\assets\v1"
+    $jsFiles = @(Get-ChildItem (Join-Path $assetsDir "*.js") -ErrorAction SilentlyContinue)
+    if ($jsFiles.Count -eq 0) {
+        throw "未找到前端 JS bundle: $assetsDir"
+    }
+    return $jsFiles
+}
+
 function Register-Language {
     param(
         [string]$ResourcesPath,
         [string]$Lang
     )
 
-    $assetsDir = Join-Path $ResourcesPath "ion-dist\assets\v1"
-    $jsFiles = @(Get-ChildItem (Join-Path $assetsDir "*.js") -ErrorAction SilentlyContinue)
-    if ($jsFiles.Count -eq 0) {
-        throw "未找到前端 JS bundle: $assetsDir"
-    }
+    $jsFiles = Get-FrontendJsBundleFiles $ResourcesPath
 
     $regex = [System.Text.RegularExpressions.Regex]::new($LanguageListPattern)
     $replacement = "$BaseLanguageList,`"$Lang`"]"
@@ -1218,11 +1220,7 @@ function Register-Language {
 function Patch-LanguageDisplayNames {
     param([string]$ResourcesPath)
 
-    $assetsDir = Join-Path $ResourcesPath "ion-dist\assets\v1"
-    $jsFiles = @(Get-ChildItem (Join-Path $assetsDir "*.js") -ErrorAction SilentlyContinue)
-    if ($jsFiles.Count -eq 0) {
-        throw "未找到前端 JS bundle: $assetsDir"
-    }
+    $jsFiles = Get-FrontendJsBundleFiles $ResourcesPath
 
     $marker = "__claudeZhLabelPatch"
     $patch = ';(()=>{const e=Intl.DisplayNames&&Intl.DisplayNames.prototype;if(!e||e.__claudeZhLabelPatch)return;const n=e.of;e.of=function(e){const t=String(e);return t==="zh-CN"?"简体中文":t==="zh-HK"?"繁体中文（中国香港）":t==="zh-TW"?"繁体中文（中国台湾）":n.call(this,e)},Object.defineProperty(e,"__claudeZhLabelPatch",{value:!0})})();'
@@ -1270,8 +1268,7 @@ function Unregister-Language {
 function Get-FrontendHardcodedReplacements {
     param([string]$Language)
 
-    $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
-    $projectDir = Split-Path -Parent $scriptDir
+    $projectDir = Get-ScriptProjectDirectory
     $path = Join-Path $projectDir "resources\frontend-hardcoded-$Language.json"
     Require-File $path
 
@@ -1593,29 +1590,14 @@ function Patch-OnlineDomTranslation {
         [string]$Language
     )
 
-    $asarPath = Join-Path $ResourcesPath "app.asar"
-    Require-File $asarPath
-
     Write-Host "  preparing online claude.ai DOM translation patch" -ForegroundColor DarkGray
-    $asarInfo = Get-Item -LiteralPath $asarPath
+    $asarInfo = Get-Item -LiteralPath (Join-Path $ResourcesPath "app.asar")
     Write-Host "  [进度] 正在读取 app.asar ($(Format-ByteSize $asarInfo.Length))..." -ForegroundColor DarkGray
-    $data = [System.IO.File]::ReadAllBytes($asarPath)
+    $asar = Read-AsarFileContent $ResourcesPath $AsarPatchTarget
     Write-Host "  [进度] app.asar 读取完成，正在解析 asar 头..." -ForegroundColor DarkGray
-    $parsed = Read-AsarHeader $data $asarPath
     Write-Host "  [进度] asar 头解析完成，正在提取 main-process bundle..." -ForegroundColor DarkGray
-    $headerSize = $parsed["HeaderSize"]
-    $header = $parsed["Header"]
-    $entry = Get-AsarFileEntry $header $AsarPatchTarget
-
-    $contentOffset = [int64](8 + $headerSize + [int64]$entry.offset)
-    $contentSize = [int64]$entry.size
-    $contentEnd = $contentOffset + $contentSize
-    if (($contentOffset -lt 0) -or ($contentEnd -gt $data.Length)) {
-        throw "Unsupported app.asar file bounds for $AsarPatchTarget."
-    }
-
-    $content = [byte[]]::new([int]$contentSize)
-    [System.Array]::Copy($data, [int]$contentOffset, $content, 0, [int]$contentSize)
+    $content = $asar.Content
+    $contentSize = [int64]$asar.Entry.size
     Write-Host "  loaded main-process bundle: $(Format-ByteSize $contentSize)" -ForegroundColor DarkGray
     Write-Host "  [进度] 正在解码 main-process bundle 文本..." -ForegroundColor DarkGray
     $text = [System.Text.Encoding]::UTF8.GetString($content)
@@ -1686,11 +1668,7 @@ function Patch-HardcodedFrontendStrings {
         [string]$Language
     )
 
-    $assetsDir = Join-Path $ResourcesPath "ion-dist\assets\v1"
-    $jsFiles = @(Get-ChildItem (Join-Path $assetsDir "*.js") -ErrorAction SilentlyContinue)
-    if ($jsFiles.Count -eq 0) {
-        throw "未找到前端 JS bundle: $assetsDir"
-    }
+    $jsFiles = Get-FrontendJsBundleFiles $ResourcesPath
 
     $replacements = @(Get-FrontendHardcodedReplacements $Language)
     $patchedFiles = 0
@@ -1723,27 +1701,16 @@ function Patch-HardcodedFrontendStrings {
 function Patch-Custom3PModelValidation {
     param([string]$ResourcesPath)
 
-    $asarPath = Join-Path $ResourcesPath "app.asar"
-    Require-File $asarPath
-
     $oldExpr = [System.Text.Encoding]::ASCII.GetBytes('process.env.NODE_ENV!=="production"')
     $newExprText = "false".PadRight($oldExpr.Length, " ")
 
-    $data = [System.IO.File]::ReadAllBytes($asarPath)
-    $parsed = Read-AsarHeader $data $asarPath
-    $headerSize = $parsed["HeaderSize"]
-    $header = $parsed["Header"]
-    $entry = Get-AsarFileEntry $header $AsarPatchTarget
-
-    $contentOffset = [int64](8 + $headerSize + [int64]$entry.offset)
-    $contentSize = [int64]$entry.size
-    $contentEnd = $contentOffset + $contentSize
-    if (($contentOffset -lt 0) -or ($contentEnd -gt $data.Length)) {
-        throw "Unsupported app.asar file bounds for $AsarPatchTarget."
-    }
-
-    $content = [byte[]]::new([int]$contentSize)
-    [System.Array]::Copy($data, [int]$contentOffset, $content, 0, [int]$contentSize)
+    $asar = Read-AsarFileContent $ResourcesPath $AsarPatchTarget
+    $content = $asar.Content
+    $data = $asar.Data
+    $header = $asar.Header
+    $entry = $asar.Entry
+    $contentOffset = $asar.ContentOffset
+    $asarPath = $asar.AsarPath
     $match = Find-Custom3PValidationToggle $content 'process.env.NODE_ENV!=="production"'
     if ($null -eq $match) {
         $patchedMatch = Find-Custom3PValidationToggle $content $newExprText
@@ -1779,40 +1746,21 @@ function Patch-Custom3PModelValidation {
         [System.Array]::Copy($patchedAnchor, 0, $content, $matchOffset, $patchedAnchor.Length)
     }
 
-    Backup-ModifiedFile $ResourcesPath $asarPath
-    [System.Array]::Copy($content, 0, $data, [int]$contentOffset, $content.Length)
-
-    $entry.integrity = Get-AsarFileIntegrity $content
-    $updatedHeaderString = $header | ConvertTo-Json -Compress -Depth 100
-    $updatedHeader = Encode-AsarHeader $updatedHeaderString $headerSize
-    [System.Array]::Copy($updatedHeader, 0, $data, 0, $updatedHeader.Length)
-
-    [System.IO.File]::WriteAllBytes($asarPath, $data)
-    Sync-ClaudeExeAsarIntegrity $ResourcesPath
+    Write-AsarContentInPlace $ResourcesPath $data ($header | ConvertTo-Json -Compress -Depth 100) $headerSize $entry $content
     Write-Host "  patched custom 3P model-name validation in app.asar" -ForegroundColor Green
 }
 
 function Patch-CoworkModernInstallerCheck {
     param([string]$ResourcesPath)
 
-    $asarPath = Join-Path $ResourcesPath "app.asar"
-    Require-File $asarPath
-
-    $data = [System.IO.File]::ReadAllBytes($asarPath)
-    $parsed = Read-AsarHeader $data $asarPath
-    $headerSize = $parsed["HeaderSize"]
-    $header = $parsed["Header"]
-    $entry = Get-AsarFileEntry $header $AsarPatchTarget
-
-    $contentOffset = [int64](8 + $headerSize + [int64]$entry.offset)
-    $contentSize = [int64]$entry.size
-    $contentEnd = $contentOffset + $contentSize
-    if (($contentOffset -lt 0) -or ($contentEnd -gt $data.Length)) {
-        throw "Unsupported app.asar file bounds for $AsarPatchTarget."
-    }
-
-    $content = [byte[]]::new([int]$contentSize)
-    [System.Array]::Copy($data, [int]$contentOffset, $content, 0, [int]$contentSize)
+    $asar = Read-AsarFileContent $ResourcesPath $AsarPatchTarget
+    $content = $asar.Content
+    $data = $asar.Data
+    $header = $asar.Header
+    $entry = $asar.Entry
+    $contentOffset = $asar.ContentOffset
+    $headerSize = $asar.HeaderSize
+    $asarPath = $asar.AsarPath
     $contentText = [System.Text.Encoding]::ASCII.GetString($content)
 
     if (
@@ -1867,16 +1815,7 @@ function Patch-CoworkModernInstallerCheck {
     $replacement = [System.Text.Encoding]::ASCII.GetBytes($target)
     [System.Array]::Copy($replacement, 0, $content, $sourceIndex, $replacement.Length)
 
-    Backup-ModifiedFile $ResourcesPath $asarPath
-    [System.Array]::Copy($content, 0, $data, [int]$contentOffset, $content.Length)
-
-    $entry.integrity = Get-AsarFileIntegrity $content
-    $updatedHeaderString = $header | ConvertTo-Json -Compress -Depth 100
-    $updatedHeader = Encode-AsarHeader $updatedHeaderString $headerSize
-    [System.Array]::Copy($updatedHeader, 0, $data, 0, $updatedHeader.Length)
-
-    [System.IO.File]::WriteAllBytes($asarPath, $data)
-    Sync-ClaudeExeAsarIntegrity $ResourcesPath
+    Write-AsarContentInPlace $ResourcesPath $data ($header | ConvertTo-Json -Compress -Depth 100) $headerSize $entry $content
     Write-Host "  patched Cowork modern installer check in app.asar" -ForegroundColor Green
 }
 
@@ -1886,8 +1825,6 @@ function Patch-HardcodedMainProcessMenuLabels {
         [string]$Language
     )
 
-    $asarPath = Join-Path $ResourcesPath "app.asar"
-    Require-File $asarPath
     switch ($Language) {
         "zh-CN" {
             $replacements = @(
@@ -2026,21 +1963,8 @@ function Patch-HardcodedMainProcessMenuLabels {
         }
     }
 
-    $data = [System.IO.File]::ReadAllBytes($asarPath)
-    $parsed = Read-AsarHeader $data $asarPath
-    $headerSize = $parsed["HeaderSize"]
-    $header = $parsed["Header"]
-    $entry = Get-AsarFileEntry $header $AsarPatchTarget
-
-    $contentOffset = [int64](8 + $headerSize + [int64]$entry.offset)
-    $contentSize = [int64]$entry.size
-    $contentEnd = $contentOffset + $contentSize
-    if (($contentOffset -lt 0) -or ($contentEnd -gt $data.Length)) {
-        throw "Unsupported app.asar file bounds for $AsarPatchTarget."
-    }
-
-    $content = [byte[]]::new([int]$contentSize)
-    [System.Array]::Copy($data, [int]$contentOffset, $content, 0, [int]$contentSize)
+    $asar = Read-AsarFileContent $ResourcesPath $AsarPatchTarget
+    $content = $asar.Content
     $text = [System.Text.Encoding]::UTF8.GetString($content)
     $patched = $text
     $count = 0
@@ -2162,43 +2086,12 @@ function Set-ClaudeLocale {
         $parent = Split-Path -Parent $configPath
         New-Item -ItemType Directory -Path $parent -Force | Out-Null
 
-        $config = [pscustomobject]@{}
-        if (Test-Path $configPath) {
-            try {
-                $loaded = Get-Content $configPath -Raw | ConvertFrom-Json
-                if ($loaded) {
-                    $config = $loaded
-                }
-            }
-            catch {
-                $backup = "$configPath.bak-invalid"
-                Copy-Item $configPath $backup -Force
-                Write-Host "  invalid JSON backed up: $backup" -ForegroundColor DarkYellow
-            }
-        }
+        $config = Get-JsonObjectOrBackup $configPath
 
         $config | Add-Member -NotePropertyName "locale" -NotePropertyValue $Locale -Force
         $config | ConvertTo-Json -Depth 20 | Set-Content $configPath -Encoding UTF8
         Write-Host "  locale=${Locale}: $configPath" -ForegroundColor Green
     }
-}
-
-function Get-ThirdPartyConfigLibraryPaths {
-    $paths = @()
-    if ($env:APPDATA) {
-        $paths += Join-Path $env:APPDATA "Claude-3p\configLibrary"
-    }
-
-    if ($env:LOCALAPPDATA) {
-        $packageRoot = Join-Path $env:LOCALAPPDATA "Packages"
-        $packageDirs = @(Get-ChildItem (Join-Path $packageRoot "Claude_*") -Directory -ErrorAction SilentlyContinue |
-            Sort-Object LastWriteTime -Descending)
-        foreach ($packageDir in $packageDirs) {
-            $paths += Join-Path $packageDir.FullName "LocalCache\Roaming\Claude-3p\configLibrary"
-        }
-    }
-
-    return @($paths | Select-Object -Unique)
 }
 
 function Get-JsonObjectOrBackup {
@@ -2241,105 +2134,6 @@ function Add-OrSetJsonProperty {
     )
 
     $Object | Add-Member -NotePropertyName $Name -NotePropertyValue $Value -Force
-}
-
-function Ensure-ConfigLibraryEntry {
-    param(
-        [pscustomobject]$Meta,
-        [string]$ConfigId
-    )
-
-    Add-OrSetJsonProperty $Meta "appliedId" $ConfigId
-
-    $entries = @()
-    if ($Meta.PSObject.Properties.Name -contains "entries" -and $Meta.entries) {
-        $entries = @($Meta.entries)
-    }
-
-    foreach ($entry in $entries) {
-        if ($entry -is [pscustomobject] -and [string]$entry.id -eq $ConfigId) {
-            Add-OrSetJsonProperty $Meta "entries" $entries
-            return
-        }
-    }
-
-    $entries += [pscustomobject]@{ id = $ConfigId; name = "Default" }
-    Add-OrSetJsonProperty $Meta "entries" $entries
-}
-
-function Set-ThirdPartyAutoUpdates {
-    param([bool]$Enabled)
-
-    $libraryPaths = @(Get-ThirdPartyConfigLibraryPaths)
-    $existingMetaPaths = @()
-    foreach ($configLibrary in $libraryPaths) {
-        $metaPath = Join-Path $configLibrary "_meta.json"
-        if (Test-Path $metaPath -PathType Leaf) {
-            $existingMetaPaths += $configLibrary
-        }
-    }
-
-    if ($existingMetaPaths.Count -gt 0) {
-        $libraryPaths = $existingMetaPaths
-    } else {
-        $existingLibraryPaths = @()
-        foreach ($configLibrary in $libraryPaths) {
-            if (Test-Path $configLibrary -PathType Container) {
-                $existingLibraryPaths += $configLibrary
-            }
-        }
-
-        if ($existingLibraryPaths.Count -gt 0) {
-            $libraryPaths = $existingLibraryPaths
-        } elseif ($env:APPDATA) {
-            $libraryPaths = @(Join-Path $env:APPDATA "Claude-3p\configLibrary")
-        } elseif ($env:LOCALAPPDATA) {
-            $libraryPaths = @(Join-Path $env:LOCALAPPDATA "Claude-3p\configLibrary")
-        } else {
-            Write-Host "  [警告] APPDATA 和 LOCALAPPDATA 均未设置，无法写入 Claude-3p 自动更新配置。" -ForegroundColor DarkYellow
-            return
-        }
-    }
-
-    $updatedCount = 0
-    foreach ($configLibrary in $libraryPaths) {
-        $metaPath = Join-Path $configLibrary "_meta.json"
-        $creatingLibrary = -not (Test-Path $metaPath -PathType Leaf)
-
-        $meta = Get-JsonObjectOrBackup $metaPath
-        $configId = ""
-        if ($meta.PSObject.Properties.Name -contains "appliedId") {
-            $configId = ([string]$meta.appliedId).Trim()
-        }
-
-        if (-not $configId) {
-            $existingConfigs = @(Get-ChildItem $configLibrary -Filter "*.json" -File -ErrorAction SilentlyContinue |
-                Where-Object { $_.Name -ne "_meta.json" } |
-                Sort-Object Name)
-            if ($existingConfigs.Count -gt 0) {
-                $configId = [System.IO.Path]::GetFileNameWithoutExtension($existingConfigs[0].Name)
-            } else {
-                $configId = [guid]::NewGuid().ToString()
-            }
-        }
-
-        $configPath = Join-Path $configLibrary "$configId.json"
-        $config = Get-JsonObjectOrBackup $configPath
-        Add-OrSetJsonProperty $config "disableAutoUpdates" (-not $Enabled)
-        Ensure-ConfigLibraryEntry $meta $configId
-
-        New-Item -ItemType Directory -Path $configLibrary -Force | Out-Null
-        $config | ConvertTo-Json -Depth 20 | Set-Content $configPath -Encoding UTF8
-        $meta | ConvertTo-Json -Depth 20 | Set-Content $metaPath -Encoding UTF8
-
-        $updatedCount++
-    }
-
-    if ($Enabled) {
-        Write-Host "允许更新成功" -ForegroundColor Green
-    } else {
-        Write-Host "禁止更新成功" -ForegroundColor Green
-    }
 }
 
 function Get-CCSwitchSkillsDirectory {
@@ -2578,13 +2372,29 @@ function Remove-ReparsePoint {
     }
 }
 
-function Sync-CCSwitchSkills {
+function Initialize-CCSwitchSkillsSync {
     $skillsDirectory = Get-CCSwitchSkillsDirectory
     $pluginRoot = Find-ClaudeDesktopSkillsPluginRoot
     $desktopSkillsDirectory = Join-Path $pluginRoot "skills"
     $manifestPath = Join-Path $pluginRoot "manifest.json"
     $manifest = Get-JsonObjectOrBackup $manifestPath
     Ensure-SkillsManifestList $manifest
+    return @{
+        SkillsDirectory = $skillsDirectory
+        PluginRoot = $pluginRoot
+        DesktopSkillsDirectory = $desktopSkillsDirectory
+        ManifestPath = $manifestPath
+        Manifest = $manifest
+    }
+}
+
+function Sync-CCSwitchSkills {
+    $ctx = Initialize-CCSwitchSkillsSync
+    $skillsDirectory = $ctx.SkillsDirectory
+    $pluginRoot = $ctx.PluginRoot
+    $desktopSkillsDirectory = $ctx.DesktopSkillsDirectory
+    $manifestPath = $ctx.ManifestPath
+    $manifest = $ctx.Manifest
 
     $manifestSkills = @($manifest.skills)
     $existingNames = @{}
@@ -2642,12 +2452,12 @@ function Sync-CCSwitchSkills {
 }
 
 function Unsync-CCSwitchSkills {
-    $skillsDirectory = Get-CCSwitchSkillsDirectory
-    $pluginRoot = Find-ClaudeDesktopSkillsPluginRoot
-    $desktopSkillsDirectory = Join-Path $pluginRoot "skills"
-    $manifestPath = Join-Path $pluginRoot "manifest.json"
-    $manifest = Get-JsonObjectOrBackup $manifestPath
-    Ensure-SkillsManifestList $manifest
+    $ctx = Initialize-CCSwitchSkillsSync
+    $skillsDirectory = $ctx.SkillsDirectory
+    $pluginRoot = $ctx.PluginRoot
+    $desktopSkillsDirectory = $ctx.DesktopSkillsDirectory
+    $manifestPath = $ctx.ManifestPath
+    $manifest = $ctx.Manifest
     $removedNames = @{}
     $skipped = 0
 
@@ -2819,135 +2629,6 @@ function Restart-Claude {
     Write-Host "  [警告] 未找到 Claude.exe，请手动启动 Claude Desktop。" -ForegroundColor DarkYellow
 }
 
-$script:PatchedVersionDir = if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA "ClaudeDesktopZhCn" } else { $null }
-$script:WatcherTaskName = "ClaudeDesktopZhCn-UpdateWatcher"
-
-function Get-CurrentClaudeVersion {
-    $packages = @(Get-AppxPackage -Name "Claude" -ErrorAction SilentlyContinue)
-    foreach ($package in $packages) {
-        if ($package.Version) {
-            return [string]$package.Version
-        }
-    }
-
-    $unpackagedBase = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) "AnthropicClaude"
-    if (Test-Path $unpackagedBase) {
-        $latest = Get-ChildItem $unpackagedBase -Directory -Filter "app-*" -ErrorAction SilentlyContinue |
-            Sort-Object LastWriteTime -Descending |
-            Select-Object -First 1
-        if ($latest -and $latest.Name -match '^app-(.+)$') {
-            return $Matches[1]
-        }
-    }
-    return $null
-}
-
-function Save-PatchedVersion {
-    param(
-        [string]$Version,
-        [string]$InstallPath,
-        [string]$PatchMode,
-        [string]$Language
-    )
-
-    if (-not $script:PatchedVersionDir) { return }
-
-    New-Item -ItemType Directory -Path $script:PatchedVersionDir -Force | Out-Null
-    $info = [pscustomobject]@{
-        version      = $Version
-        installPath  = $InstallPath
-        patchTime    = (Get-Date -Format "o")
-        patchMode    = $PatchMode
-        language     = $Language
-        scriptDir    = (Split-Path -Parent $MyInvocation.MyCommand.Path)
-    }
-    $path = Join-Path $script:PatchedVersionDir "patched-version.json"
-    $info | ConvertTo-Json -Depth 5 | Set-Content $path -Encoding UTF8
-    Write-Host "  已记录补丁版本: $Version" -ForegroundColor Green
-}
-
-function Get-PatchedVersion {
-    if (-not $script:PatchedVersionDir) { return $null }
-    $path = Join-Path $script:PatchedVersionDir "patched-version.json"
-    if (-not (Test-Path $path)) { return $null }
-    try {
-        return (Get-Content $path -Raw -ErrorAction Stop | ConvertFrom-Json)
-    }
-    catch {
-        return $null
-    }
-}
-
-function Test-PatchNeeded {
-    $recorded = Get-PatchedVersion
-    if (-not $recorded) { return $true }
-
-    $currentVersion = Get-CurrentClaudeVersion
-    if (-not $currentVersion) { return $false }
-
-    return $currentVersion -ne $recorded.version
-}
-
-function Register-UpdateWatcher {
-    if (-not $script:PatchedVersionDir) { return }
-
-    $watcherPath = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "watch-claude-update.ps1"
-    if (-not (Test-Path $watcherPath)) {
-        Write-Host "  [警告] 未找到 watch-claude-update.ps1，跳过注册更新守护。" -ForegroundColor DarkYellow
-        return
-    }
-
-    try {
-        $existing = Get-ScheduledTask -TaskName $script:WatcherTaskName -ErrorAction SilentlyContinue
-        if ($existing) {
-            Unregister-ScheduledTask -TaskName $script:WatcherTaskName -Confirm:$false -ErrorAction SilentlyContinue
-        }
-
-        # 使用 -Once trigger + Repetition，比 -AtLogOn 的 Repetition 赋值更可靠
-        $logonTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1)
-        $logonTrigger.Repetition.Interval = "PT30M"
-        $logonTrigger.Repetition.Duration = "P999D"
-        $logonTrigger.Repetition.StopAtDurationEnd = $false
-
-        $action = New-ScheduledTaskAction `
-            -Execute "powershell.exe" `
-            -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$watcherPath`""
-
-        $settings = New-ScheduledTaskSettingsSet `
-            -AllowStartIfOnBatteries `
-            -DontStopIfGoingOnBatteries `
-            -StartWhenAvailable `
-            -ExecutionTimeLimit (New-TimeSpan -Minutes 10)
-
-        Register-ScheduledTask `
-            -TaskName $script:WatcherTaskName `
-            -Action $action `
-            -Trigger $logonTrigger `
-            -Settings $settings `
-            -Description "Claude Desktop 中文补丁更新守护 — 自动检测 Claude 更新并重新应用补丁" `
-            -RunLevel Limited `
-            -Force | Out-Null
-
-        Write-Host "  已注册计划任务: $($script:WatcherTaskName)" -ForegroundColor Green
-    }
-    catch {
-        Write-Host "  [警告] 注册计划任务失败: $($_.Exception.Message)" -ForegroundColor DarkYellow
-    }
-}
-
-function Unregister-UpdateWatcher {
-    try {
-        $existing = Get-ScheduledTask -TaskName $script:WatcherTaskName -ErrorAction SilentlyContinue
-        if ($existing) {
-            Unregister-ScheduledTask -TaskName $script:WatcherTaskName -Confirm:$false -ErrorAction SilentlyContinue
-            Write-Host "  已移除计划任务: $($script:WatcherTaskName)" -ForegroundColor Green
-        }
-    }
-    catch {
-        Write-Host "  [警告] 移除计划任务失败: $($_.Exception.Message)" -ForegroundColor DarkYellow
-    }
-}
-
 function Install-WindowsLanguagePack {
     $label = Get-LanguageLabel $LanguageCode
 
@@ -2965,7 +2646,7 @@ function Install-WindowsLanguagePack {
     Write-Host "=== Claude Desktop Windows $label 补丁 ===" -ForegroundColor Cyan
 
     try {
-        Write-Step "[1/11] 检查安装模式"
+        Write-Step "[1/9] 检查安装模式"
         if ($PatchMode -eq "safe") {
             Write-Host "  Cowork 兼容模式：无需第三方 API 配置检查。" -ForegroundColor Green
         } elseif ($PatchMode -eq "official") {
@@ -2974,31 +2655,30 @@ function Install-WindowsLanguagePack {
             Write-Host "  第三方 API 登录模式：无需第三方 API 配置检查。" -ForegroundColor Green
         }
 
-        Write-Step "[2/11] 检查语言资源"
+        Write-Step "[2/9] 检查语言资源"
         $pack = Get-LanguageResources $LanguageCode
 
         Write-Step "关闭 Claude Desktop"
         Stop-ClaudeProcesses
 
-        Write-Step "[3/11] 查找 Claude Desktop"
+        Write-Step "[3/9] 查找 Claude Desktop"
         $paths = Get-ClaudeResourcesPath
         $claudePath = $paths["App"]
         $resourcesPath = $paths["Resources"]
-        $installKind = $paths["InstallKind"]
         Write-Host "  app: $claudePath" -ForegroundColor Green
         Write-Host "  resources: $resourcesPath" -ForegroundColor Green
 
-        Write-Step "[4/11] 准备写入权限"
+        Write-Step "[4/9] 准备写入权限"
         Enable-WriteAccess $resourcesPath
         Remove-LegacyAppxForkArtifacts
 
-        Write-Step "[5/11] 写入 $label 资源"
+        Write-Step "[5/9] 写入 $label 资源"
         Install-LanguageFiles $resourcesPath $pack $LanguageCode
 
-        Write-Step "[6/11] 注册中文语言"
+        Write-Step "[6/9] 注册中文语言"
         Register-Language $resourcesPath $LanguageCode
 
-        Write-Step "[7/11] 汉化硬编码界面文本"
+        Write-Step "[7/9] 汉化硬编码界面文本"
         Patch-HardcodedFrontendStrings $resourcesPath $LanguageCode
         Patch-LanguageDisplayNames $resourcesPath
         if (Test-OnlineAccountPatchEnabled) {
@@ -3010,7 +2690,7 @@ function Install-WindowsLanguagePack {
             Write-Host "  skipping main-process menu label patch (app.asar) due to patch mode: $PatchMode" -ForegroundColor DarkYellow
         }
 
-        Write-Step "[8/11] 修复第三方模型名校验"
+        Write-Step "[8/9] 修复第三方模型名校验"
         if (Test-Custom3PPatchEnabled) {
             Patch-Custom3PModelValidation $resourcesPath
             Patch-CoworkModernInstallerCheck $resourcesPath
@@ -3022,27 +2702,14 @@ function Install-WindowsLanguagePack {
             Write-Host "  skipping Claude.exe asar integrity sync due to patch mode: $PatchMode" -ForegroundColor DarkYellow
         }
 
-        Write-Step "[9/11] 写入用户语言配置"
+        Write-Step "[9/9] 写入用户语言配置"
         Set-ClaudeLocale $LanguageCode
-
-        Write-Step "[10/11] 记录补丁版本"
-        $currentVersion = Get-CurrentClaudeVersion
-        if ($currentVersion) {
-            Save-PatchedVersion -Version $currentVersion -InstallPath $claudePath -PatchMode $PatchMode -Language $LanguageCode
-        } else {
-            Write-Host "  [警告] 无法获取 Claude 版本号，跳过版本记录。" -ForegroundColor DarkYellow
-        }
-
-        Write-Step "[11/11] 注册更新守护"
-        Register-UpdateWatcher
 
         Write-Step "重启 Claude Desktop"
         Restart-Claude $claudePath
 
         Write-Host ""
         Write-Host "安装完成。如果界面未立即切换，请在 Language 中选择 $label。" -ForegroundColor Green
-        Write-Host "  已注册更新守护（计划任务 $script:WatcherTaskName，每 30 分钟检测 Claude 更新并自动重新应用补丁）。" -ForegroundColor DarkGray
-        Write-Host "  卸载时会自动移除该守护。" -ForegroundColor DarkGray
     }
     catch {
         Write-Host ""
@@ -3078,35 +2745,17 @@ function Uninstall-WindowsLanguagePack {
     Stop-ClaudeProcesses
     Remove-LegacyAppxForkArtifacts
 
-    Write-Step "[1/5] 移除更新守护"
-    Unregister-UpdateWatcher
-    if ($script:PatchedVersionDir) {
-        # 清理版本记录和日志文件
-        @("patched-version.json", "update-watcher.log", "reapply-stdout.log", "reapply-stderr.log") |
-            ForEach-Object {
-                $f = Join-Path $script:PatchedVersionDir $_
-                if (Test-Path $f) {
-                    Remove-Item $f -Force -ErrorAction SilentlyContinue
-                }
-            }
-        Write-Host "  已清理补丁版本记录和日志" -ForegroundColor Green
-        # 如果数据目录为空则删除
-        if ((Get-ChildItem $script:PatchedVersionDir -Force -ErrorAction SilentlyContinue).Count -eq 0) {
-            Remove-Item $script:PatchedVersionDir -Force -ErrorAction SilentlyContinue
-        }
-    }
-
-    Write-Step "[2/5] 恢复前端 bundle 和 app.asar"
+    Write-Step "[1/4] 恢复前端 bundle 和 app.asar"
     Restore-LatestBackup $resourcesPath
     Sync-ClaudeExeAsarIntegrity $resourcesPath
 
-    Write-Step "[3/5] 删除中文资源"
+    Write-Step "[2/4] 删除中文资源"
     Remove-LanguageFiles $resourcesPath
 
-    Write-Step "[4/5] 移除 zh-CN 语言注册"
+    Write-Step "[3/4] 移除 zh-CN 语言注册"
     Unregister-Language $resourcesPath
 
-    Write-Step "[5/5] 恢复用户语言配置"
+    Write-Step "[4/4] 恢复用户语言配置"
     Set-ClaudeLocale "en-US"
 
     Write-Host ""
@@ -3117,8 +2766,6 @@ try {
     switch ($Action) {
         "install" { Install-WindowsLanguagePack }
         "uninstall" { Uninstall-WindowsLanguagePack }
-        "disable-updates" { Set-ThirdPartyAutoUpdates $false }
-        "enable-updates" { Set-ThirdPartyAutoUpdates $true }
         "sync-skills" { Sync-CCSwitchSkills }
         "unsync-skills" { Unsync-CCSwitchSkills }
     }

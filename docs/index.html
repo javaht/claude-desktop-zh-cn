@@ -183,6 +183,71 @@
       box-shadow: 0 12px 30px rgba(199, 101, 67, 0.22);
     }
 
+    .star-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 10px 14px 10px 12px;
+      border: 1px solid rgba(92, 66, 38, 0.22);
+      border-radius: 999px;
+      background: #fffbe9;
+      color: var(--clay-dark);
+      font-size: 13px;
+      font-weight: 900;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: transform 0.25s var(--ease), box-shadow 0.25s ease, border-color 0.25s ease;
+    }
+
+    .star-badge:hover {
+      transform: translateY(-1px);
+      border-color: rgba(92, 66, 38, 0.4);
+      box-shadow: 0 12px 28px rgba(82, 61, 38, 0.14);
+    }
+
+    .star-badge svg {
+      width: 14px;
+      height: 14px;
+      fill: currentColor;
+    }
+
+    .star-badge b {
+      font-variant-numeric: tabular-nums;
+      color: var(--ink);
+      font-weight: 900;
+    }
+
+    .help-strip {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px 14px;
+      margin-top: 18px;
+      padding: 12px 14px;
+      border: 1px dashed rgba(199, 101, 67, 0.45);
+      border-radius: 16px;
+      background: rgba(255, 246, 230, 0.6);
+      color: var(--ink-soft);
+      font-size: 13.5px;
+      line-height: 1.5;
+    }
+
+    .help-strip a {
+      color: var(--clay-dark);
+      font-weight: 900;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(199, 101, 67, 0.35);
+    }
+
+    .help-strip a:hover {
+      color: var(--clay);
+      border-bottom-color: var(--clay);
+    }
+
+    .help-strip .dot {
+      color: rgba(199, 101, 67, 0.5);
+    }
+
     .hero {
       display: grid;
       grid-template-columns: minmax(520px, 0.95fr) minmax(570px, 1.05fr);
@@ -680,6 +745,14 @@
       justify-self: center;
     }
 
+    @media (max-width: 980px) {
+      .coverage-grid .coverage-card:last-child {
+        grid-column: auto;
+        max-width: 100%;
+        justify-self: stretch;
+      }
+    }
+
     .coverage-card {
       display: flex;
       flex-direction: column;
@@ -1097,6 +1170,11 @@
         grid-template-columns: 1fr;
       }
 
+      .help-strip {
+        justify-content: center;
+        text-align: center;
+      }
+
     }
 
     @media (max-width: 640px) {
@@ -1154,24 +1232,35 @@
         <a href="#coverage">覆盖范围</a>
         <a href="#screenshots">效果截图</a>
         <a href="#install">安装反馈</a>
+        <a class="star-badge" href="https://github.com/javaht/claude-desktop-zh-cn" target="_blank" rel="noopener" aria-label="在 GitHub 上给项目点 Star">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.75.75 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25Z"/></svg>
+          Star <b id="star-count">—</b>
+        </a>
         <a class="nav-action" href="https://github.com/javaht/claude-desktop-zh-cn/releases/latest">下载补丁</a>
       </div>
     </nav>
 
     <section class="hero" id="top">
       <div class="hero-copy">
-        <div class="eyebrow" data-reveal>社区驱动 · 截图定位 · 全流程验证</div>
-        <h1 data-reveal style="--delay:80ms">翻漏必补</h1>
-        <p class="hero-lead" data-reveal style="--delay:160ms"><span class="term">Claude Desktop</span> 中文补丁不只替换资源文件，也会追踪设置页、第三方供应商、<span class="term">Remote Control</span>、<span class="term">Markdown</span> 渲染和异常提示里的漏翻，把问题从截图带到补丁和回归验证。</p>
+        <div class="eyebrow" data-reveal><span class="term">Claude Desktop</span> 社区中文补丁</div>
+        <h1 data-reveal style="--delay:80ms">把 <span class="term">Claude Desktop</span><br>翻成中文。</h1>
+        <p class="hero-lead" data-reveal style="--delay:160ms">这是个免费、汉化、持续维护的 <span class="term">Claude Desktop</span> 补丁。装上之后界面就是中文，<span class="term">Claude</span> 官方更新后我们同步追，遇到漏翻就修。</p>
         <div class="actions" data-reveal style="--delay:240ms">
           <a class="btn btn-primary" href="https://github.com/javaht/claude-desktop-zh-cn/releases/latest">立即安装补丁</a>
           <a class="btn btn-secondary" href="https://github.com/javaht/claude-desktop-zh-cn/issues/new">提交漏翻截图</a>
           <a class="btn btn-secondary" href="https://github.com/javaht/claude-desktop-zh-cn/issues">查看修复进度</a>
         </div>
-        <div class="hero-stats" data-reveal style="--delay:320ms">
-          <div class="stat"><b>截图优先</b><span>全屏截图、页面入口、期望中文一起进入定位。</span></div>
-          <div class="stat"><b>来源分层</b><span>区分资源 <span class="term">JSON</span>、<span class="term">chunk</span> 硬编码、模型输出和用户内容。</span></div>
-          <div class="stat"><b>实机闭环</b><span>安装、恢复、覆盖度与渲染补丁都要回归。</span></div>
+        <div class="help-strip" data-reveal style="--delay:320ms">
+          <span>遇到漏翻？</span>
+          <a href="https://github.com/javaht/claude-desktop-zh-cn/issues/new">去 GitHub 提 Issue</a>
+          <span class="dot">·</span>
+          <span>觉得有用？</span>
+          <a href="https://github.com/javaht/claude-desktop-zh-cn" target="_blank" rel="noopener">顺手点个 Star ⭐</a>
+        </div>
+        <div class="hero-stats" data-reveal style="--delay:400ms">
+          <div class="stat"><b>先看截图</b><span>全屏图、页面入口、期望中文一起贴，别只贴一句英文。</span></div>
+          <div class="stat"><b>分清是哪里漏的</b><span>资源 <span class="term">JSON</span>、<span class="term">JS chunk</span> 硬编码、模型输出、用户内容——补丁该改哪一层，先判断再下手。</span></div>
+          <div class="stat"><b>真机跑过才算</b><span>安装、恢复、覆盖度报告、<span class="term">Markdown</span> 渲染都要复跑一遍。</span></div>
         </div>
       </div>
 
@@ -1224,30 +1313,30 @@
       <div class="section-head">
         <div>
           <div class="kicker" data-reveal>修复闭环</div>
-          <h2 data-reveal><span class="title-line">不是<span class="title-quote">“翻一下”</span></span><span class="title-line">而是把漏翻修到可验证。</span></h2>
+          <h2 data-reveal><span class="title-line">把漏翻修到</span><span class="title-line">能复跑、能复查。</span></h2>
         </div>
-        <p class="section-desc" data-reveal>社区反馈会被拆成可复现、可定位、可测试的补丁任务。每个修复点都要尽量留下覆盖度检查或行为测试，避免下个 Claude 版本更新后再次漏掉。</p>
+        <p class="section-desc" data-reveal">每条漏翻反馈都走同一道工序：提交 → 定位 → 改 → 验。版本更了新漏翻又冒出来时，回归测试能直接告诉你是哪条挂了，不用从头翻。</p>
       </div>
       <div class="loop-grid">
         <article class="loop-card" data-step="01" data-reveal>
           <h3>提交上下文</h3>
           <p>全屏截图优先，红框可选。页面入口、操作路径、原英文和期望中文越完整，定位越快。</p>
-          <small>减少反复确认</small>
+          <small>贴全了省两轮</small>
         </article>
         <article class="loop-card" data-step="02" data-reveal style="--delay:80ms">
           <h3>定位来源</h3>
-          <p>先判断文本来自 <span class="term">i18n</span> 资源、<span class="term">JS chunk</span>、运行时报错还是用户内容，避免把不该翻译的内容改坏。</p>
-          <small>事实先于判断</small>
+          <p>先判断文本来自 <span class="term">i18n</span> 资源、<span class="term">JS chunk</span> 硬编码、运行时报错还是用户内容。来源不同，补丁层级和验证方式都不同。</p>
+          <small>改错地方比不改更糟</small>
         </article>
         <article class="loop-card" data-step="03" data-reveal style="--delay:160ms">
           <h3>补丁落地</h3>
-          <p>资源替换优先，<span class="term">chunk</span> 补丁兜底。品牌词和协议名按官方命名保留或采用中英混排。</p>
-          <small>不做生造翻译</small>
+          <p>资源替换优先，<span class="term">chunk</span> 补丁兜底。品牌词和协议名按官方命名保留或采用中英混排，不为了"看起来全中文"硬译。</p>
+          <small>修完必须能跑</small>
         </article>
         <article class="loop-card" data-step="04" data-reveal style="--delay:240ms">
           <h3>回归验证</h3>
-          <p>验证资源结构、覆盖度报告、补丁行为、安装恢复链路和实机显示，确认不是只改了文件。</p>
-          <small>修完必须能跑</small>
+          <p>资源结构、覆盖度报告、补丁行为、安装恢复链路、实机显示，五项都过才算这条漏翻修完。</p>
+          <small>不留半成品</small>
         </article>
       </div>
     </section>
@@ -1256,9 +1345,9 @@
       <div class="section-head">
         <div>
           <div class="kicker" data-reveal>覆盖范围</div>
-          <h2 data-reveal><span class="title-line">把用户真的会遇到的界面</span><span class="title-line">放在优先级前面。</span></h2>
+          <h2 data-reveal><span class="title-line">用户每天会点开的界面</span><span class="title-line">优先修。</span></h2>
         </div>
-        <p class="section-desc" data-reveal>补丁覆盖聊天、设置、报错、<span class="term">Cowork</span>、第三方供应商和工具输出。后续新增界面会通过 <span class="term">Issue</span> 与截图继续补齐。</p>
+        <p class="section-desc" data-reveal>已经覆盖：聊天主界面、设置页、报错弹窗、<span class="term">Remote Control</span>、连接器迁移提示。正在跟：第三方供应商配置页、工具输出详情（见 <span class="term">Issue</span> 列表）。</p>
       </div>
       <div class="coverage-grid">
         <article class="coverage-card" data-reveal>
@@ -1288,8 +1377,8 @@
         <article class="coverage-card" data-reveal>
           <span class="coverage-icon">QA</span>
           <h3>覆盖度检查</h3>
-          <p>保留品牌名和技术词官方写法，同时把明显英文句子留给人工继续追踪。</p>
-          <div class="coverage-points"><span>资源校验</span><span>误报降噪</span><span>人工追踪</span></div>
+          <p>每轮补丁都跑一遍覆盖度报告，残留英文超过阈值就发回重修，不放过线以下。</p>
+          <div class="coverage-points"><span>资源校验</span><span>误报降噪</span><span>阈值告警</span></div>
         </article>
       </div>
     </section>
@@ -1304,15 +1393,15 @@
       </div>
       <div class="gallery">
         <article class="shot-card" data-reveal data-lightbox="images/claude-desktop-zh-cn-home.png">
-          <img src="images/claude-desktop-zh-cn-home.png" alt="Claude Desktop 聊天主界面">
+          <img src="images/claude-desktop-zh-cn-home.png" alt="Claude Desktop 聊天主界面" width="1600" height="1000" decoding="async" fetchpriority="high">
           <div class="shot-caption"><span class="term">聊天</span> 主界面 <span>全新对话体验</span></div>
         </article>
         <article class="shot-card" data-reveal style="--delay:80ms" data-lightbox="images/claude-desktop-zh-cn-settings.png">
-          <img src="images/claude-desktop-zh-cn-settings.png" alt="Claude Desktop 设置与计划信息" loading="lazy">
+          <img src="images/claude-desktop-zh-cn-settings.png" alt="Claude Desktop 设置与计划信息" width="1600" height="1000" loading="lazy" decoding="async">
           <div class="shot-caption"><span class="term">设置</span> 计划信息 <span>免费计划功能列表</span></div>
         </article>
         <article class="shot-card" data-reveal style="--delay:160ms" data-lightbox="images/claude-desktop-zh-cn-gateway.png">
-          <img src="images/claude-desktop-zh-cn-gateway.png" alt="Claude Desktop 第三方推理网关配置" loading="lazy">
+          <img src="images/claude-desktop-zh-cn-gateway.png" alt="Claude Desktop 第三方推理网关配置" width="1600" height="1000" loading="lazy" decoding="async">
           <div class="shot-caption"><span class="term">网关</span> 第三方推理 <span>模型与连接配置</span></div>
         </article>
       </div>
@@ -1333,7 +1422,7 @@
           <ol class="steps">
             <li><b>1</b><span>下载最新版本压缩包并解压到本地目录。</span></li>
             <li><b>2</b><span>右键 <strong class="term">install-windows.bat</strong>，选择以管理员身份运行。</span></li>
-            <li><b>3</b><span>安装完成后完全关闭 <span class="term">Claude Desktop</span>，再重新打开。</span></li>
+            <li><b>3</b><span>装完关掉 <span class="term">Claude Desktop</span> 再重新打开，让新资源生效。</span></li>
           </ol>
           <div class="run-note"><b>→</b><span>入口脚本会打开操作菜单，选择 <strong>安装中文补丁</strong> 即可。</span></div>
         </article>
@@ -1363,7 +1452,7 @@
     </section>
 
     <footer>
-      <div>由 Github开源社区 维护 · MIT 协议开源</div>
+      <div>由 GitHub 开源社区维护 · MIT 协议开源</div>
       <div><a href="https://github.com/javaht/claude-desktop-zh-cn/issues">Issue</a> · <a href="https://github.com/javaht/claude-desktop-zh-cn/releases/latest">Releases</a></div>
     </footer>
   </main>
@@ -1380,17 +1469,48 @@
       const revealItems = document.querySelectorAll("[data-reveal]");
       const lightbox = document.getElementById("lightbox");
       const lightboxImage = lightbox ? lightbox.querySelector("img") : null;
+      const lightboxTriggers = document.querySelectorAll("[data-lightbox]");
+
+      // 拉取 GitHub star 数（失败静默）
+      const starCount = document.getElementById("star-count");
+      if (starCount) {
+        fetch("https://api.github.com/repos/javaht/claude-desktop-zh-cn")
+          .then((r) => (r.ok ? r.json() : null))
+          .then((data) => {
+            if (data && typeof data.stargazers_count === "number") {
+              starCount.textContent = data.stargazers_count >= 1000
+                ? (data.stargazers_count / 1000).toFixed(1) + "k"
+                : String(data.stargazers_count);
+            }
+          })
+          .catch(() => {});
+      }
 
       const setProgress = () => {
         if (!progress) return;
         const max = root.scrollHeight - window.innerHeight;
-        const ratio = max > 0 ? window.scrollY / max : 0;
+        if (max <= 0) {
+          progress.style.opacity = "0";
+          return;
+        }
+        progress.style.opacity = "1";
+        const ratio = window.scrollY / max;
         progress.style.transform = `scaleX(${Math.min(1, Math.max(0, ratio))})`;
       };
 
+      let glowFrame = 0;
+      let pendingPointer = null;
+      const flushGlow = () => {
+        glowFrame = 0;
+        if (!pendingPointer) return;
+        root.style.setProperty("--glow-x", `${(pendingPointer.clientX / window.innerWidth) * 100}%`);
+        root.style.setProperty("--glow-y", `${(pendingPointer.clientY / window.innerHeight) * 100}%`);
+        pendingPointer = null;
+      };
       const handlePointer = (event) => {
-        root.style.setProperty("--glow-x", `${(event.clientX / window.innerWidth) * 100}%`);
-        root.style.setProperty("--glow-y", `${(event.clientY / window.innerHeight) * 100}%`);
+        pendingPointer = event;
+        if (glowFrame) return;
+        glowFrame = requestAnimationFrame(flushGlow);
       };
 
       if ("IntersectionObserver" in window) {
@@ -1407,28 +1527,45 @@
         revealItems.forEach((item) => item.classList.add("is-visible"));
       }
 
-      document.querySelectorAll("[data-lightbox]").forEach((item) => {
-        item.addEventListener("click", () => {
-          if (!lightbox || !lightboxImage) return;
-          const src = item.getAttribute("data-lightbox");
-          if (!src) return;
-          const image = item.querySelector("img");
-          lightboxImage.src = src;
-          lightboxImage.alt = image ? image.alt : "截图预览";
-          lightbox.classList.add("active");
-          lightbox.setAttribute("aria-hidden", "false");
-        });
+      let lastTrigger = null;
+      const openLightbox = (trigger) => {
+        if (!lightbox || !lightboxImage) return;
+        const src = trigger.getAttribute("data-lightbox");
+        if (!src) return;
+        const image = trigger.querySelector("img");
+        lightboxImage.src = src;
+        lightboxImage.alt = image ? image.alt : "截图预览";
+        lightbox.classList.add("active");
+        lightbox.setAttribute("aria-hidden", "false");
+        lastTrigger = trigger;
+      };
+      const closeLightbox = () => {
+        if (!lightbox || !lightbox.classList.contains("active")) return;
+        lightbox.classList.remove("active");
+        lightbox.setAttribute("aria-hidden", "true");
+        if (lastTrigger && typeof lastTrigger.focus === "function") {
+          lastTrigger.focus({ preventScroll: true });
+        }
+        lastTrigger = null;
+      };
+
+      lightboxTriggers.forEach((item) => {
+        item.addEventListener("click", () => openLightbox(item));
       });
 
       if (lightbox) {
-        lightbox.addEventListener("click", () => {
-          lightbox.classList.remove("active");
-          lightbox.setAttribute("aria-hidden", "true");
+        lightbox.addEventListener("click", closeLightbox);
+        document.addEventListener("keydown", (event) => {
+          if (event.key === "Escape") closeLightbox();
         });
       }
 
       window.addEventListener("scroll", setProgress, { passive: true });
-      window.addEventListener("pointermove", handlePointer, { passive: true });
+      // 触摸设备不启用光晕跟随，避免移动端 pointermove 频繁触发 layout
+      const supportsHover = window.matchMedia && window.matchMedia("(hover: hover)").matches;
+      if (supportsHover) {
+        window.addEventListener("pointermove", handlePointer, { passive: true });
+      }
       setProgress();
     })();
   </script>

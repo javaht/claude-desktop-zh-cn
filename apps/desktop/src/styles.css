@@ -21,10 +21,14 @@ button {
   font: inherit;
 }
 
+select {
+  font: inherit;
+}
+
 .shell {
-  width: min(1180px, calc(100vw - 32px));
+  width: min(980px, calc(100vw - 28px));
   margin: 0 auto;
-  padding: 28px 0;
+  padding: 22px 0;
 }
 
 .topbar {
@@ -67,6 +71,7 @@ svg {
 .small,
 .actions button,
 .primary,
+.selectField select,
 .segmented button,
 .mode {
   border: 1px solid #cbd7ce;
@@ -160,7 +165,7 @@ svg {
 
 .grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.78fr);
   gap: 18px;
 }
 
@@ -189,6 +194,53 @@ svg {
   display: block;
   margin-bottom: 8px;
   font-weight: 800;
+}
+
+.controlGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.selectField {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.selectField span {
+  font-weight: 850;
+}
+
+.selectField select {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 12px;
+  font-weight: 800;
+  outline: none;
+}
+
+.selectField select:focus {
+  border-color: #22784b;
+  box-shadow: 0 0 0 3px rgba(34, 120, 75, 0.12);
+}
+
+.selectHint {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 34px;
+  margin-bottom: 14px;
+  color: #59655f;
+}
+
+.selectHint span {
+  min-height: 30px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #f0f4f1;
+  font-weight: 700;
 }
 
 .segmented {
@@ -391,6 +443,7 @@ button:disabled {
 
   .statusBand,
   .grid,
+  .controlGrid,
   .modeList,
   .segmented.three {
     grid-template-columns: 1fr;

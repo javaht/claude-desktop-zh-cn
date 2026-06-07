@@ -12,7 +12,6 @@ import {
   Loader2,
   RefreshCw,
   RotateCcw,
-  ShieldAlert,
   Wrench,
   XCircle,
 } from "lucide-react";
@@ -59,8 +58,19 @@ type ActionLogDrain = {
   finished?: ActionFinished | null;
 };
 
+type ResourceReleaseManifest = {
+  repo: string;
+  release: string;
+};
+
+type GitHubRelease = {
+  tag_name: string;
+  html_url: string;
+  zipball_url: string;
+};
+
 type Language = "zh-CN" | "zh-TW" | "zh-HK";
-type PatchMode = "safe" | "official" | "full";
+type PatchMode = "safe" | "official";
 
 const languages: Array<{ value: Language; label: string; hint: string }> = [
   { value: "zh-CN", label: "简体中文", hint: "中国大陆" },
@@ -71,21 +81,15 @@ const languages: Array<{ value: Language; label: string; hint: string }> = [
 const modes: Array<{ value: PatchMode; label: string; hint: string; risk: string }> = [
   {
     value: "safe",
-    label: "Cowork 兼容",
-    hint: "跳过在线页面和模型名 asar 补丁",
-    risk: "适合需要截图工作区或沙箱的用户。",
+    label: "第三方 API",
+    hint: "轻量资源汉化，保持 Cowork / 沙箱兼容",
+    risk: "适合第三方 API、截图工作区或沙箱用户。",
   },
   {
     value: "official",
     label: "官方账号登录",
     hint: "启用在线页面显示层汉化",
     risk: "会修改 app.asar，Windows 签名状态会改变。",
-  },
-  {
-    value: "full",
-    label: "第三方 API 实验",
-    hint: "在线汉化 + 去除模型名限制",
-    risk: "功能最完整，风险也最高。",
   },
 ];
 
@@ -112,6 +116,21 @@ function createActionId(name: string) {
   return `${name}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
+function normalizeVersion(version: string) {
+  return version.trim().replace(/^v/i, "");
+}
+
+function compareVersions(left: string, right: string) {
+  const a = normalizeVersion(left).split(/[.-]/).map((part) => Number.parseInt(part, 10) || 0);
+  const b = normalizeVersion(right).split(/[.-]/).map((part) => Number.parseInt(part, 10) || 0);
+  const length = Math.max(a.length, b.length);
+  for (let index = 0; index < length; index += 1) {
+    const diff = (a[index] ?? 0) - (b[index] ?? 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
+}
+
 function App() {
   const [env, setEnv] = useState<EnvironmentReport | null>(null);
   const [language, setLanguage] = useState<Language>("zh-CN");
@@ -126,6 +145,7 @@ function App() {
   const finishedActionRef = useRef<string | null>(null);
   const actionLogOffsetRef = useRef(0);
   const pollingActionLogsRef = useRef(false);
+  const checkedResourceUpdateRef = useRef(false);
 
   const appendLogs = useCallback((entries: LogEvent[]) => {
     setLogs((items) => [...items, ...entries].slice(-700));
@@ -222,7 +242,8 @@ function App() {
   }, [logs]);
 
   const canRun = Boolean(env?.resourcesOk && env?.claudePath && !busy);
-  const risk = useMemo(() => modes.find((item) => item.value === mode)?.risk ?? "", [mode]);
+  const selectedLanguage = useMemo(() => languages.find((item) => item.value === language), [language]);
+  const selectedMode = useMemo(() => modes.find((item) => item.value === mode), [mode]);
   const logText = logs.map((item) => `[${levelLabel(item.level)}] ${item.message}`).join("\n");
 
   const runAction = useCallback(
@@ -257,7 +278,7 @@ function App() {
       setLastError(null);
       finishedActionRef.current = null;
       appendLog({ level: "info", message: `开始执行：${name}` });
-      appendLog({ level: "info", message: "授权后会继续在这里显示后台执行进度。" });
+      appendLog({ level: "info", message: "后台进度会继续显示在这里。" });
       try {
         await waitForPaint();
         const started = await fn(actionId);
@@ -276,6 +297,48 @@ function App() {
     },
     [appendLog],
   );
+
+  const checkResourceUpdate = useCallback(async () => {
+    if (checkedResourceUpdateRef.current) {
+      return;
+    }
+    checkedResourceUpdateRef.current = true;
+    try {
+      const manifest = await invoke<ResourceReleaseManifest>("resource_release_manifest");
+      const response = await fetch(`https://api.github.com/repos/${manifest.repo}/releases/latest`, {
+        headers: { Accept: "application/vnd.github+json" },
+      });
+      if (!response.ok) {
+        throw new Error(`GitHub release 检查失败: ${response.status}`);
+      }
+      const latest = (await response.json()) as GitHubRelease;
+      const latestVersion = normalizeVersion(latest.tag_name);
+      const currentVersion = normalizeVersion(manifest.release);
+      if (!latest.zipball_url || compareVersions(latestVersion, currentVersion) <= 0) {
+        return;
+      }
+      const shouldUpdate = window.confirm(
+        `发现补丁资源更新：${currentVersion} -> ${latestVersion}\n\n是否现在下载并更新？`,
+      );
+      if (!shouldUpdate) {
+        return;
+      }
+      await runBackgroundAction("更新补丁资源", (actionId) =>
+        invoke<ActionStarted>("install_resource_update", {
+          actionId,
+          zipballUrl: latest.zipball_url,
+          release: latestVersion,
+          repo: manifest.repo,
+        }),
+      );
+    } catch (error) {
+      appendLog({ level: "warn", message: `检查补丁资源更新失败: ${String(error)}` });
+    }
+  }, [appendLog, runBackgroundAction]);
+
+  useEffect(() => {
+    void checkResourceUpdate();
+  }, [checkResourceUpdate]);
 
   return (
     <main className="shell">
@@ -332,43 +395,34 @@ function App() {
             <span>语言、模式、启动选项</span>
           </div>
 
-          <div className="field">
-            <label>语言</label>
-            <div className="segmented three">
-              {languages.map((item) => (
-                <button
-                  key={item.value}
-                  className={language === item.value ? "selected" : ""}
-                  onClick={() => setLanguage(item.value)}
-                  disabled={Boolean(busy)}
-                >
-                  <strong>{item.label}</strong>
-                  <span>{item.hint}</span>
-                </button>
-              ))}
-            </div>
+          <div className="controlGrid">
+            <label className="selectField">
+              <span>语言</span>
+              <select value={language} onChange={(event) => setLanguage(event.target.value as Language)} disabled={Boolean(busy)}>
+                {languages.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label} · {item.hint}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="selectField">
+              <span>安装模式</span>
+              <select value={mode} onChange={(event) => setMode(event.target.value as PatchMode)} disabled={Boolean(busy)}>
+                {modes.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
 
-          <div className="field">
-            <label>安装模式</label>
-            <div className="modeList">
-              {modes.map((item) => (
-                <button
-                  key={item.value}
-                  className={mode === item.value ? "mode selected" : "mode"}
-                  onClick={() => setMode(item.value)}
-                  disabled={Boolean(busy)}
-                >
-                  <strong>{item.label}</strong>
-                  <span>{item.hint}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="warningLine">
-            <ShieldAlert />
-            <span>{risk}</span>
+          <div className="selectHint">
+            <span>{selectedLanguage?.hint}</span>
+            <span>{selectedMode?.hint}</span>
+            <span>{selectedMode?.risk}</span>
           </div>
 
           <div className="toggles">

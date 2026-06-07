@@ -637,11 +637,7 @@ pub fn install_into_resources(
             let mapping = build_online_translation_map(&i18n_dir, &pack)?;
             patch_online_dom_translation(&asar_path, paths.mac_app_root, lang, mapping, logger)?;
             patch_menu_labels(&asar_path, paths.mac_app_root, lang, false, logger)?;
-            if mode == "full" {
-                patch_custom_3p_validation(&asar_path, paths.mac_app_root, logger)?;
-            } else {
-                logger.info("官方账号登录模式：跳过第三方模型名校验补丁。");
-            }
+            logger.info("官方账号登录模式：跳过第三方模型名校验补丁。");
         }
     } else {
         logger.warn(format!(
@@ -1366,45 +1362,6 @@ pub fn patch_menu_labels(
         logger.info("已汉化主进程菜单文本");
     } else {
         logger.warn("未找到主进程菜单文本补丁点，已跳过。");
-    }
-    Ok(())
-}
-
-pub fn patch_custom_3p_validation(
-    asar_path: &Path,
-    app_root: Option<&Path>,
-    logger: &dyn LogSink,
-) -> Result<()> {
-    let changed = patch_asar_text(asar_path, app_root, |text| {
-        let old = r#"process.env.NODE_ENV!=="production""#;
-        let replacement = format!("false{}", " ".repeat(old.len() - "false".len()));
-        if text.contains(old)
-            && text.contains("expected a gateway model route referencing an Anthropic model")
-            && text.contains("Bedrock model")
-        {
-            Ok(Some(text.replacen(old, &replacement, 1)))
-        } else if text.contains("expected a gateway model route referencing an Anthropic model") {
-            let validator = Regex::new(
-                r#"function [A-Za-z_$][A-Za-z0-9_$]*\([A-Za-z_$][A-Za-z0-9_$]*\)\{const [A-Za-z_$][A-Za-z0-9_$]*=[A-Za-z_$][A-Za-z0-9_$]*\.toLowerCase\(\);return (?P<expr>[^{};]+)\}"#,
-            )?;
-            if let Some(caps) = validator.captures(&text) {
-                let expr = caps.name("expr").unwrap();
-                if expr.as_str().contains(".test(") && expr.as_str().contains(".some(") {
-                    let mut patched = text.clone();
-                    let fill = format!("!0{}", " ".repeat(expr.as_str().len().saturating_sub(2)));
-                    patched.replace_range(expr.start()..expr.end(), &fill);
-                    return Ok(Some(patched));
-                }
-            }
-            Ok(None)
-        } else {
-            Ok(None)
-        }
-    })?;
-    if changed {
-        logger.info("已补丁第三方模型名校验。");
-    } else {
-        logger.warn("未找到第三方模型名校验补丁点，可能当前 Claude 版本已移除或结构变化。");
     }
     Ok(())
 }

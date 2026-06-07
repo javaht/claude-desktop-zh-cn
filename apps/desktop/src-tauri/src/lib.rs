@@ -1,7 +1,7 @@
 use claude_zh_core::{
     CliRequest, EnvironmentReport, InstallRequest, LogEvent, LogSink, LogSinkExt,
 };
-use claude_zh_platform::{self as platform, FileLogger};
+use claude_zh_platform::{self as platform, FileLogger, ResourceReleaseManifest};
 use serde::Serialize;
 use std::{
     collections::HashMap,
@@ -117,6 +117,11 @@ fn detect_environment(app: AppHandle) -> EnvironmentReport {
     platform::detect_environment(tauri_resource_dir(&app))
 }
 
+#[tauri::command]
+fn resource_release_manifest(app: AppHandle) -> Result<ResourceReleaseManifest, String> {
+    platform::resource_release_manifest(tauri_resource_dir(&app)).map_err(|error| error.to_string())
+}
+
 async fn run_blocking_action<F>(app: AppHandle, action: F) -> Result<(), String>
 where
     F: FnOnce(TauriLogger, Option<PathBuf>) -> claude_zh_core::Result<()> + Send + 'static,
@@ -212,6 +217,24 @@ fn restore_patch(app: AppHandle, action_id: String) -> ActionStarted {
 }
 
 #[tauri::command]
+fn install_resource_update(
+    app: AppHandle,
+    action_id: String,
+    zipball_url: String,
+    release: String,
+    repo: String,
+) -> ActionStarted {
+    spawn_background_action(
+        app,
+        "更新补丁资源",
+        action_id,
+        move |logger, resource_dir| {
+            platform::install_resource_update(resource_dir, &zipball_url, &release, &repo, &logger)
+        },
+    )
+}
+
+#[tauri::command]
 async fn set_auto_updates(app: AppHandle, enabled: bool) -> Result<(), String> {
     run_blocking_action(app, move |logger, _| {
         platform::set_auto_updates(enabled, &logger)
@@ -291,9 +314,11 @@ pub fn run() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             detect_environment,
+            resource_release_manifest,
             install_patch,
             drain_action_logs,
             restore_patch,
+            install_resource_update,
             set_auto_updates,
             sync_cc_switch_skills,
             unsync_cc_switch_skills

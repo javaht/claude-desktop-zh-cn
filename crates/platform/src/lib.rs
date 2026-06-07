@@ -1,14 +1,15 @@
 use chrono::Local;
 #[cfg(windows)]
 use claude_zh_core::{
-    asar_header_hash, copy_file, patched_version_record, remove_language_files, unregister_language,
+    asar_header_hash, patched_version_record, remove_language_files, unregister_language,
 };
 use claude_zh_core::{
-    auto_updates_enabled, config_library_set_auto_updates, err, find_skills_plugin_root,
+    auto_updates_enabled, config_library_set_auto_updates, copy_file, err, find_skills_plugin_root,
     install_into_resources, read_json, remove_path, set_config_locale, sync_skills_impl,
     write_json, CliRequest, CoreError, EnvironmentReport, InstallPaths, InstallRequest, LogEvent,
     LogSink, LogSinkExt, Result,
 };
+use serde::{Deserialize, Serialize};
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 use std::{
@@ -22,7 +23,6 @@ use std::{
     time::{Duration, Instant},
 };
 use uuid::Uuid;
-#[cfg(any(target_os = "macos", windows))]
 use walkdir::WalkDir;
 #[cfg(windows)]
 use windows::Win32::Globalization::{MultiByteToWideChar, CP_OEMCP, MULTI_BYTE_TO_WIDE_CHAR_FLAGS};
@@ -31,6 +31,13 @@ use windows::Win32::Globalization::{MultiByteToWideChar, CP_OEMCP, MULTI_BYTE_TO
 const WATCHER_TASK: &str = "ClaudeDesktopZhCn-UpdateWatcher";
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResourceReleaseManifest {
+    pub repo: String,
+    pub release: String,
+}
 
 pub struct FileLogger {
     path: PathBuf,
@@ -169,6 +176,155 @@ pub fn resolve_resources(tauri_resource_dir: Option<PathBuf>) -> Result<PathBuf>
         }
     }
     err("未找到随包 resources 目录。")
+}
+
+pub fn resource_release_manifest(
+    resources_dir: Option<PathBuf>,
+) -> Result<ResourceReleaseManifest> {
+    let resources = resolve_resources(resources_dir)?;
+    let value = read_json(&resources.join("release.json"))?;
+    Ok(serde_json::from_value(value)?)
+}
+
+pub fn install_resource_update(
+    resources_dir: Option<PathBuf>,
+    zipball_url: &str,
+    release: &str,
+    repo: &str,
+    logger: &dyn LogSink,
+) -> Result<()> {
+    if !zipball_url.starts_with("https://") {
+        return err("更新下载地址必须是 HTTPS。");
+    }
+    let target_resources = resolve_resources(resources_dir)?;
+    let temp_root = env::temp_dir().join(format!("claude-zh-resource-update-{}", Uuid::new_v4()));
+    let archive = temp_root.join("release.zip");
+    let unpack_dir = temp_root.join("unpacked");
+    fs::create_dir_all(&unpack_dir)?;
+    logger.info(format!("开始下载补丁资源更新: {zipball_url}"));
+    download_release_archive(zipball_url, &archive, logger)?;
+    logger.info("补丁资源下载完成，开始解压。");
+    extract_release_archive(&archive, &unpack_dir, logger)?;
+    let source_resources = find_extracted_resources_dir(&unpack_dir)
+        .ok_or_else(|| CoreError::Message("更新包中未找到 resources 目录。".to_string()))?;
+    logger.info(format!(
+        "开始覆盖随包资源目录: {}",
+        target_resources.display()
+    ));
+    copy_resources_over(&source_resources, &target_resources)?;
+    write_json(
+        &target_resources.join("release.json"),
+        &serde_json::json!({ "repo": repo, "release": release }),
+    )?;
+    let _ = remove_path(&temp_root);
+    logger.info(format!("补丁资源已更新到 {release}。"));
+    Ok(())
+}
+
+fn copy_resources_over(source: &Path, target: &Path) -> Result<()> {
+    for entry in WalkDir::new(source) {
+        let entry = entry?;
+        let rel = entry.path().strip_prefix(source).unwrap();
+        if rel.as_os_str().is_empty() {
+            continue;
+        }
+        let out = target.join(rel);
+        if entry.file_type().is_dir() {
+            fs::create_dir_all(&out)?;
+        } else if entry.file_type().is_file() {
+            copy_file(entry.path(), &out)?;
+        }
+    }
+    Ok(())
+}
+
+fn find_extracted_resources_dir(root: &Path) -> Option<PathBuf> {
+    let direct = root.join("resources");
+    if direct.is_dir() {
+        return Some(direct);
+    }
+    fs::read_dir(root).ok()?.flatten().find_map(|entry| {
+        let resources = entry.path().join("resources");
+        resources.is_dir().then_some(resources)
+    })
+}
+
+#[cfg(windows)]
+fn download_release_archive(url: &str, target: &Path, logger: &dyn LogSink) -> Result<()> {
+    run_command(
+        {
+            let mut cmd = Command::new("powershell.exe");
+            let command = format!(
+                "Invoke-WebRequest -Uri {} -OutFile {} -UseBasicParsing",
+                powershell_single_quote(url),
+                powershell_single_quote(&target.display().to_string())
+            );
+            cmd.args(["-NoProfile", "-NonInteractive", "-Command", &command]);
+            cmd
+        },
+        logger,
+        "下载补丁资源更新包",
+    )?;
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn download_release_archive(url: &str, target: &Path, logger: &dyn LogSink) -> Result<()> {
+    run_command(
+        {
+            let mut cmd = Command::new("curl");
+            cmd.args(["-L", "--fail", "-o"]);
+            cmd.arg(target);
+            cmd.arg(url);
+            cmd
+        },
+        logger,
+        "下载补丁资源更新包",
+    )?;
+    Ok(())
+}
+
+#[cfg(not(any(target_os = "macos", windows)))]
+fn download_release_archive(_url: &str, _target: &Path, _logger: &dyn LogSink) -> Result<()> {
+    err("unsupported platform")
+}
+
+#[cfg(windows)]
+fn extract_release_archive(archive: &Path, target: &Path, logger: &dyn LogSink) -> Result<()> {
+    run_command(
+        {
+            let mut cmd = Command::new("powershell.exe");
+            let command = format!(
+                "Expand-Archive -Path {} -DestinationPath {} -Force",
+                powershell_single_quote(&archive.display().to_string()),
+                powershell_single_quote(&target.display().to_string())
+            );
+            cmd.args(["-NoProfile", "-NonInteractive", "-Command", &command]);
+            cmd
+        },
+        logger,
+        "解压补丁资源更新包",
+    )?;
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn extract_release_archive(archive: &Path, target: &Path, logger: &dyn LogSink) -> Result<()> {
+    run_command(
+        {
+            let mut cmd = Command::new("unzip");
+            cmd.arg("-q").arg(archive).arg("-d").arg(target);
+            cmd
+        },
+        logger,
+        "解压补丁资源更新包",
+    )?;
+    Ok(())
+}
+
+#[cfg(not(any(target_os = "macos", windows)))]
+fn extract_release_archive(_archive: &Path, _target: &Path, _logger: &dyn LogSink) -> Result<()> {
+    err("unsupported platform")
 }
 
 pub fn detect_environment(resources_dir: Option<PathBuf>) -> EnvironmentReport {
@@ -1238,7 +1394,7 @@ fn platform_install_patch(
         set_config_locale(&config, &req.language, logger)?;
     }
     save_patched_version(&app, &req.mode, &req.language, logger)?;
-    register_update_watcher(logger)?;
+    let _ = unregister_update_watcher(logger);
     if req.launch_after {
         launch_claude(&app, logger);
     }
@@ -1431,43 +1587,19 @@ fn save_patched_version(
 }
 
 #[cfg(windows)]
-fn register_update_watcher(logger: &dyn LogSink) -> Result<()> {
-    let exe = env::current_exe()?;
-    let task = format!("\"{}\" --cli-action watch-once", exe.display());
-    let _ = run_command(
-        {
-            let mut cmd = Command::new("schtasks");
-            cmd.args([
-                "/Create",
-                "/F",
-                "/SC",
-                "MINUTE",
-                "/MO",
-                "30",
-                "/TN",
-                WATCHER_TASK,
-                "/TR",
-                &task,
-            ]);
-            cmd
-        },
-        logger,
-        "注册更新守护计划任务",
-    );
-    Ok(())
-}
-
-#[cfg(windows)]
 fn unregister_update_watcher(logger: &dyn LogSink) -> Result<()> {
-    let _ = run_command(
-        {
-            let mut cmd = Command::new("schtasks");
-            cmd.args(["/Delete", "/F", "/TN", WATCHER_TASK]);
-            cmd
-        },
-        logger,
-        "移除更新守护计划任务",
-    );
+    let mut cmd = Command::new("schtasks");
+    hide_command_window(&mut cmd);
+    let removed = cmd
+        .args(["/Delete", "/F", "/TN", WATCHER_TASK])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .is_ok_and(|status| status.success());
+    if removed {
+        logger.info("已移除旧的更新守护计划任务。");
+    }
     Ok(())
 }
 

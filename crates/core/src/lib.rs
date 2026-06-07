@@ -207,6 +207,30 @@ pub fn sha256_hex(data: &[u8]) -> String {
     format!("{:x}", Sha256::digest(data))
 }
 
+fn required_language_resource_names() -> Vec<String> {
+    let mut names = Vec::new();
+    for lang in ["zh-CN", "zh-TW", "zh-HK"] {
+        names.extend([
+            format!("frontend-{lang}.json"),
+            format!("frontend-hardcoded-{lang}.json"),
+            format!("desktop-{lang}.json"),
+            format!("statsig-{lang}.json"),
+        ]);
+    }
+    names
+}
+
+pub fn verify_language_resource_files(resources: &Path) -> Vec<String> {
+    let mut issues = Vec::new();
+    for name in required_language_resource_names() {
+        let path = resources.join(name);
+        if !path.is_file() {
+            issues.push(format!("missing resource: {}", path.display()));
+        }
+    }
+    issues
+}
+
 pub fn verify_language_resources(resources: &Path) -> Vec<String> {
     let mut issues = Vec::new();
     for lang in ["zh-CN", "zh-TW", "zh-HK"] {

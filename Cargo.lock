@@ -323,7 +323,7 @@ dependencies = [
 
 [[package]]
 name = "claude-desktop-zh-cn-rs"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "claude-zh-core",
  "claude-zh-platform",
@@ -336,7 +336,7 @@ dependencies = [
 
 [[package]]
 name = "claude-zh-core"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "aho-corasick",
  "chrono",
@@ -353,7 +353,7 @@ dependencies = [
 
 [[package]]
 name = "claude-zh-platform"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "chrono",
  "claude-zh-core",

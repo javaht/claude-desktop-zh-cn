@@ -1695,8 +1695,27 @@ function Patch-HardcodedFrontendStrings {
     $replacements = @(Get-FrontendHardcodedReplacements $Language)
     $patchedFiles = 0
     $patchedStrings = 0
+    $fileIndex = 0
+    Write-Host "  [进度] 准备扫描 $($jsFiles.Count) 个前端 JS bundle，硬编码替换规则 $($replacements.Count) 条..." -ForegroundColor DarkGray
     foreach ($file in $jsFiles) {
+        $fileIndex += 1
+        $fileInfo = Get-Item -LiteralPath $file.FullName
+        Write-Host "  [进度] [$fileIndex/$($jsFiles.Count)] 正在读取 $($file.Name) ($(Format-ByteSize $fileInfo.Length))..." -ForegroundColor DarkGray
         $text = [System.IO.File]::ReadAllText($file.FullName, [System.Text.Encoding]::UTF8)
+
+        $hasCandidate = $false
+        foreach ($pair in $replacements) {
+            if ($text.Contains($pair[0])) {
+                $hasCandidate = $true
+                break
+            }
+        }
+        if (-not $hasCandidate) {
+            Write-Host "  [进度] [$fileIndex/$($jsFiles.Count)] 跳过 $($file.Name)：未命中待替换文本" -ForegroundColor DarkGray
+            continue
+        }
+
+        Write-Host "  [进度] [$fileIndex/$($jsFiles.Count)] 正在替换 $($file.Name)..." -ForegroundColor DarkGray
         $patched = $text
         $count = 0
         foreach ($pair in $replacements) {
@@ -1715,6 +1734,7 @@ function Patch-HardcodedFrontendStrings {
             $patchedFiles += 1
             $patchedStrings += $count
         }
+        Write-Host "  [进度] [$fileIndex/$($jsFiles.Count)] 完成 $($file.Name)：$count 处替换" -ForegroundColor DarkGray
     }
 
     Write-Host "  patched hardcoded frontend strings: $patchedStrings replacements in $patchedFiles files" -ForegroundColor Green
@@ -2190,6 +2210,8 @@ function Get-ThirdPartyConfigLibraryPaths {
     }
 
     if ($env:LOCALAPPDATA) {
+        $paths += Join-Path $env:LOCALAPPDATA "Claude-3p\configLibrary"
+
         $packageRoot = Join-Path $env:LOCALAPPDATA "Packages"
         $packageDirs = @(Get-ChildItem (Join-Path $packageRoot "Claude_*") -Directory -ErrorAction SilentlyContinue |
             Sort-Object LastWriteTime -Descending)
@@ -2199,6 +2221,99 @@ function Get-ThirdPartyConfigLibraryPaths {
     }
 
     return @($paths | Select-Object -Unique)
+}
+
+function Test-ThirdPartyApiInstallMode {
+    return $PatchMode -eq "safe" -or $PatchMode -eq "full"
+}
+
+function Test-NonEmptyConfigValue {
+    param([object]$Value)
+
+    if ($null -eq $Value) {
+        return $false
+    }
+
+    if ($Value -is [string]) {
+        return -not [string]::IsNullOrWhiteSpace($Value)
+    }
+
+    if ($Value -is [array]) {
+        return $Value.Count -gt 0
+    }
+
+    return $true
+}
+
+function Test-ThirdPartyApiConfigObject {
+    param([object]$Config)
+
+    if ($null -eq $Config -or -not ($Config -is [pscustomobject])) {
+        return $false
+    }
+
+    $propertyNames = @($Config.PSObject.Properties.Name)
+    $thirdPartyKeys = @(
+        "inferenceProvider",
+        "inferenceGatewayBaseUrl",
+        "inferenceGatewayApiKey",
+        "inferenceGatewayAuthScheme",
+        "inferenceModels",
+        "inferenceModel",
+        "customModels",
+        "modelList",
+        "provider"
+    )
+
+    foreach ($key in $thirdPartyKeys) {
+        if ($propertyNames -contains $key -and (Test-NonEmptyConfigValue $Config.$key)) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
+function Find-ThirdPartyApiConfigs {
+    $matches = @()
+    foreach ($configLibrary in Get-ThirdPartyConfigLibraryPaths) {
+        if (-not (Test-Path $configLibrary -PathType Container)) {
+            continue
+        }
+
+        $configFiles = @(Get-ChildItem $configLibrary -Filter "*.json" -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -ne "_meta.json" } |
+            Sort-Object Name)
+        foreach ($configFile in $configFiles) {
+            try {
+                $config = Get-Content $configFile.FullName -Raw -Encoding UTF8 | ConvertFrom-Json
+            }
+            catch {
+                Write-Host "  [警告] 第三方 API 配置 JSON 无法解析，已跳过: $($configFile.FullName)" -ForegroundColor DarkYellow
+                continue
+            }
+
+            if (Test-ThirdPartyApiConfigObject $config) {
+                $matches += $configFile.FullName
+            }
+        }
+    }
+
+    return @($matches)
+}
+
+function Assert-ThirdPartyApiConfigured {
+    $configs = @(Find-ThirdPartyApiConfigs)
+    if ($configs.Count -gt 0) {
+        Write-Host "  已检测到第三方 API 配置:" -ForegroundColor Green
+        foreach ($config in $configs) {
+            Write-Host "    $config" -ForegroundColor DarkGray
+        }
+        return
+    }
+
+    $searched = (Get-ThirdPartyConfigLibraryPaths) -join "; "
+    throw "未检测到第三方 API 配置，已停止汉化。请先在 Claude Desktop / Claude-3p 中完成第三方 API 配置，再重新选择第三方 API 汉化。已搜索: $searched"
 }
 
 function Get-JsonObjectOrBackup {
@@ -2722,46 +2837,119 @@ function Remove-LanguageFiles {
 
     foreach ($target in $targets) {
         Remove-Item $target -Force -ErrorAction SilentlyContinue
-        if (-not (Test-Path $target)) {
+        if (Test-Path $target) {
             Write-Host "  removed: $target" -ForegroundColor Green
-        } else {
-            Write-Host "  [警告] 未能删除: $target" -ForegroundColor DarkYellow
         }
     }
 }
 
+function Test-ClaudeDesktopProcessText {
+    param(
+        [string]$Text,
+        [string]$ClaudePath = $null
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Text)) {
+        return $false
+    }
+
+    $normalized = $Text -replace '/', '\'
+    if (-not [string]::IsNullOrWhiteSpace($ClaudePath)) {
+        $appRoot = ([System.IO.Path]::GetFullPath($ClaudePath) -replace '/', '\').TrimEnd('\')
+        return $normalized.IndexOf(($appRoot + "\"), [System.StringComparison]::OrdinalIgnoreCase) -ge 0
+    }
+
+    return (
+        $normalized -match '(?i)\\WindowsApps\\Claude_[^\\]+\\app\\claude\.exe(?:"|\s|$)' -or
+        $normalized -match '(?i)\\AnthropicClaude\\app-[^\\]+\\claude\.exe(?:"|\s|$)'
+    )
+}
+
+function Add-ClaudeDesktopProcess {
+    param(
+        [hashtable]$Matches,
+        [int]$ProcessId,
+        [string]$MatchText
+    )
+
+    try {
+        $proc = Get-Process -Id $ProcessId -ErrorAction Stop
+        if (-not $Matches.ContainsKey($ProcessId)) {
+            $Matches[$ProcessId] = @{
+                Process = $proc
+                Match = $MatchText
+            }
+        }
+    } catch {
+        # Process may have exited between enumeration and lookup.
+    }
+}
+
+function Get-ClaudeDesktopProcessMatches {
+    param([string]$ClaudePath = $null)
+
+    $matches = @{}
+    try {
+        $wmiProcs = @(Get-CimInstance -ClassName Win32_Process -ErrorAction Stop)
+    } catch {
+        try {
+            $wmiProcs = @(Get-WmiObject -Class Win32_Process -ErrorAction Stop)
+        } catch {
+            $wmiProcs = @()
+        }
+    }
+
+    foreach ($wmiProc in $wmiProcs) {
+        foreach ($candidate in @($wmiProc.ExecutablePath, $wmiProc.CommandLine)) {
+            if (Test-ClaudeDesktopProcessText $candidate $ClaudePath) {
+                Add-ClaudeDesktopProcess $matches ([int]$wmiProc.ProcessId) $candidate
+                break
+            }
+        }
+    }
+
+    if ($matches.Count -eq 0 -and [string]::IsNullOrWhiteSpace($ClaudePath)) {
+        foreach ($proc in Get-Process -Name "claude" -ErrorAction SilentlyContinue) {
+            try {
+                $path = $proc.MainModule.FileName
+                if (Test-ClaudeDesktopProcessText $path) {
+                    Add-ClaudeDesktopProcess $matches $proc.Id $path
+                }
+            } catch {
+                # Without a known ClaudePath, do not guess from inaccessible MainModule.
+            }
+        }
+    }
+
+    return @($matches.Values)
+}
+
 function Stop-ClaudeProcessesGracefully {
     param(
-        [int]$TimeoutSeconds = 10
+        [int]$TimeoutSeconds = 10,
+        [string]$ClaudePath = $null
     )
 
     $procs = @()
-    foreach ($proc in Get-Process -Name "claude" -ErrorAction SilentlyContinue) {
-        try {
-            $path = $proc.MainModule.FileName
-            if ($path -and ($path -match "WindowsApps\\Claude_" -or $path -match "AnthropicClaude\\app-")) {
-                $procs += $proc
-            }
-        } catch {
-            # MainModule inaccessible (permission or 32/64 mismatch) — skip
-        }
+    foreach ($entry in Get-ClaudeDesktopProcessMatches $ClaudePath) {
+        $proc = $entry["Process"]
+        Write-Host "  matched Claude Desktop process (PID $($proc.Id)): $($entry["Match"])" -ForegroundColor DarkGray
+        $procs += $proc
     }
 
     if ($procs.Count -eq 0) {
         return $true
     }
 
-    # 第一层：发送 WM_CLOSE 消息（/T 通知子进程，不带 /F），允许 Electron 执行 app.quit() 和数据库 flush
     foreach ($proc in $procs) {
         Write-Host "  正在请求 Claude Desktop 优雅退出 (PID $($proc.Id))..." -ForegroundColor DarkGray
         try {
             $null = & taskkill /PID $proc.Id /T 2>&1
         } catch {
-            # taskkill 失败，继续等待超时后强制终止
+            # taskkill failed; continue to forced termination after timeout.
         }
     }
 
-    # 等待进程退出，每秒检查一次，提前跳出
     $elapsed = 0
     while ($elapsed -lt $TimeoutSeconds) {
         Start-Sleep -Seconds 1
@@ -2779,14 +2967,13 @@ function Stop-ClaudeProcessesGracefully {
         $procs = $stillRunning
     }
 
-    # 第二层：超时后才回退到 taskkill /T /F 强制终止进程树
     Write-Host "  优雅退出超时（${TimeoutSeconds}秒），强制终止剩余进程..." -ForegroundColor DarkYellow
     foreach ($proc in $procs) {
         if (-not $proc.HasExited) {
             try {
                 $null = & taskkill /PID $proc.Id /T /F 2>&1
             } catch {
-                # 已退出或无法终止
+                # Process may already have exited.
             }
         }
     }
@@ -2796,7 +2983,9 @@ function Stop-ClaudeProcessesGracefully {
 }
 
 function Stop-ClaudeProcesses {
-    $killed = Stop-ClaudeProcessesGracefully -TimeoutSeconds 10
+    param([string]$ClaudePath = $null)
+
+    $killed = Stop-ClaudeProcessesGracefully -TimeoutSeconds 10 -ClaudePath $ClaudePath
     if ($killed) {
         Write-Host "  Claude Desktop 已停止" -ForegroundColor Green
     } else {
@@ -2807,7 +2996,7 @@ function Stop-ClaudeProcesses {
 function Restart-Claude {
     param([string]$ClaudePath)
 
-    Stop-ClaudeProcesses
+    Stop-ClaudeProcesses $ClaudePath
 
     $exe = Get-ClaudeExePath $ClaudePath
     if ($exe) {
@@ -2819,168 +3008,26 @@ function Restart-Claude {
     Write-Host "  [警告] 未找到 Claude.exe，请手动启动 Claude Desktop。" -ForegroundColor DarkYellow
 }
 
-$script:PatchedVersionDir = if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA "ClaudeDesktopZhCn" } else { $null }
-$script:WatcherTaskName = "ClaudeDesktopZhCn-UpdateWatcher"
-
-function Get-CurrentClaudeVersion {
-    $packages = @(Get-AppxPackage -Name "Claude" -ErrorAction SilentlyContinue)
-    foreach ($package in $packages) {
-        if ($package.Version) {
-            return [string]$package.Version
-        }
-    }
-
-    $unpackagedBase = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) "AnthropicClaude"
-    if (Test-Path $unpackagedBase) {
-        $latest = Get-ChildItem $unpackagedBase -Directory -Filter "app-*" -ErrorAction SilentlyContinue |
-            Sort-Object LastWriteTime -Descending |
-            Select-Object -First 1
-        if ($latest -and $latest.Name -match '^app-(.+)$') {
-            return $Matches[1]
-        }
-    }
-    return $null
-}
-
-function Save-PatchedVersion {
-    param(
-        [string]$Version,
-        [string]$InstallPath,
-        [string]$PatchMode,
-        [string]$Language
-    )
-
-    if (-not $script:PatchedVersionDir) { return }
-
-    New-Item -ItemType Directory -Path $script:PatchedVersionDir -Force | Out-Null
-    $info = [pscustomobject]@{
-        version      = $Version
-        installPath  = $InstallPath
-        patchTime    = (Get-Date -Format "o")
-        patchMode    = $PatchMode
-        language     = $Language
-        scriptDir    = (Split-Path -Parent $MyInvocation.MyCommand.Path)
-    }
-    $path = Join-Path $script:PatchedVersionDir "patched-version.json"
-    $info | ConvertTo-Json -Depth 5 | Set-Content $path -Encoding UTF8
-    Write-Host "  已记录补丁版本: $Version" -ForegroundColor Green
-}
-
-function Get-PatchedVersion {
-    if (-not $script:PatchedVersionDir) { return $null }
-    $path = Join-Path $script:PatchedVersionDir "patched-version.json"
-    if (-not (Test-Path $path)) { return $null }
-    try {
-        return (Get-Content $path -Raw -ErrorAction Stop | ConvertFrom-Json)
-    }
-    catch {
-        return $null
-    }
-}
-
-function Test-PatchNeeded {
-    $recorded = Get-PatchedVersion
-    if (-not $recorded) { return $true }
-
-    $currentVersion = Get-CurrentClaudeVersion
-    if (-not $currentVersion) { return $false }
-
-    return $currentVersion -ne $recorded.version
-}
-
-function Register-UpdateWatcher {
-    if (-not $script:PatchedVersionDir) { return }
-
-    $watcherPath = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "watch-claude-update.ps1"
-    if (-not (Test-Path $watcherPath)) {
-        Write-Host "  [警告] 未找到 watch-claude-update.ps1，跳过注册更新守护。" -ForegroundColor DarkYellow
-        return
-    }
-
-    try {
-        $existing = Get-ScheduledTask -TaskName $script:WatcherTaskName -ErrorAction SilentlyContinue
-        if ($existing) {
-            Unregister-ScheduledTask -TaskName $script:WatcherTaskName -Confirm:$false -ErrorAction SilentlyContinue
-        }
-
-        # 使用 -Once trigger + Repetition，比 -AtLogOn 的 Repetition 赋值更可靠
-        $logonTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1)
-        $logonTrigger.Repetition.Interval = "PT30M"
-        $logonTrigger.Repetition.Duration = "P999D"
-        $logonTrigger.Repetition.StopAtDurationEnd = $false
-
-        $action = New-ScheduledTaskAction `
-            -Execute "powershell.exe" `
-            -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$watcherPath`""
-
-        $settings = New-ScheduledTaskSettingsSet `
-            -AllowStartIfOnBatteries `
-            -DontStopIfGoingOnBatteries `
-            -StartWhenAvailable `
-            -ExecutionTimeLimit (New-TimeSpan -Minutes 10)
-
-        Register-ScheduledTask `
-            -TaskName $script:WatcherTaskName `
-            -Action $action `
-            -Trigger $logonTrigger `
-            -Settings $settings `
-            -Description "Claude Desktop 中文补丁更新守护 — 自动检测 Claude 更新并重新应用补丁" `
-            -RunLevel Limited `
-            -Force | Out-Null
-
-        Write-Host "  已注册计划任务: $($script:WatcherTaskName)" -ForegroundColor Green
-    }
-    catch {
-        Write-Host "  [警告] 注册计划任务失败: $($_.Exception.Message)" -ForegroundColor DarkYellow
-    }
-}
-
-function Unregister-UpdateWatcher {
-    try {
-        $existing = Get-ScheduledTask -TaskName $script:WatcherTaskName -ErrorAction SilentlyContinue
-        if ($existing) {
-            Unregister-ScheduledTask -TaskName $script:WatcherTaskName -Confirm:$false -ErrorAction SilentlyContinue
-            Write-Host "  已移除计划任务: $($script:WatcherTaskName)" -ForegroundColor Green
-        }
-    }
-    catch {
-        Write-Host "  [警告] 移除计划任务失败: $($_.Exception.Message)" -ForegroundColor DarkYellow
-    }
-}
-
 function Install-WindowsLanguagePack {
     $label = Get-LanguageLabel $LanguageCode
-
-    # 单实例互斥锁：防止多个安装进程并发写入 app.asar
-    $mutex = New-Object System.Threading.Mutex($false, "Global\ClaudeDesktopZhCn-Installer")
-    try {
-        if (-not $mutex.WaitOne(0)) {
-            Write-Host "  [错误] 另一个安装进程正在运行，请等待其完成后再试。" -ForegroundColor Red
-            return
-        }
-    } catch [System.Threading.AbandonedMutexException] {
-        # 上一个进程异常退出，锁已释放，继续执行
-    }
-
     Write-Host "=== Claude Desktop Windows $label 补丁 ===" -ForegroundColor Cyan
 
     try {
-        Write-Step "[1/11] 检查安装模式"
+        Write-Step "[1/9] 检查安装模式"
         if ($PatchMode -eq "safe") {
-            Write-Host "  Cowork 兼容模式：无需第三方 API 配置检查。" -ForegroundColor Green
+            Write-Host "  Cowork 兼容模式：正在检查第三方 API 配置。" -ForegroundColor Green
+            Assert-ThirdPartyApiConfigured
         } elseif ($PatchMode -eq "official") {
             Write-Host "  官方账号登录模式：无需第三方 API 配置检查。" -ForegroundColor Green
         } else {
-            Write-Host "  第三方 API 登录模式：无需第三方 API 配置检查。" -ForegroundColor Green
+            Write-Host "  第三方 API 登录模式：正在检查第三方 API 配置。" -ForegroundColor Green
+            Assert-ThirdPartyApiConfigured
         }
 
-        Write-Step "[2/11] 检查语言资源"
+        Write-Step "[2/9] 检查语言资源"
         $pack = Get-LanguageResources $LanguageCode
 
-        Write-Step "关闭 Claude Desktop"
-        Stop-ClaudeProcesses
-
-        Write-Step "[3/11] 查找 Claude Desktop"
+        Write-Step "[3/9] 查找 Claude Desktop"
         $paths = Get-ClaudeResourcesPath
         $claudePath = $paths["App"]
         $resourcesPath = $paths["Resources"]
@@ -2988,17 +3035,20 @@ function Install-WindowsLanguagePack {
         Write-Host "  app: $claudePath" -ForegroundColor Green
         Write-Host "  resources: $resourcesPath" -ForegroundColor Green
 
-        Write-Step "[4/11] 准备写入权限"
+        Write-Step "关闭 Claude Desktop"
+        Stop-ClaudeProcesses $claudePath
+
+        Write-Step "[4/9] 准备写入权限"
         Enable-WriteAccess $resourcesPath
         Remove-LegacyAppxForkArtifacts
 
-        Write-Step "[5/11] 写入 $label 资源"
+        Write-Step "[5/9] 写入 $label 资源"
         Install-LanguageFiles $resourcesPath $pack $LanguageCode
 
-        Write-Step "[6/11] 注册中文语言"
+        Write-Step "[6/9] 注册中文语言"
         Register-Language $resourcesPath $LanguageCode
 
-        Write-Step "[7/11] 汉化硬编码界面文本"
+        Write-Step "[7/9] 汉化硬编码界面文本"
         Patch-HardcodedFrontendStrings $resourcesPath $LanguageCode
         Patch-LanguageDisplayNames $resourcesPath
         if (Test-OnlineAccountPatchEnabled) {
@@ -3010,7 +3060,7 @@ function Install-WindowsLanguagePack {
             Write-Host "  skipping main-process menu label patch (app.asar) due to patch mode: $PatchMode" -ForegroundColor DarkYellow
         }
 
-        Write-Step "[8/11] 修复第三方模型名校验"
+        Write-Step "[8/9] 修复第三方模型名校验"
         if (Test-Custom3PPatchEnabled) {
             Patch-Custom3PModelValidation $resourcesPath
             Patch-CoworkModernInstallerCheck $resourcesPath
@@ -3022,41 +3072,19 @@ function Install-WindowsLanguagePack {
             Write-Host "  skipping Claude.exe asar integrity sync due to patch mode: $PatchMode" -ForegroundColor DarkYellow
         }
 
-        Write-Step "[9/11] 写入用户语言配置"
+        Write-Step "[9/9] 写入用户语言配置"
         Set-ClaudeLocale $LanguageCode
-
-        Write-Step "[10/11] 记录补丁版本"
-        $currentVersion = Get-CurrentClaudeVersion
-        if ($currentVersion) {
-            Save-PatchedVersion -Version $currentVersion -InstallPath $claudePath -PatchMode $PatchMode -Language $LanguageCode
-        } else {
-            Write-Host "  [警告] 无法获取 Claude 版本号，跳过版本记录。" -ForegroundColor DarkYellow
-        }
-
-        Write-Step "[11/11] 注册更新守护"
-        Register-UpdateWatcher
-
         Write-Step "重启 Claude Desktop"
         Restart-Claude $claudePath
 
         Write-Host ""
         Write-Host "安装完成。如果界面未立即切换，请在 Language 中选择 $label。" -ForegroundColor Green
-        Write-Host "  已注册更新守护（计划任务 $script:WatcherTaskName，每 30 分钟检测 Claude 更新并自动重新应用补丁）。" -ForegroundColor DarkGray
-        Write-Host "  卸载时会自动移除该守护。" -ForegroundColor DarkGray
     }
     catch {
-        Write-Host ""
-        Write-Host "安装过程中出现错误，Claude Desktop 可能处于不完整状态。" -ForegroundColor Red
-        Write-Host "  建议运行卸载命令恢复原始状态：install-windows.bat → 选择卸载。" -ForegroundColor DarkYellow
-        Write-Host "  详细日志: $script:InstallLogPath" -ForegroundColor DarkGray
         if ($script:DetectedMultipleClaudeInstalls) {
             Write-MultipleClaudeFailureHint
         }
         throw
-    }
-    finally {
-        $mutex.ReleaseMutex()
-        $mutex.Dispose()
     }
 }
 
@@ -3075,38 +3103,20 @@ function Uninstall-WindowsLanguagePack {
     $resourcesPath = $paths["Resources"]
 
     Write-Step "关闭 Claude Desktop"
-    Stop-ClaudeProcesses
+    Stop-ClaudeProcesses $claudePath
     Remove-LegacyAppxForkArtifacts
 
-    Write-Step "[1/5] 移除更新守护"
-    Unregister-UpdateWatcher
-    if ($script:PatchedVersionDir) {
-        # 清理版本记录和日志文件
-        @("patched-version.json", "update-watcher.log", "reapply-stdout.log", "reapply-stderr.log") |
-            ForEach-Object {
-                $f = Join-Path $script:PatchedVersionDir $_
-                if (Test-Path $f) {
-                    Remove-Item $f -Force -ErrorAction SilentlyContinue
-                }
-            }
-        Write-Host "  已清理补丁版本记录和日志" -ForegroundColor Green
-        # 如果数据目录为空则删除
-        if ((Get-ChildItem $script:PatchedVersionDir -Force -ErrorAction SilentlyContinue).Count -eq 0) {
-            Remove-Item $script:PatchedVersionDir -Force -ErrorAction SilentlyContinue
-        }
-    }
-
-    Write-Step "[2/5] 恢复前端 bundle 和 app.asar"
+    Write-Step "[1/4] 恢复前端 bundle 和 app.asar"
     Restore-LatestBackup $resourcesPath
     Sync-ClaudeExeAsarIntegrity $resourcesPath
 
-    Write-Step "[3/5] 删除中文资源"
+    Write-Step "[2/4] 删除中文资源"
     Remove-LanguageFiles $resourcesPath
 
-    Write-Step "[4/5] 移除 zh-CN 语言注册"
+    Write-Step "[3/4] 移除 zh-CN 语言注册"
     Unregister-Language $resourcesPath
 
-    Write-Step "[5/5] 恢复用户语言配置"
+    Write-Step "[4/4] 恢复用户语言配置"
     Set-ClaudeLocale "en-US"
 
     Write-Host ""

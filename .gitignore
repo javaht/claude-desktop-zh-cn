@@ -4,7 +4,4 @@ __pycache__/
 .venv/
 venv/
 *.log
-.codegraph/
-.omc/
-.reasonix/
 

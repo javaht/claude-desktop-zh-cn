@@ -4,7 +4,7 @@
 
 macOS 可双击 `install-mac.command`，Windows 可右键管理员运行 `install-windows.bat`，给 Claude Desktop 添加中文语言选项，并安装中文界面资源。
 
-本汉化方案支持使用 API 和官方订阅的方式。第三方api请先参照 https://linux.do/t/topic/2032192 配置。
+本汉化方案支持使用 API 和官方订阅的方式。第三方 API 请先参照 https://linux.do/t/topic/2032192 配置。
 
 
 **遇到问题请及时反馈，欢迎扫码加入 claude desktop 交流。**

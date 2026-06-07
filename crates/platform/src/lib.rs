@@ -393,7 +393,18 @@ pub fn install_patch(resources: &Path, req: &InstallRequest, logger: &dyn LogSin
     logger.info(format!("使用随包资源: {}", resources.display()));
     if !is_admin() && !req.dry_run {
         logger.info("当前进程不是管理员权限，切换到系统授权安装。");
-        return run_elevated_cli("install_patch", Some(req.clone()), None, resources, logger);
+        let mut elevated_req = req.clone();
+        elevated_req.launch_after = false;
+        run_elevated_cli("install_patch", Some(elevated_req), None, resources, logger)?;
+        if req.launch_after {
+            logger.info("提权安装已完成，正在从主进程启动 Claude Desktop。");
+            if let Some((app, _, _)) = detect_claude() {
+                launch_claude(&app, logger);
+            } else {
+                logger.warn("安装已完成，但未检测到 Claude Desktop 启动路径。");
+            }
+        }
+        return Ok(());
     }
     if req.dry_run {
         logger.info("dry-run 模式：将验证补丁流程，不会替换真实安装。");
@@ -799,6 +810,9 @@ fn launch_claude(app: &Path, logger: &dyn LogSink) {
     if let Some(exe) = exe {
         let mut cmd = Command::new(exe);
         hide_command_window(&mut cmd);
+        cmd.stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
         let _ = cmd.spawn();
         logger.info("已启动 Claude Desktop");
     }

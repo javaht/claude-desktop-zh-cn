@@ -10,7 +10,6 @@ use claude_zh_core::{
     LogSink, LogSinkExt, Result,
 };
 use std::{
-    cmp::Reverse,
     env,
     ffi::OsStr,
     fs,
@@ -20,12 +19,16 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
 use uuid::Uuid;
 #[cfg(any(target_os = "macos", windows))]
 use walkdir::WalkDir;
 
 #[cfg(windows)]
 const WATCHER_TASK: &str = "ClaudeDesktopZhCn-UpdateWatcher";
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 pub struct FileLogger {
     path: PathBuf,
@@ -60,6 +63,7 @@ impl LogSink for FileLogger {
 
 pub fn run_command(mut command: Command, logger: &dyn LogSink, label: &str) -> Result<String> {
     logger.info(format!("执行: {label}"));
+    hide_command_window(&mut command);
     let output = command
         .stderr(Stdio::piped())
         .stdout(Stdio::piped())
@@ -78,6 +82,14 @@ pub fn run_command(mut command: Command, logger: &dyn LogSink, label: &str) -> R
     logger.info(format!("完成: {label}"));
     Ok(text)
 }
+
+#[cfg(windows)]
+fn hide_command_window(command: &mut Command) {
+    command.creation_flags(CREATE_NO_WINDOW);
+}
+
+#[cfg(not(windows))]
+fn hide_command_window(_command: &mut Command) {}
 
 pub fn resource_candidates(tauri_resource_dir: Option<PathBuf>) -> Vec<PathBuf> {
     let mut out = Vec::new();
@@ -311,6 +323,7 @@ fn elevated_command(exe: &Path, request_path: &Path) -> Result<Command> {
         "-Command",
         &command,
     ]);
+    hide_command_window(&mut cmd);
     Ok(cmd)
 }
 
@@ -419,8 +432,9 @@ pub fn is_admin() -> bool {
 
 #[cfg(windows)]
 pub fn is_admin() -> bool {
-    Command::new("cmd")
-        .args(["/C", "net", "session"])
+    let mut cmd = Command::new("cmd");
+    hide_command_window(&mut cmd);
+    cmd.args(["/C", "net", "session"])
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status()
@@ -694,7 +708,9 @@ fn launch_claude(app: &Path, logger: &dyn LogSink) {
     .map(|name| app.join(name))
     .find(|path| path.is_file());
     if let Some(exe) = exe {
-        let _ = Command::new(exe).spawn();
+        let mut cmd = Command::new(exe);
+        hide_command_window(&mut cmd);
+        let _ = cmd.spawn();
         logger.info("已启动 Claude Desktop");
     }
 }
@@ -899,8 +915,8 @@ fn resign_macos_app(app: &Path, logger: &dyn LogSink) -> Result<()> {
         }
     }
 
-    file_targets.sort_by_key(|path| Reverse(macos_path_depth(path)));
-    bundle_targets.sort_by_key(|path| Reverse(macos_path_depth(path)));
+    file_targets.sort_by_key(|path| std::cmp::Reverse(macos_path_depth(path)));
+    bundle_targets.sort_by_key(|path| std::cmp::Reverse(macos_path_depth(path)));
     logger.info(format!(
         "需要重签名 {} 个可执行文件、{} 个嵌套 bundle。",
         file_targets.len(),

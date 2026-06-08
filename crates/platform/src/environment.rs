@@ -107,7 +107,9 @@ pub fn detect_claude() -> Option<(PathBuf, PathBuf, String)> {
 
 #[cfg(windows)]
 pub fn detect_claude() -> Option<(PathBuf, PathBuf, String)> {
-    detect_windows_claude_in_localappdata().or_else(detect_windows_claude_in_windowsapps)
+    detect_windows_claude_in_localappdata()
+        .or_else(detect_windows_claude_in_windowsapps)
+        .or_else(detect_windows_claude_from_registry)
 }
 
 #[cfg(windows)]
@@ -181,6 +183,55 @@ pub fn detect_windows_claude_in_windowsapps() -> Option<(PathBuf, PathBuf, Strin
         let resources = app.join("app").join("resources");
         if resources.is_dir() {
             return Some((app, resources, "AppX".to_string()));
+        }
+    }
+    None
+}
+
+#[cfg(windows)]
+fn detect_windows_claude_from_registry() -> Option<(PathBuf, PathBuf, String)> {
+    let mut cmd = Command::new("reg");
+    cmd.args([
+        "query",
+        r"HKCU\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages",
+    ]);
+    hide_command_window(&mut cmd);
+    cmd.stdout(Stdio::piped()).stderr(Stdio::null());
+    let output = cmd.output().ok()?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut entries: Vec<String> = Vec::new();
+    for line in stdout.lines() {
+        let trimmed = line.trim();
+        if let Some(name) = trimmed.rsplit('\\').next() {
+            if name.starts_with("Claude_") {
+                entries.push(name.to_string());
+            }
+        }
+    }
+    entries.sort_by(|a, b| compare_windows_claude_paths("Claude_", &PathBuf::from(b), &PathBuf::from(a)));
+    for name in entries {
+        let key = format!(
+            r"HKCU\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages\{}",
+            name
+        );
+        let mut detail_cmd = Command::new("reg");
+        detail_cmd.args(["query", &key, "/v", "PackageRootFolder"]);
+        hide_command_window(&mut detail_cmd);
+        detail_cmd.stdout(Stdio::piped()).stderr(Stdio::null());
+        let detail = detail_cmd.output().ok()?;
+        let detail_stdout = String::from_utf8_lossy(&detail.stdout);
+        for dline in detail_stdout.lines() {
+            if let Some(pos) = dline.find("PackageRootFolder") {
+                let rest = dline[pos + "PackageRootFolder".len()..].trim();
+                let parts: Vec<&str> = rest.splitn(3, char::is_whitespace).collect();
+                if let Some(path_str) = parts.last() {
+                    let root = PathBuf::from(path_str.trim());
+                    let resources = root.join("app").join("resources");
+                    if resources.is_dir() {
+                        return Some((root, resources, "AppX".to_string()));
+                    }
+                }
+            }
         }
     }
     None

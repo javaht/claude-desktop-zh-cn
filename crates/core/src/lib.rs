@@ -1,437 +1,33 @@
+mod config;
+mod error;
+mod fs_utils;
+mod logging;
+mod resources;
+mod skills;
+mod types;
+
+pub use config::*;
+pub use error::*;
+pub use fs_utils::*;
+pub use logging::*;
+pub use resources::*;
+pub use skills::*;
+pub use types::*;
+
 use aho_corasick::AhoCorasick;
-use chrono::{Local, SecondsFormat, Utc};
+use chrono::Local;
 use regex::Regex;
-use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
-use sha2::{Digest, Sha256};
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeMap,
     ffi::OsStr,
     fs,
-    io::Write,
     path::{Path, PathBuf},
-    time::{SystemTime, UNIX_EPOCH},
 };
-use thiserror::Error;
 
-pub const BASE_LANGUAGE_LIST: &str =
-    r#"["en-US","de-DE","fr-FR","ko-KR","ja-JP","es-419","es-ES","it-IT","hi-IN","pt-BR","id-ID""#;
 pub const ASAR_PATCH_TARGET: &str = ".vite/build/index.js";
 pub const ONLINE_MARKER: &str = "__claudeZhOnlineLocaleMain";
 const ASAR_BLOCK_SIZE: usize = 4 * 1024 * 1024;
-
-#[derive(Debug, Error)]
-pub enum CoreError {
-    #[error("{0}")]
-    Message(String),
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
-    #[error("JSON error: {0}")]
-    Json(#[from] serde_json::Error),
-    #[error("plist error: {0}")]
-    Plist(#[from] plist::Error),
-    #[error("regex error: {0}")]
-    Regex(#[from] regex::Error),
-    #[error("walkdir error: {0}")]
-    Walkdir(#[from] walkdir::Error),
-}
-
-pub type Result<T> = std::result::Result<T, CoreError>;
-
-pub fn err<T>(message: impl Into<String>) -> Result<T> {
-    Err(CoreError::Message(message.into()))
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LogEvent {
-    pub level: String,
-    pub message: String,
-}
-
-pub trait LogSink {
-    fn log(&self, level: &str, message: &str);
-}
-
-pub trait LogSinkExt: LogSink {
-    fn info(&self, message: impl AsRef<str>) {
-        self.log("info", message.as_ref());
-    }
-
-    fn warn(&self, message: impl AsRef<str>) {
-        self.log("warn", message.as_ref());
-    }
-
-    fn error(&self, message: impl AsRef<str>) {
-        self.log("error", message.as_ref());
-    }
-}
-
-impl<T: LogSink + ?Sized> LogSinkExt for T {}
-
-#[derive(Clone, Copy)]
-pub struct StdoutLogger;
-
-impl LogSink for StdoutLogger {
-    fn log(&self, level: &str, message: &str) {
-        println!("[{level}] {message}");
-    }
-}
-
-#[derive(Clone, Copy)]
-pub struct NoopLogger;
-
-impl LogSink for NoopLogger {
-    fn log(&self, _level: &str, _message: &str) {}
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct InstallRequest {
-    pub language: String,
-    pub mode: String,
-    pub launch_after: bool,
-    pub dry_run: bool,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CliRequest {
-    pub action: String,
-    pub install: Option<InstallRequest>,
-    pub enabled: Option<bool>,
-    pub resources_path: Option<PathBuf>,
-    pub log_path: Option<PathBuf>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct EnvironmentReport {
-    pub platform: String,
-    pub arch: String,
-    pub resources_dir: Option<String>,
-    pub resources_ok: bool,
-    pub resource_issues: Vec<String>,
-    pub claude_path: Option<String>,
-    pub resources_path: Option<String>,
-    pub install_kind: Option<String>,
-    pub is_admin: bool,
-    pub needs_admin: bool,
-    pub current_locale: Option<String>,
-    pub backup_count: usize,
-    pub cc_switch_skills_dir: Option<String>,
-    pub skills_plugin_root: Option<String>,
-    pub auto_updates_enabled: Option<bool>,
-    pub warnings: Vec<String>,
-}
-
-#[derive(Clone)]
-pub struct LanguagePack {
-    pub frontend: PathBuf,
-    pub hardcoded: PathBuf,
-    pub desktop: PathBuf,
-    pub statsig: PathBuf,
-    pub localizable: PathBuf,
-}
-
-#[derive(Clone, Copy)]
-pub struct InstallPaths<'a> {
-    pub source_resources: &'a Path,
-    pub target_resources: &'a Path,
-    pub mac_app_root: Option<&'a Path>,
-}
-
-pub fn now_millis() -> i64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_millis() as i64)
-        .unwrap_or(0)
-}
-
-pub fn read_json(path: &Path) -> Result<Value> {
-    let text = fs::read_to_string(path)?;
-    Ok(serde_json::from_str(&text)?)
-}
-
-pub fn write_json(path: &Path, data: &Value) -> Result<()> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    let tmp = path.with_extension(format!(
-        "{}.tmp",
-        path.extension().and_then(OsStr::to_str).unwrap_or("json")
-    ));
-    let mut file = fs::File::create(&tmp)?;
-    serde_json::to_writer_pretty(&mut file, data)?;
-    file.write_all(b"\n")?;
-    fs::rename(tmp, path)?;
-    Ok(())
-}
-
-pub fn load_json_object_or_backup(path: &Path, logger: &dyn LogSink) -> Result<Map<String, Value>> {
-    if !path.exists() {
-        return Ok(Map::new());
-    }
-    match read_json(path) {
-        Ok(Value::Object(map)) => Ok(map),
-        _ => {
-            let backup = path.with_extension("json.bak-invalid");
-            logger.warn(format!(
-                "JSON 无效，已备份并重建: {} -> {}",
-                path.display(),
-                backup.display()
-            ));
-            let _ = fs::copy(path, backup);
-            Ok(Map::new())
-        }
-    }
-}
-
-pub fn copy_file(src: &Path, dst: &Path) -> Result<()> {
-    if let Some(parent) = dst.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    fs::copy(src, dst)?;
-    Ok(())
-}
-
-pub fn remove_path(path: &Path) -> Result<()> {
-    if path.is_dir() && !path.is_symlink() {
-        fs::remove_dir_all(path)?;
-    } else if path.exists() || path.is_symlink() {
-        fs::remove_file(path)?;
-    }
-    Ok(())
-}
-
-pub fn sha256_hex(data: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(data))
-}
-
-fn required_language_resource_names() -> Vec<String> {
-    let mut names = Vec::new();
-    for lang in ["zh-CN", "zh-TW", "zh-HK"] {
-        names.extend([
-            format!("frontend-{lang}.json"),
-            format!("frontend-hardcoded-{lang}.json"),
-            format!("desktop-{lang}.json"),
-            format!("statsig-{lang}.json"),
-        ]);
-    }
-    names
-}
-
-pub fn verify_language_resource_files(resources: &Path) -> Vec<String> {
-    let mut issues = Vec::new();
-    for name in required_language_resource_names() {
-        let path = resources.join(name);
-        if !path.is_file() {
-            issues.push(format!("missing resource: {}", path.display()));
-        }
-    }
-    issues
-}
-
-pub fn verify_language_resources(resources: &Path) -> Vec<String> {
-    let mut issues = Vec::new();
-    for lang in ["zh-CN", "zh-TW", "zh-HK"] {
-        for name in [
-            format!("frontend-{lang}.json"),
-            format!("frontend-hardcoded-{lang}.json"),
-            format!("desktop-{lang}.json"),
-            format!("statsig-{lang}.json"),
-        ] {
-            let path = resources.join(name);
-            if !path.is_file() {
-                issues.push(format!("缺少资源: {}", path.display()));
-            } else if let Err(error) = read_json(&path) {
-                issues.push(format!("JSON 无效: {} ({error})", path.display()));
-            }
-        }
-    }
-    for name in [
-        "manifest.json",
-        "manifest-zh-TW.json",
-        "manifest-zh-HK.json",
-    ] {
-        let path = resources.join(name);
-        if path.exists() {
-            if let Err(error) = read_json(&path) {
-                issues.push(format!("JSON 无效: {} ({error})", path.display()));
-            }
-        }
-    }
-    issues
-}
-
-pub fn language_pack(resources: &Path, lang: &str) -> Result<LanguagePack> {
-    if !matches!(lang, "zh-CN" | "zh-TW" | "zh-HK") {
-        return err(format!("不支持的语言: {lang}"));
-    }
-    let localizable_specific = resources.join(format!("Localizable-{lang}.strings"));
-    let pack = LanguagePack {
-        frontend: resources.join(format!("frontend-{lang}.json")),
-        hardcoded: resources.join(format!("frontend-hardcoded-{lang}.json")),
-        desktop: resources.join(format!("desktop-{lang}.json")),
-        statsig: resources.join(format!("statsig-{lang}.json")),
-        localizable: if localizable_specific.is_file() {
-            localizable_specific
-        } else {
-            resources.join("Localizable.strings")
-        },
-    };
-    for path in [
-        &pack.frontend,
-        &pack.hardcoded,
-        &pack.desktop,
-        &pack.statsig,
-        &pack.localizable,
-    ] {
-        if !path.is_file() {
-            return err(format!("缺少必要资源: {}", path.display()));
-        }
-    }
-    Ok(pack)
-}
-
-pub fn language_list_regex() -> Result<Regex> {
-    Regex::new(
-        r#"\["en-US","de-DE","fr-FR","ko-KR","ja-JP","es-419","es-ES","it-IT","hi-IN","pt-BR","id-ID"(?:(?:,"zh-CN")|(?:,"zh-TW")|(?:,"zh-HK"))*\]"#,
-    )
-    .map_err(Into::into)
-}
-
-pub fn js_files(dir: &Path) -> Result<Vec<PathBuf>> {
-    if !dir.is_dir() {
-        return err(format!("未找到前端 JS 目录: {}", dir.display()));
-    }
-    let mut out = Vec::new();
-    for entry in fs::read_dir(dir)? {
-        let entry = entry?;
-        let path = entry.path();
-        if path.extension().and_then(OsStr::to_str) == Some("js") {
-            out.push(path);
-        }
-    }
-    out.sort();
-    Ok(out)
-}
-
-pub fn hardcoded_replacements(path: &Path) -> Result<Vec<(String, String)>> {
-    let data = read_json(path)?;
-    let array = data
-        .as_array()
-        .ok_or_else(|| CoreError::Message(format!("硬编码替换资源格式无效: {}", path.display())))?;
-    let mut out = Vec::new();
-    for item in array {
-        let pair = item.as_array().ok_or_else(|| {
-            CoreError::Message(format!("硬编码替换条目格式无效: {}", path.display()))
-        })?;
-        if pair.len() != 2 {
-            return err(format!("硬编码替换条目长度无效: {}", path.display()));
-        }
-        let source = pair[0].as_str().unwrap_or_default();
-        if is_structural_js_literal(source) {
-            continue;
-        }
-        out.push((
-            source.to_string(),
-            pair[1].as_str().unwrap_or_default().to_string(),
-        ));
-    }
-    out.sort_by(|a, b| b.0.len().cmp(&a.0.len()));
-    Ok(out)
-}
-
-pub fn is_structural_js_literal(source: &str) -> bool {
-    matches!(
-        source,
-        "hour"
-            | "hours"
-            | "minute"
-            | "minutes"
-            | "second"
-            | "seconds"
-            | "day"
-            | "days"
-            | "week"
-            | "weeks"
-            | "month"
-            | "months"
-            | "year"
-            | "years"
-            | r#""Search""#
-    )
-}
-
-fn is_plain_ui_text(source: &str) -> bool {
-    !source.contains('\n')
-        && !["\"", "\\", "=", ";", "=>"]
-            .iter()
-            .any(|m| source.contains(m))
-}
-
-fn replace_frontend_text(text: &str, source: &str, target: &str) -> Result<(String, usize)> {
-    if is_structural_js_literal(source) || !text.contains(source) {
-        return Ok((text.to_string(), 0));
-    }
-    if !is_plain_ui_text(source) {
-        let count = text.matches(source).count();
-        return Ok((text.replace(source, target), count));
-    }
-    let mut patched = text.to_string();
-    let mut count = 0;
-    for quote in ['"', '\'', '`'] {
-        let needle = format!("{quote}{source}{quote}");
-        let replacement = format!("{quote}{target}{quote}");
-        let local = patched.matches(&needle).count();
-        if local > 0 {
-            patched = patched.replace(&needle, &replacement);
-            count += local;
-        }
-    }
-    Ok((patched, count))
-}
-
-fn hardcoded_candidate_indexes(matcher: &AhoCorasick, text: &str) -> Vec<usize> {
-    let mut candidate_indexes: Vec<_> = matcher
-        .find_overlapping_iter(text)
-        .map(|matched| matched.pattern().as_usize())
-        .collect();
-    candidate_indexes.sort_unstable();
-    candidate_indexes.dedup();
-    candidate_indexes
-}
-
-pub fn patch_language_whitelist(assets_dir: &Path, lang: &str, logger: &dyn LogSink) -> Result<()> {
-    logger.info(format!(
-        "开始注册语言白名单: {lang}，扫描目录 {}",
-        assets_dir.display()
-    ));
-    let regex = language_list_regex()?;
-    let replacement = format!("{BASE_LANGUAGE_LIST},\"{lang}\"]");
-    let mut changed = 0;
-    let mut already = 0;
-    for path in js_files(assets_dir)? {
-        let text = fs::read_to_string(&path)?;
-        if text.contains(&replacement) {
-            already += 1;
-            continue;
-        }
-        if regex.is_match(&text) {
-            let patched = regex.replacen(&text, 1, replacement.as_str()).to_string();
-            fs::write(&path, patched)?;
-            logger.info(format!("已注册语言白名单: {}", path.display()));
-            changed += 1;
-        }
-    }
-    if changed + already == 0 {
-        return err("未能注册中文语言，Claude 前端 bundle 格式可能已经变化。");
-    }
-    logger.info(format!(
-        "语言白名单处理完成：新增 {changed} 个，已存在 {already} 个"
-    ));
-    Ok(())
-}
 
 pub fn patch_hardcoded_frontend(
     assets_dir: &Path,
@@ -649,288 +245,121 @@ pub fn install_into_resources(
     Ok(())
 }
 
-pub fn set_config_locale(path: &Path, lang: &str, logger: &dyn LogSink) -> Result<()> {
-    let mut data = load_json_object_or_backup(path, logger)?;
-    data.insert("locale".to_string(), Value::String(lang.to_string()));
-    write_json(path, &Value::Object(data))?;
-    logger.info(format!("已写入语言配置: {}", path.display()));
-    Ok(())
-}
-
-pub fn config_library_set_auto_updates(
-    path: &Path,
-    enabled: bool,
-    logger: &dyn LogSink,
-) -> Result<()> {
-    fs::create_dir_all(path)?;
-    let meta_path = path.join("_meta.json");
-    let mut meta = load_json_object_or_backup(&meta_path, logger)?;
-    let config_id = meta
-        .get("appliedId")
-        .and_then(Value::as_str)
-        .filter(|s| !s.trim().is_empty())
-        .map(ToOwned::to_owned)
-        .or_else(|| {
-            fs::read_dir(path).ok().and_then(|entries| {
-                let mut names: Vec<String> = entries
-                    .flatten()
-                    .filter_map(|entry| {
-                        let file_name = entry.file_name().to_string_lossy().to_string();
-                        if file_name.ends_with(".json") && file_name != "_meta.json" {
-                            Some(file_name.trim_end_matches(".json").to_string())
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
-                names.sort();
-                names.into_iter().next()
-            })
-        })
-        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
-    let config_path = path.join(format!("{config_id}.json"));
-    let mut config = load_json_object_or_backup(&config_path, logger)?;
-    config.insert("disableAutoUpdates".to_string(), Value::Bool(!enabled));
-    meta.insert("appliedId".to_string(), Value::String(config_id.clone()));
-    let entries = meta
-        .entry("entries")
-        .or_insert_with(|| Value::Array(Vec::new()));
-    if !entries.as_array().is_some_and(|items| {
-        items
-            .iter()
-            .any(|item| item.get("id").and_then(Value::as_str) == Some(config_id.as_str()))
-    }) {
-        if !entries.is_array() {
-            *entries = Value::Array(Vec::new());
-        }
-        entries
-            .as_array_mut()
-            .unwrap()
-            .push(json!({"id": config_id, "name": "Default"}));
+fn replace_frontend_text(text: &str, source: &str, target: &str) -> Result<(String, usize)> {
+    if is_structural_js_literal(source) || !text.contains(source) {
+        return Ok((text.to_string(), 0));
     }
-    write_json(&config_path, &Value::Object(config))?;
-    write_json(&meta_path, &Value::Object(meta))?;
-    Ok(())
-}
-
-pub fn auto_updates_enabled(paths: Vec<PathBuf>) -> Option<bool> {
-    for path in paths {
-        let meta = read_json(&path.join("_meta.json")).ok()?;
-        let config_id = meta.get("appliedId").and_then(Value::as_str)?;
-        let config = read_json(&path.join(format!("{config_id}.json"))).ok()?;
-        return Some(
-            !config
-                .get("disableAutoUpdates")
-                .and_then(Value::as_bool)
-                .unwrap_or(false),
-        );
+    if !is_plain_ui_text(source) {
+        let count = text.matches(source).count();
+        return Ok((text.replace(source, target), count));
     }
-    None
-}
-
-pub fn read_frontmatter(path: &Path) -> Result<BTreeMap<String, String>> {
-    let text = fs::read_to_string(path)?;
-    let mut map = BTreeMap::new();
-    let mut lines = text.lines();
-    if lines.next().map(str::trim) != Some("---") {
-        return Ok(map);
-    }
-    for line in lines {
-        let line = line.trim_end();
-        if line.trim() == "---" {
-            break;
-        }
-        if let Some((key, value)) = line.split_once(':') {
-            map.insert(
-                key.trim().to_string(),
-                value.trim().trim_matches('"').to_string(),
-            );
+    let mut patched = text.to_string();
+    let mut count = 0;
+    for quote in ['"', '\'', '`'] {
+        let needle = format!("{quote}{source}{quote}");
+        let replacement = format!("{quote}{target}{quote}");
+        let local = patched.matches(&needle).count();
+        if local > 0 {
+            patched = patched.replace(&needle, &replacement);
+            count += local;
         }
     }
-    Ok(map)
+    Ok((patched, count))
 }
 
-#[derive(Clone)]
-struct SkillInfo {
-    name: String,
-    description: String,
-    path: PathBuf,
+fn hardcoded_candidate_indexes(matcher: &AhoCorasick, text: &str) -> Vec<usize> {
+    let mut candidate_indexes: Vec<_> = matcher
+        .find_overlapping_iter(text)
+        .map(|matched| matched.pattern().as_usize())
+        .collect();
+    candidate_indexes.sort_unstable();
+    candidate_indexes.dedup();
+    candidate_indexes
 }
 
-fn discover_cc_switch_skills(skills_dir: &Path) -> Result<Vec<SkillInfo>> {
-    if !skills_dir.is_dir() {
-        return err(format!(
-            "CC Switch skills 目录不存在: {}",
-            skills_dir.display()
+pub fn hardcoded_replacements(path: &Path) -> Result<Vec<(String, String)>> {
+    let data = read_json(path)?;
+    let array = data
+        .as_array()
+        .ok_or_else(|| CoreError::Message(format!("硬编码替换资源格式无效: {}", path.display())))?;
+    let mut out = Vec::new();
+    for item in array {
+        let pair = item.as_array().ok_or_else(|| {
+            CoreError::Message(format!("硬编码替换条目格式无效: {}", path.display()))
+        })?;
+        if pair.len() != 2 {
+            return err(format!("硬编码替换条目长度无效: {}", path.display()));
+        }
+        let source = pair[0].as_str().unwrap_or_default();
+        if is_structural_js_literal(source) {
+            continue;
+        }
+        out.push((
+            source.to_string(),
+            pair[1].as_str().unwrap_or_default().to_string(),
         ));
     }
-    let mut out = Vec::new();
-    for entry in fs::read_dir(skills_dir)? {
-        let entry = entry?;
-        let path = entry.path();
-        let skill_md = path.join("SKILL.md");
-        if !path.is_dir() || !skill_md.is_file() {
-            continue;
-        }
-        let frontmatter = read_frontmatter(&skill_md)?;
-        let name = frontmatter
-            .get("name")
-            .filter(|value| !value.trim().is_empty())
-            .cloned()
-            .unwrap_or_else(|| entry.file_name().to_string_lossy().to_string());
-        if name.contains('/') || name.contains('\\') || name == "." || name == ".." {
-            continue;
-        }
-        out.push(SkillInfo {
-            name,
-            description: frontmatter.get("description").cloned().unwrap_or_default(),
-            path,
-        });
-    }
-    out.sort_by(|a, b| a.name.cmp(&b.name));
+    out.sort_by(|a, b| b.0.len().cmp(&a.0.len()));
     Ok(out)
 }
 
-fn load_skills_manifest(path: &Path, logger: &dyn LogSink) -> Result<Map<String, Value>> {
-    let mut data = load_json_object_or_backup(path, logger)?;
-    if !data.get("skills").is_some_and(Value::is_array) {
-        data.insert("skills".to_string(), Value::Array(Vec::new()));
-    }
-    Ok(data)
+pub fn is_structural_js_literal(source: &str) -> bool {
+    matches!(
+        source,
+        "hour"
+            | "hours"
+            | "minute"
+            | "minutes"
+            | "second"
+            | "seconds"
+            | "day"
+            | "days"
+            | "week"
+            | "weeks"
+            | "month"
+            | "months"
+            | "year"
+            | "years"
+            | r#""Search""#
+    )
 }
 
-fn path_within(path: &Path, parent: &Path) -> bool {
-    path.strip_prefix(parent).is_ok()
-}
-
-pub fn sync_skills_impl(
-    plugin_root: &Path,
-    skills_dir: &Path,
-    remove: bool,
-    logger: &dyn LogSink,
-) -> Result<()> {
-    let desktop_skills = plugin_root.join("skills");
-    fs::create_dir_all(&desktop_skills)?;
-    let manifest_path = plugin_root.join("manifest.json");
-    let mut manifest = load_skills_manifest(&manifest_path, logger)?;
-    let cc_skills = discover_cc_switch_skills(skills_dir)?;
-    let mut skills = manifest
-        .remove("skills")
-        .and_then(|value| value.as_array().cloned())
-        .unwrap_or_default();
-
-    if remove {
-        let cc_root = skills_dir
-            .canonicalize()
-            .unwrap_or_else(|_| skills_dir.to_path_buf());
-        let mut removed = BTreeSet::new();
-        let mut skipped = 0usize;
-        for skill in &cc_skills {
-            let target = desktop_skills.join(&skill.name);
-            if !target.is_symlink() {
-                skipped += 1;
-                continue;
-            }
-            let resolved = fs::read_link(&target)
-                .ok()
-                .and_then(|p| p.canonicalize().ok())
-                .unwrap_or_default();
-            if !path_within(&resolved, &cc_root) {
-                skipped += 1;
-                continue;
-            }
-            fs::remove_file(&target)?;
-            removed.insert(skill.name.clone());
-            logger.info(format!("已删除同步: {}", skill.name));
-        }
-        skills.retain(|item| {
-            !item
-                .get("name")
-                .and_then(Value::as_str)
-                .is_some_and(|name| removed.contains(name))
-        });
-        logger.info(format!(
-            "取消同步完成：删除 {} 个，跳过 {skipped} 个",
-            removed.len()
-        ));
-    } else {
-        let mut existing: BTreeSet<String> = skills
+fn is_plain_ui_text(source: &str) -> bool {
+    !source.contains('\n')
+        && !["\"", "\\", "=", ";", "=>"]
             .iter()
-            .filter_map(|item| {
-                item.get("name")
-                    .and_then(Value::as_str)
-                    .map(ToOwned::to_owned)
-            })
-            .collect();
-        let mut added = 0usize;
-        let mut skipped = 0usize;
-        let now = Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true);
-        for skill in &cc_skills {
-            let target = desktop_skills.join(&skill.name);
-            if target.exists() || target.is_symlink() || existing.contains(&skill.name) {
-                skipped += 1;
-                continue;
-            }
-            create_dir_symlink(&skill.path, &target)?;
-            skills.push(json!({
-                "skillId": skill.name,
-                "name": skill.name,
-                "description": skill.description,
-                "creatorType": "user",
-                "syncManaged": false,
-                "updatedAt": now,
-                "enabled": true
-            }));
-            existing.insert(skill.name.clone());
-            added += 1;
-            logger.info(format!("已同步: {}", skill.name));
-        }
-        logger.info(format!("同步完成：新增 {added} 个，跳过 {skipped} 个"));
-    }
-
-    manifest.insert("skills".to_string(), Value::Array(skills));
-    manifest.insert("lastUpdated".to_string(), json!(now_millis()));
-    if manifest_path.exists() {
-        let backup = manifest_path.with_file_name("manifest.json.bak-before-cc-switch-sync");
-        let _ = fs::copy(&manifest_path, backup);
-    }
-    write_json(&manifest_path, &Value::Object(manifest))?;
-    Ok(())
+            .any(|m| source.contains(m))
 }
 
-#[cfg(unix)]
-fn create_dir_symlink(src: &Path, dst: &Path) -> Result<()> {
-    std::os::unix::fs::symlink(src, dst)?;
-    Ok(())
-}
-
-#[cfg(windows)]
-fn create_dir_symlink(src: &Path, dst: &Path) -> Result<()> {
-    std::os::windows::fs::symlink_dir(src, dst)?;
-    Ok(())
-}
-
-pub fn find_skills_plugin_root(base: &Path) -> Option<PathBuf> {
-    if !base.is_dir() {
-        return None;
-    }
-    let mut candidates = Vec::new();
-    for org in fs::read_dir(base).ok()?.flatten().map(|entry| entry.path()) {
-        if !org.is_dir() {
+pub fn patch_language_whitelist(assets_dir: &Path, lang: &str, logger: &dyn LogSink) -> Result<()> {
+    logger.info(format!(
+        "开始注册语言白名单: {lang}，扫描目录 {}",
+        assets_dir.display()
+    ));
+    let regex = language_list_regex()?;
+    let replacement = format!("{BASE_LANGUAGE_LIST},\"{lang}\"]");
+    let mut changed = 0;
+    let mut already = 0;
+    for path in js_files(assets_dir)? {
+        let text = fs::read_to_string(&path)?;
+        if text.contains(&replacement) {
+            already += 1;
             continue;
         }
-        for plugin in fs::read_dir(org).ok()?.flatten().map(|entry| entry.path()) {
-            if plugin.join("manifest.json").is_file() && plugin.join("skills").is_dir() {
-                candidates.push(plugin);
-            }
+        if regex.is_match(&text) {
+            let patched = regex.replacen(&text, 1, replacement.as_str()).to_string();
+            fs::write(&path, patched)?;
+            logger.info(format!("已注册语言白名单: {}", path.display()));
+            changed += 1;
         }
     }
-    candidates.sort_by_key(|path| {
-        fs::metadata(path.join("manifest.json"))
-            .and_then(|m| m.modified())
-            .ok()
-    });
-    candidates.pop()
+    if changed + already == 0 {
+        return err("未能注册中文语言，Claude 前端 bundle 格式可能已经变化。");
+    }
+    logger.info(format!(
+        "语言白名单处理完成：新增 {changed} 个，已存在 {already} 个"
+    ));
+    Ok(())
 }
 
 fn align4(value: usize) -> usize {
@@ -1430,7 +859,6 @@ pub fn patched_version_record(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
 
     #[test]
     fn structural_search_literal_is_skipped() {
@@ -1447,43 +875,6 @@ mod tests {
             hardcoded_candidate_indexes(&matcher, "Start New Chat"),
             vec![0, 1, 2]
         );
-    }
-
-    #[test]
-    fn language_resource_validation_catches_missing_files() {
-        let root = std::env::temp_dir().join(format!("claude-zh-core-test-{}", now_millis()));
-        fs::create_dir_all(&root).unwrap();
-        let issues = verify_language_resources(&root);
-        assert!(issues
-            .iter()
-            .any(|issue| issue.contains("frontend-zh-CN.json")));
-        let _ = fs::remove_dir_all(root);
-    }
-
-    #[test]
-    fn skills_sync_does_not_override_existing_skill() {
-        let root = std::env::temp_dir().join(format!("claude-zh-skills-test-{}", now_millis()));
-        let plugin = root.join("plugin");
-        let desktop_skills = plugin.join("skills");
-        let source = root.join("cc");
-        let source_skill = source.join("demo");
-        fs::create_dir_all(&desktop_skills).unwrap();
-        fs::create_dir_all(&source_skill).unwrap();
-        fs::write(
-            plugin.join("manifest.json"),
-            r#"{"skills":[{"name":"demo","skillId":"demo"}]}"#,
-        )
-        .unwrap();
-        fs::write(
-            source_skill.join("SKILL.md"),
-            "---\nname: demo\ndescription: demo\n---\n",
-        )
-        .unwrap();
-        sync_skills_impl(&plugin, &source, false, &NoopLogger).unwrap();
-        assert!(!desktop_skills.join("demo").exists());
-        let manifest = read_json(&plugin.join("manifest.json")).unwrap();
-        assert_eq!(manifest["skills"].as_array().unwrap().len(), 1);
-        let _ = fs::remove_dir_all(root);
     }
 
     #[test]

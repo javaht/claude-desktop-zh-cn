@@ -13,7 +13,11 @@ permissions:
 
 jobs:
   prepare:
+    name: Prepare release metadata
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.commit-tag.outputs.tag }}
+      version: ${{ steps.commit-tag.outputs.version }}
 
     steps:
       - name: Checkout
@@ -60,6 +64,7 @@ jobs:
           git diff --check
 
       - name: Commit and tag
+        id: commit-tag
         run: |
           VERSION="${{ inputs.version }}"
 
@@ -76,3 +81,111 @@ jobs:
 
           git tag "$VERSION"
           git push origin "$VERSION"
+
+          echo "tag=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+  build-rs-installers:
+    name: Build ${{ matrix.artifact_name }}
+    needs: prepare
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            artifact_name: rust-macos-dmg
+            bundles: dmg
+          - os: windows-latest
+            artifact_name: rust-windows-exe
+            bundles: nsis
+
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: claude-desktop-zh-cn-rs/apps/desktop/package-lock.json
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            claude-desktop-zh-cn-rs -> claude-desktop-zh-cn-rs/target
+            claude-desktop-zh-cn-rs/apps/desktop/src-tauri -> claude-desktop-zh-cn-rs/apps/desktop/src-tauri/target
+
+      - name: Install frontend dependencies
+        working-directory: claude-desktop-zh-cn-rs/apps/desktop
+        run: npm ci
+
+      - name: Run Rust tests
+        working-directory: claude-desktop-zh-cn-rs
+        run: cargo test --workspace
+
+      - name: Build Tauri installer
+        working-directory: claude-desktop-zh-cn-rs/apps/desktop
+        run: npm run tauri -- build --ci --no-sign --bundles ${{ matrix.bundles }}
+
+      - name: List bundle outputs
+        shell: bash
+        run: |
+          find claude-desktop-zh-cn-rs/target/release/bundle claude-desktop-zh-cn-rs/apps/desktop/src-tauri/target/release/bundle -maxdepth 3 -type f -print 2>/dev/null || true
+
+      - name: Upload installer artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: |
+            claude-desktop-zh-cn-rs/target/release/bundle/**
+            claude-desktop-zh-cn-rs/apps/desktop/src-tauri/target/release/bundle/**
+          if-no-files-found: error
+
+  publish-rs-installers:
+    name: Publish Rust installers to GitHub Release
+    needs:
+      - prepare
+      - build-rs-installers
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+
+    steps:
+      - name: Download installer artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: List release assets
+        shell: bash
+        run: find release-artifacts -type f -print | sort
+
+      - name: Create or update GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          set -euo pipefail
+          mapfile -t assets < <(find release-artifacts -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.msi" \) | sort)
+          if [ "${#assets[@]}" -eq 0 ]; then
+            echo "No release assets found."
+            find release-artifacts -type f -print | sort
+            exit 1
+          fi
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$RELEASE_TAG" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --title "$RELEASE_TAG" --generate-notes
+          fi

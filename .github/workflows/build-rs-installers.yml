@@ -1,0 +1,116 @@
+name: Build Rust installers
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    tags:
+      - "*"
+
+jobs:
+  build:
+    name: Build ${{ matrix.artifact_name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            artifact_name: rust-macos-dmg
+            bundles: dmg
+          - os: windows-latest
+            artifact_name: rust-windows-exe
+            bundles: nsis
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: claude-desktop-zh-cn-rs/apps/desktop/package-lock.json
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            claude-desktop-zh-cn-rs -> claude-desktop-zh-cn-rs/target
+            claude-desktop-zh-cn-rs/apps/desktop/src-tauri -> claude-desktop-zh-cn-rs/apps/desktop/src-tauri/target
+
+      - name: Install frontend dependencies
+        working-directory: claude-desktop-zh-cn-rs/apps/desktop
+        run: npm ci
+
+      - name: Run Rust tests
+        working-directory: claude-desktop-zh-cn-rs
+        run: cargo test --workspace
+
+      - name: Build Tauri installer
+        working-directory: claude-desktop-zh-cn-rs/apps/desktop
+        run: npm run tauri -- build --ci --no-sign --bundles ${{ matrix.bundles }}
+
+      - name: List bundle outputs
+        shell: bash
+        run: |
+          find claude-desktop-zh-cn-rs/target/release/bundle claude-desktop-zh-cn-rs/apps/desktop/src-tauri/target/release/bundle -maxdepth 3 -type f -print 2>/dev/null || true
+
+      - name: Upload installer artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: |
+            claude-desktop-zh-cn-rs/target/release/bundle/**
+            claude-desktop-zh-cn-rs/apps/desktop/src-tauri/target/release/bundle/**
+          if-no-files-found: error
+
+  publish-release:
+    name: Publish Rust installers to GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+
+    steps:
+      - name: Download installer artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: List release assets
+        shell: bash
+        run: find release-artifacts -type f -print | sort
+
+      - name: Create or update GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          mapfile -t assets < <(find release-artifacts -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.msi" \) | sort)
+          if [ "${#assets[@]}" -eq 0 ]; then
+            echo "No release assets found."
+            find release-artifacts -type f -print | sort
+            exit 1
+          fi
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$tag" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$tag" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --title "$tag" --generate-notes
+          fi

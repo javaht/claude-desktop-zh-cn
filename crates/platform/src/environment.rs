@@ -1,16 +1,11 @@
-use claude_zh_core::{
-    auto_updates_enabled, read_json, EnvironmentReport,
-};
-use std::{
-    env,
-    ffi::OsStr,
-    fs,
-    path::{Path, PathBuf},
-    process::{Command, Stdio},
-};
+use claude_zh_core::{auto_updates_enabled, read_json, EnvironmentReport};
+use std::{env, fs, path::PathBuf, process::Command};
+#[cfg(windows)]
+use std::{ffi::OsStr, path::Path, process::Stdio};
 
+#[cfg(windows)]
+use crate::logging::hide_command_window;
 use crate::{
-    logging::hide_command_window,
     paths::{cc_switch_skills_dir, claude_config_paths, config_library_paths, skills_plugin_root},
     resources::resolve_resources,
 };
@@ -208,7 +203,9 @@ fn detect_windows_claude_from_registry() -> Option<(PathBuf, PathBuf, String)> {
             }
         }
     }
-    entries.sort_by(|a, b| compare_windows_claude_paths("Claude_", &PathBuf::from(b), &PathBuf::from(a)));
+    entries.sort_by(|a, b| {
+        compare_windows_claude_paths("Claude_", &PathBuf::from(b), &PathBuf::from(a))
+    });
     for name in entries {
         let key = format!(
             r"HKCU\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages\{}",

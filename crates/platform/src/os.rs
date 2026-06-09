@@ -1,28 +1,33 @@
 use chrono::Local;
 #[cfg(windows)]
+use claude_zh_core::copy_file;
+#[cfg(windows)]
+use claude_zh_core::write_json;
+#[cfg(windows)]
 use claude_zh_core::{
     asar_header_hash, patched_version_record, remove_language_files, unregister_language,
 };
 use claude_zh_core::{
-    copy_file, err, install_into_resources, remove_path, set_config_locale, write_json, CoreError,
-    InstallPaths, InstallRequest, LogSink, LogSinkExt, Result,
+    err, install_into_resources, remove_path, set_config_locale, CoreError, InstallPaths,
+    InstallRequest, LogSink, LogSinkExt, Result,
 };
 use std::{
     env,
+    ffi::OsStr,
     fs,
-    io::ErrorKind,
     path::{Path, PathBuf},
     process::{Command, Stdio},
-    thread,
-    time::Duration,
+    time::Instant,
 };
+#[cfg(windows)]
+use std::{io::ErrorKind, thread, time::Duration};
+#[cfg(target_os = "macos")]
+use uuid::Uuid;
 use walkdir::WalkDir;
 
-use crate::{
-    environment::detect_claude,
-    logging::{hide_command_window, run_command},
-    paths::claude_config_paths,
-};
+#[cfg(windows)]
+use crate::logging::hide_command_window;
+use crate::{environment::detect_claude, logging::run_command, paths::claude_config_paths};
 
 #[cfg(windows)]
 const WATCHER_TASK: &str = "ClaudeDesktopZhCn-UpdateWatcher";
@@ -246,6 +251,29 @@ fn copy_macos_app_to_temp(source: &Path, target: &Path, logger: &dyn LogSink) ->
 }
 
 #[cfg(target_os = "macos")]
+fn prepare_macos_temp_app_for_patch(app: &Path, logger: &dyn LogSink) -> Result<()> {
+    let _ = run_command(
+        {
+            let mut cmd = Command::new("chflags");
+            cmd.args(["-R", "nouchg,noschg"]).arg(app);
+            cmd
+        },
+        logger,
+        "清理临时 Claude.app 文件 flags",
+    );
+    run_command(
+        {
+            let mut cmd = Command::new("xattr");
+            cmd.args(["-cr"]).arg(app);
+            cmd
+        },
+        logger,
+        "清理临时 Claude.app 扩展属性",
+    )?;
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
 fn strip_and_augment_entitlements(ents: &mut plist::Dictionary) {
     ents.remove("com.apple.application-identifier");
     ents.remove("com.apple.developer.team-identifier");
@@ -408,6 +436,15 @@ fn verify_macos_app_signature(app: &Path, logger: &dyn LogSink) -> Result<()> {
 }
 
 #[cfg(target_os = "macos")]
+fn macos_temp_root() -> PathBuf {
+    if crate::environment::is_admin() {
+        PathBuf::from("/tmp")
+    } else {
+        env::temp_dir()
+    }
+}
+
+#[cfg(target_os = "macos")]
 pub(crate) fn platform_install_patch(
     resources: &Path,
     req: &InstallRequest,
@@ -425,7 +462,7 @@ pub(crate) fn platform_install_patch(
     } else {
         quit_claude(logger);
     }
-    let tmp_root = env::temp_dir().join(format!(
+    let tmp_root = macos_temp_root().join(format!(
         "claude-zh-cn-rs-{}",
         Local::now().format("%Y%m%d-%H%M%S")
     ));
@@ -441,6 +478,7 @@ pub(crate) fn platform_install_patch(
         remove_path(&patched_app)?;
     }
     copy_macos_app_to_temp(&source_app, &patched_app, logger)?;
+    prepare_macos_temp_app_for_patch(&patched_app, logger)?;
     let patched_resources = patched_app.join("Contents/Resources");
     logger.info(format!(
         "开始写入中文资源和 app.asar 补丁: {}",
@@ -582,7 +620,12 @@ pub(crate) fn platform_install_patch(
         let app_dir = target_resources
             .parent()
             .ok_or_else(|| CoreError::Message("resources 路径无父目录。".to_string()))?;
-        let _ = restore_windows_backup_from_snapshot(&pristine_backup, app_dir, &target_resources, logger);
+        let _ = restore_windows_backup_from_snapshot(
+            &pristine_backup,
+            app_dir,
+            &target_resources,
+            logger,
+        );
         for config in claude_config_paths() {
             let _ = set_config_locale(&config, "en-US", logger);
         }
@@ -686,7 +729,11 @@ fn write_windows_pristine_backup(
 }
 
 #[cfg(windows)]
-fn ensure_windows_pristine_backup(app: &Path, resources: &Path, logger: &dyn LogSink) -> Result<PathBuf> {
+fn ensure_windows_pristine_backup(
+    app: &Path,
+    resources: &Path,
+    logger: &dyn LogSink,
+) -> Result<PathBuf> {
     if let Some(existing) = windows_latest_pristine_backup(app)? {
         logger.info(format!("使用现有包外纯净备份: {}", existing.display()));
         return Ok(existing);
@@ -758,13 +805,15 @@ fn sync_dir_exact(src: &Path, dst: &Path, logger: &dyn LogSink) -> Result<()> {
         if entry.file_type()?.is_dir() {
             sync_dir_exact(&source, &target, logger)?;
         } else if entry.file_type()?.is_file() {
-            copy_windows_file_with_retries(&source, &target, logger, "同步资源文件").map_err(|error| {
-                CoreError::Message(format!(
-                    "同步资源文件失败: {} -> {}: {error}",
-                    source.display(),
-                    target.display()
-                ))
-            })?;
+            copy_windows_file_with_retries(&source, &target, logger, "同步资源文件").map_err(
+                |error| {
+                    CoreError::Message(format!(
+                        "同步资源文件失败: {} -> {}: {error}",
+                        source.display(),
+                        target.display()
+                    ))
+                },
+            )?;
         }
     }
     Ok(())
@@ -782,9 +831,8 @@ fn cleanup_windows_restore_artifacts(app_dir: &Path, logger: &dyn LogSink) -> Re
         let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
             continue;
         };
-        let is_stale_restore_artifact =
-            name.starts_with("resources.restore-current-")
-                || (name.starts_with("Claude.restore-current-") && name.ends_with(".exe"));
+        let is_stale_restore_artifact = name.starts_with("resources.restore-current-")
+            || (name.starts_with("Claude.restore-current-") && name.ends_with(".exe"));
         if !is_stale_restore_artifact {
             continue;
         }
@@ -800,7 +848,9 @@ fn cleanup_windows_restore_artifacts(app_dir: &Path, logger: &dyn LogSink) -> Re
 #[cfg(windows)]
 fn try_cleanup_windows_restore_artifacts(app_dir: &Path, logger: &dyn LogSink) {
     if let Err(error) = cleanup_windows_restore_artifacts(app_dir, logger) {
-        logger.warn(format!("清理旧的 Windows 恢复临时文件失败，将保留残留以避免影响主流程: {error}"));
+        logger.warn(format!(
+            "清理旧的 Windows 恢复临时文件失败，将保留残留以避免影响主流程: {error}"
+        ));
     }
 }
 
@@ -818,10 +868,7 @@ fn copy_windows_file_with_retries(
         match copy_file(src, dst) {
             Ok(()) => {
                 if attempt > 0 {
-                    logger.info(format!(
-                        "{context} 在第 {} 次重试后成功。",
-                        attempt + 1
-                    ));
+                    logger.info(format!("{context} 在第 {} 次重试后成功。", attempt + 1));
                 }
                 return Ok(());
             }
@@ -1088,19 +1135,13 @@ mod tests {
         windowsapps_permission_targets,
     };
     use claude_zh_core::{now_millis, NoopLogger};
-    use std::{
-        fs,
-        io::Write,
-        path::Path,
-        sync::Arc,
-        thread,
-        time::Duration,
-    };
+    use std::{fs, io::Write, path::Path, sync::Arc, thread, time::Duration};
 
     #[test]
     fn windowsapps_permissions_include_app_dir_for_exe_rewrite() {
-        let resources =
-            Path::new(r"C:\Program Files\WindowsApps\Claude_1.2.3.4_x64__pzs8sxrjxfjjc\app\resources");
+        let resources = Path::new(
+            r"C:\Program Files\WindowsApps\Claude_1.2.3.4_x64__pzs8sxrjxfjjc\app\resources",
+        );
 
         let targets = windowsapps_permission_targets(resources);
 
@@ -1108,18 +1149,15 @@ mod tests {
             targets,
             vec![
                 resources.to_path_buf(),
-                Path::new(
-                    r"C:\Program Files\WindowsApps\Claude_1.2.3.4_x64__pzs8sxrjxfjjc\app"
-                )
-                .to_path_buf()
+                Path::new(r"C:\Program Files\WindowsApps\Claude_1.2.3.4_x64__pzs8sxrjxfjjc\app")
+                    .to_path_buf()
             ]
         );
     }
 
     #[test]
     fn windows_external_backup_prefix_uses_package_dir_name() {
-        let app =
-            Path::new(r"C:\Program Files\WindowsApps\Claude_1.2.3.4_x64__pzs8sxrjxfjjc");
+        let app = Path::new(r"C:\Program Files\WindowsApps\Claude_1.2.3.4_x64__pzs8sxrjxfjjc");
 
         let prefix = windows_external_backup_prefix(app).unwrap();
 
@@ -1162,11 +1200,7 @@ mod tests {
         fs::create_dir_all(app_dir.join("resources.restore-current-20260609-124541")).unwrap();
         fs::write(resources.join("app.asar"), b"patched-asar").unwrap();
         fs::write(resources.join("zh-CN.json"), b"patched-lang").unwrap();
-        fs::write(
-            snapshot.join("app").join("Claude.exe"),
-            b"clean-exe",
-        )
-        .unwrap();
+        fs::write(snapshot.join("app").join("Claude.exe"), b"clean-exe").unwrap();
         fs::write(
             snapshot.join("app").join("resources").join("app.asar"),
             b"clean-asar",
@@ -1203,10 +1237,8 @@ mod tests {
 
     #[test]
     fn restore_windows_backup_from_snapshot_retries_when_exe_is_temporarily_locked() {
-        let root = std::env::temp_dir().join(format!(
-            "claude-zh-platform-restore-retry-{}",
-            now_millis()
-        ));
+        let root =
+            std::env::temp_dir().join(format!("claude-zh-platform-restore-retry-{}", now_millis()));
         let _ = fs::remove_dir_all(&root);
         let app_dir = root.join("app");
         let resources = app_dir.join("resources");
@@ -1239,8 +1271,7 @@ mod tests {
             thread::sleep(Duration::from_millis(650));
         });
 
-        restore_windows_backup_from_snapshot(&snapshot, &app_dir, &resources, &NoopLogger)
-            .unwrap();
+        restore_windows_backup_from_snapshot(&snapshot, &app_dir, &resources, &NoopLogger).unwrap();
         hold.join().unwrap();
 
         assert_eq!(
@@ -1272,7 +1303,10 @@ mod tests {
         sync_dir_exact(&src, &dst, &NoopLogger).unwrap();
 
         assert_eq!(fs::read(dst.join("same.txt")).unwrap(), b"clean");
-        assert_eq!(fs::read(dst.join("nested").join("keep.txt")).unwrap(), b"keep");
+        assert_eq!(
+            fs::read(dst.join("nested").join("keep.txt")).unwrap(),
+            b"keep"
+        );
         assert!(!dst.join("extra.txt").exists());
         assert!(!dst.join("extra-dir").exists());
 
@@ -1340,6 +1374,8 @@ mod tests {
         assert!(script.contains("ParentProcessId"));
         assert!(script.contains("WindowsApps\\Claude_*"));
         assert!(script.contains("AnthropicClaude\\app-*\\*"));
-        assert!(script.contains("Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue"));
+        assert!(
+            script.contains("Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue")
+        );
     }
 }

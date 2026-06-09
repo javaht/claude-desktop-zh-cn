@@ -11,9 +11,14 @@ use std::{
 };
 use uuid::Uuid;
 
+#[cfg(windows)]
+use crate::logging::hide_command_window;
 use crate::{
-    actions::{install_patch, restore_patch, set_auto_updates, sync_cc_switch_skills, unsync_cc_switch_skills},
-    logging::{decode_command_output, hide_command_window},
+    actions::{
+        install_patch, restore_patch, set_auto_updates, sync_cc_switch_skills,
+        unsync_cc_switch_skills,
+    },
+    logging::decode_command_output,
     resources::resolve_resources,
 };
 

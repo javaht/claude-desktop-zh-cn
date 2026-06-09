@@ -59,7 +59,9 @@ pub fn resolve_resources(tauri_resource_dir: Option<PathBuf>) -> Result<PathBuf>
     err("未找到随包 resources 目录。")
 }
 
-pub fn resource_release_manifest(resources_dir: Option<PathBuf>) -> Result<ResourceReleaseManifest> {
+pub fn resource_release_manifest(
+    resources_dir: Option<PathBuf>,
+) -> Result<ResourceReleaseManifest> {
     let resources = resolve_resources(resources_dir)?;
     let value = read_json(&resources.join("release.json"))?;
     Ok(serde_json::from_value(value)?)

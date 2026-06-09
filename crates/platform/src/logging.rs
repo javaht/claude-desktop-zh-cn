@@ -1,12 +1,12 @@
 use claude_zh_core::{err, LogEvent, LogSink, LogSinkExt, Result};
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
 use std::{
     fs,
     io::Write,
     path::PathBuf,
     process::{Command, Stdio},
 };
-#[cfg(windows)]
-use std::os::windows::process::CommandExt;
 #[cfg(windows)]
 use windows::Win32::Globalization::{MultiByteToWideChar, CP_OEMCP, MULTI_BYTE_TO_WIDE_CHAR_FLAGS};
 

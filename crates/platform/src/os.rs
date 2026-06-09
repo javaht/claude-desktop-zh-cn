@@ -39,18 +39,67 @@ fn quit_claude(logger: &dyn LogSink) {
 }
 
 #[cfg(windows)]
+fn windows_claude_stop_script() -> &'static str {
+    r#"
+function Get-ClaudeDesktopProcessTree {
+  $all = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -in @('Claude.exe','claude.exe') })
+  if (-not $all) {
+    return @()
+  }
+
+  $anchors = @($all | Where-Object {
+    $_.ExecutablePath -and
+    (
+      $_.ExecutablePath -like '*\WindowsApps\Claude_*' -or
+      $_.ExecutablePath -like '*\AnthropicClaude\app-*\*'
+    )
+  })
+  if (-not $anchors) {
+    return @()
+  }
+
+  $selected = @{}
+  foreach ($proc in $anchors) {
+    $selected[[int]$proc.ProcessId] = $true
+  }
+
+  $changed = $true
+  while ($changed) {
+    $changed = $false
+    foreach ($proc in $all) {
+      $procId = [int]$proc.ProcessId
+      $parentId = [int]$proc.ParentProcessId
+      if ($selected.ContainsKey($procId) -or $selected.ContainsKey($parentId)) {
+        if (-not $selected.ContainsKey($procId)) {
+          $selected[$procId] = $true
+          $changed = $true
+        }
+        if ($parentId -ne 0 -and -not $selected.ContainsKey($parentId)) {
+          $parent = $all | Where-Object { [int]$_.ProcessId -eq $parentId } | Select-Object -First 1
+          if ($parent) {
+            $selected[$parentId] = $true
+            $changed = $true
+          }
+        }
+      }
+    }
+  }
+
+  @($all | Where-Object { $selected.ContainsKey([int]$_.ProcessId) })
+}
+
+Get-ClaudeDesktopProcessTree |
+  ForEach-Object {
+    Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+  }
+"#
+}
+
+#[cfg(windows)]
 fn quit_claude(logger: &dyn LogSink) {
     logger.info("正在关闭 Claude Desktop 进程。");
     // 使用 PowerShell 精确匹配已知安装路径，避免误杀 Claude Code CLI
-    let script = r#"
-Get-Process -Name 'Claude','claude' -ErrorAction SilentlyContinue |
-  Where-Object { try { $_.MainModule.FileName } catch { $null } } |
-  Where-Object {
-    $_.MainModule.FileName -like '*\WindowsApps\Claude_*' -or
-    $_.MainModule.FileName -like '*\AnthropicClaude\app-*\*'
-  } |
-  Stop-Process -Force -ErrorAction SilentlyContinue
-"#;
     let mut cmd = Command::new("powershell.exe");
     cmd.args([
         "-NoProfile",
@@ -58,7 +107,7 @@ Get-Process -Name 'Claude','claude' -ErrorAction SilentlyContinue |
         "-ExecutionPolicy",
         "Bypass",
         "-Command",
-        script,
+        windows_claude_stop_script(),
     ]);
     hide_command_window(&mut cmd);
     let _ = run_command(cmd, logger, "关闭 Claude Desktop");
@@ -459,6 +508,7 @@ pub(crate) fn platform_install_patch(
         detect_claude().ok_or_else(|| CoreError::Message("未找到 Claude Desktop。".to_string()))?;
     logger.info(format!("检测到 Claude Desktop: {}", app.display()));
     logger.info(format!("目标 resources: {}", target_resources.display()));
+    let pristine_backup = ensure_windows_pristine_backup(&app, &target_resources, logger)?;
     if req.dry_run {
         logger.info("dry-run：复制 resources 到临时目录验证，不会修改真实 Claude 安装。");
         let tmp_root = env::temp_dir().join(format!(
@@ -491,44 +541,163 @@ pub(crate) fn platform_install_patch(
     }
     quit_claude(logger);
     // WindowsApps 目录由 TrustedInstaller 拥有，管理员默认无写入权限
-    if target_resources.starts_with(r"C:\Program Files\WindowsApps") {
-        acquire_windowsapps_permission(&target_resources, logger)?;
+    for path in windowsapps_permission_targets(&target_resources) {
+        acquire_windowsapps_permission(&path, logger)?;
     }
-    let backup_base = target_resources
-        .join(".zh-cn-backups")
-        .join(Local::now().format("%Y%m%d-%H%M%S").to_string());
-    logger.info(format!("Windows 资源备份目录: {}", backup_base.display()));
-    let backup = |path: &Path| -> Result<()> {
-        if !path.exists() {
-            return Ok(());
+    let install_result = (|| -> Result<()> {
+        let app_dir = target_resources
+            .parent()
+            .ok_or_else(|| CoreError::Message("resources 路径无父目录。".to_string()))?;
+        try_cleanup_windows_restore_artifacts(app_dir, logger);
+        install_into_resources(
+            InstallPaths {
+                source_resources: resources,
+                target_resources: &target_resources,
+                mac_app_root: None,
+            },
+            &req.language,
+            &req.mode,
+            None,
+            logger,
+        )?;
+        logger.info("Windows resources 补丁写入完成。");
+        logger.info("开始同步 Windows Claude.exe app.asar 完整性标记。");
+        sync_windows_exe_asar_integrity(&target_resources, logger)?;
+        logger.info("开始写入 Claude 语言配置。");
+        for config in claude_config_paths() {
+            set_config_locale(&config, &req.language, logger)?;
         }
-        let rel = path.strip_prefix(&target_resources).unwrap_or(path);
-        copy_file(path, &backup_base.join(rel))
-    };
-    install_into_resources(
-        InstallPaths {
-            source_resources: resources,
-            target_resources: &target_resources,
-            mac_app_root: None,
-        },
-        &req.language,
-        &req.mode,
-        Some(&backup),
-        logger,
-    )?;
-    logger.info("Windows resources 补丁写入完成。");
-    logger.info("开始同步 Windows Claude.exe app.asar 完整性标记。");
-    sync_windows_exe_asar_integrity(&target_resources, logger)?;
-    logger.info("开始写入 Claude 语言配置。");
-    for config in claude_config_paths() {
-        set_config_locale(&config, &req.language, logger)?;
-    }
-    save_patched_version(&app, &req.mode, &req.language, logger)?;
-    let _ = unregister_update_watcher(logger);
-    if req.launch_after {
-        launch_claude(&app, logger);
+        save_patched_version(&app, &req.mode, &req.language, logger)?;
+        let _ = unregister_update_watcher(logger);
+        if req.launch_after {
+            launch_claude(&app, logger);
+        }
+        Ok(())
+    })();
+    if let Err(error) = install_result {
+        logger.error(format!("安装失败，正在尝试从纯净备份恢复官方文件：{error}"));
+        let app_dir = target_resources
+            .parent()
+            .ok_or_else(|| CoreError::Message("resources 路径无父目录。".to_string()))?;
+        let _ = restore_windows_backup_from_snapshot(&pristine_backup, app_dir, &target_resources, logger);
+        for config in claude_config_paths() {
+            let _ = set_config_locale(&config, "en-US", logger);
+        }
+        return Err(error);
     }
     Ok(())
+}
+
+#[cfg(windows)]
+fn windowsapps_permission_targets(resources: &Path) -> Vec<PathBuf> {
+    if resources.starts_with(r"C:\Program Files\WindowsApps") {
+        let mut targets = vec![resources.to_path_buf()];
+        if let Some(app_dir) = resources.parent() {
+            targets.push(app_dir.to_path_buf());
+        }
+        targets
+    } else {
+        Vec::new()
+    }
+}
+
+#[cfg(windows)]
+fn windows_external_backup_root() -> Result<PathBuf> {
+    let Some(local) = dirs::data_local_dir() else {
+        return err("未找到 LocalAppData，无法创建 Windows 包外备份。");
+    };
+    Ok(local.join("ClaudeDesktopZhCn").join("pristine-backups"))
+}
+
+#[cfg(windows)]
+fn windows_external_backup_prefix(app: &Path) -> Result<String> {
+    app.file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| name.to_string())
+        .ok_or_else(|| CoreError::Message(format!("无法识别安装目录名: {}", app.display())))
+}
+
+#[cfg(windows)]
+fn windows_latest_pristine_backup(app: &Path) -> Result<Option<PathBuf>> {
+    let root = windows_external_backup_root()?;
+    let prefix = format!("{}_", windows_external_backup_prefix(app)?);
+    let Ok(entries) = fs::read_dir(&root) else {
+        return Ok(None);
+    };
+    let mut backups: Vec<PathBuf> = entries
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.is_dir()
+                && path
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .is_some_and(|name| name.starts_with(&prefix))
+        })
+        .collect();
+    backups.sort();
+    Ok(backups.pop())
+}
+
+#[cfg(windows)]
+fn windows_resources_look_patched(resources: &Path) -> bool {
+    resources.join("zh-CN.json").exists()
+        || resources.join("zh-CN.lproj").exists()
+        || resources.join("zh_CN.lproj").exists()
+}
+
+#[cfg(windows)]
+fn windows_claude_exe_path(app_dir: &Path) -> Result<PathBuf> {
+    [app_dir.join("Claude.exe"), app_dir.join("claude.exe")]
+        .into_iter()
+        .find(|path| path.is_file())
+        .ok_or_else(|| CoreError::Message(format!("未找到 Claude.exe: {}", app_dir.display())))
+}
+
+#[cfg(windows)]
+fn write_windows_pristine_backup(
+    snapshot_dir: &Path,
+    app: &Path,
+    resources: &Path,
+    logger: &dyn LogSink,
+) -> Result<()> {
+    let app_dir = resources
+        .parent()
+        .ok_or_else(|| CoreError::Message("resources 路径无父目录。".to_string()))?;
+    fs::create_dir_all(snapshot_dir.join("app"))?;
+    copy_file(
+        &windows_claude_exe_path(app_dir)?,
+        &snapshot_dir.join("app").join("Claude.exe"),
+    )?;
+    copy_dir_recursive(resources, &snapshot_dir.join("app").join("resources"))?;
+    write_json(
+        &snapshot_dir.join("metadata.json"),
+        &serde_json::json!({
+            "capturedAt": Local::now().to_rfc3339(),
+            "installLocation": app.display().to_string(),
+            "package": windows_external_backup_prefix(app)?,
+        }),
+    )?;
+    logger.info(format!("已写入包外纯净备份: {}", snapshot_dir.display()));
+    Ok(())
+}
+
+#[cfg(windows)]
+fn ensure_windows_pristine_backup(app: &Path, resources: &Path, logger: &dyn LogSink) -> Result<PathBuf> {
+    if let Some(existing) = windows_latest_pristine_backup(app)? {
+        logger.info(format!("使用现有包外纯净备份: {}", existing.display()));
+        return Ok(existing);
+    }
+    if windows_resources_look_patched(resources) {
+        return err("未找到包外纯净备份，且当前 Claude Desktop 已包含补丁痕迹。请先重装官方 Claude Desktop 并确认能启动，再重新安装补丁。");
+    }
+    let snapshot_dir = windows_external_backup_root()?.join(format!(
+        "{}_{}",
+        windows_external_backup_prefix(app)?,
+        Local::now().format("%Y%m%d-%H%M%S")
+    ));
+    write_windows_pristine_backup(&snapshot_dir, app, resources, logger)?;
+    Ok(snapshot_dir)
 }
 
 #[cfg(windows)]
@@ -566,6 +735,64 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(windows)]
+fn sync_dir_exact(src: &Path, dst: &Path) -> Result<()> {
+    fs::create_dir_all(dst)?;
+    for entry in fs::read_dir(dst)? {
+        let entry = entry?;
+        let target = entry.path();
+        let source = src.join(entry.file_name());
+        if !source.exists() {
+            remove_path(&target)?;
+        }
+    }
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let source = entry.path();
+        let target = dst.join(entry.file_name());
+        if entry.file_type()?.is_dir() {
+            sync_dir_exact(&source, &target)?;
+        } else if entry.file_type()?.is_file() {
+            copy_file(&source, &target)?;
+        }
+    }
+    Ok(())
+}
+
+#[cfg(windows)]
+fn cleanup_windows_restore_artifacts(app_dir: &Path, logger: &dyn LogSink) -> Result<()> {
+    if !app_dir.is_dir() {
+        return Ok(());
+    }
+    let mut removed = 0usize;
+    for entry in fs::read_dir(app_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+        let is_stale_restore_artifact =
+            name.starts_with("resources.restore-current-")
+                || (name.starts_with("Claude.restore-current-") && name.ends_with(".exe"));
+        if !is_stale_restore_artifact {
+            continue;
+        }
+        remove_path(&path)?;
+        removed += 1;
+    }
+    if removed > 0 {
+        logger.info(format!("已清理 {removed} 个旧的 Windows 恢复临时文件。"));
+    }
+    Ok(())
+}
+
+#[cfg(windows)]
+fn try_cleanup_windows_restore_artifacts(app_dir: &Path, logger: &dyn LogSink) {
+    if let Err(error) = cleanup_windows_restore_artifacts(app_dir, logger) {
+        logger.warn(format!("清理旧的 Windows 恢复临时文件失败，将保留残留以避免影响主流程: {error}"));
+    }
 }
 
 #[cfg(not(any(target_os = "macos", windows)))]
@@ -629,14 +856,17 @@ pub(crate) fn platform_restore_patch(logger: &dyn LogSink) -> Result<()> {
 
 #[cfg(windows)]
 pub(crate) fn platform_restore_patch(logger: &dyn LogSink) -> Result<()> {
-    let (_, resources, _) =
+    let (app, resources, _) =
         detect_claude().ok_or_else(|| CoreError::Message("未找到 Claude Desktop。".to_string()))?;
     logger.info(format!(
         "Windows 恢复目标 resources: {}",
         resources.display()
     ));
     quit_claude(logger);
-    restore_windows_backup(&resources, logger)?;
+    for path in windowsapps_permission_targets(&resources) {
+        acquire_windowsapps_permission(&path, logger)?;
+    }
+    restore_windows_backup(&app, &resources, logger)?;
     logger.info("正在删除中文语言资源文件。");
     remove_language_files(&resources)?;
     unregister_language(&resources, logger)?;
@@ -655,12 +885,47 @@ pub(crate) fn platform_restore_patch(_logger: &dyn LogSink) -> Result<()> {
 }
 
 #[cfg(windows)]
-fn restore_windows_backup(resources: &Path, logger: &dyn LogSink) -> Result<()> {
+fn restore_windows_backup(app: &Path, resources: &Path, logger: &dyn LogSink) -> Result<()> {
+    if let Some(snapshot) = windows_latest_pristine_backup(app)? {
+        logger.info(format!("将从包外纯净备份恢复: {}", snapshot.display()));
+        let app_dir = resources
+            .parent()
+            .ok_or_else(|| CoreError::Message("resources 路径无父目录。".to_string()))?;
+        return restore_windows_backup_from_snapshot(&snapshot, app_dir, resources, logger);
+    }
+    logger.warn("没有找到包外纯净备份，尝试旧版包内备份。");
+    if restore_windows_legacy_backup(resources, logger)? {
+        return Ok(());
+    }
+    err("未找到可用的官方备份，无法恢复。请先重装官方 Claude Desktop。")
+}
+
+#[cfg(windows)]
+fn restore_windows_backup_from_snapshot(
+    snapshot: &Path,
+    app_dir: &Path,
+    resources: &Path,
+    logger: &dyn LogSink,
+) -> Result<()> {
+    let backup_resources = snapshot.join("app").join("resources");
+    let backup_exe = snapshot.join("app").join("Claude.exe");
+    if !backup_resources.is_dir() || !backup_exe.is_file() {
+        return err(format!("纯净备份不完整: {}", snapshot.display()));
+    }
+    sync_dir_exact(&backup_resources, resources)?;
+    copy_file(&backup_exe, &app_dir.join("Claude.exe"))?;
+    try_cleanup_windows_restore_artifacts(app_dir, logger);
+    logger.info("已从包外纯净备份恢复官方文件。");
+    Ok(())
+}
+
+#[cfg(windows)]
+fn restore_windows_legacy_backup(resources: &Path, logger: &dyn LogSink) -> Result<bool> {
     let root = resources.join(".zh-cn-backups");
     logger.info(format!("正在查找 Windows 资源备份: {}", root.display()));
     let Some(entries) = fs::read_dir(&root).ok() else {
-        logger.warn("没有找到 Windows 备份，跳过 bundle 恢复。");
-        return Ok(());
+        logger.warn("没有找到 Windows 包内备份。");
+        return Ok(false);
     };
     let mut backups: Vec<PathBuf> = entries
         .flatten()
@@ -669,8 +934,8 @@ fn restore_windows_backup(resources: &Path, logger: &dyn LogSink) -> Result<()> 
         .collect();
     backups.sort();
     let Some(backup) = backups.pop() else {
-        logger.warn("没有找到 Windows 备份，跳过 bundle 恢复。");
-        return Ok(());
+        logger.warn("没有找到 Windows 包内备份。");
+        return Ok(false);
     };
     logger.info(format!("将恢复 Windows 资源备份: {}", backup.display()));
     for entry in WalkDir::new(&backup) {
@@ -684,7 +949,7 @@ fn restore_windows_backup(resources: &Path, logger: &dyn LogSink) -> Result<()> 
     }
     remove_path(&root)?;
     logger.info("已清理 Windows 资源备份目录。");
-    Ok(())
+    Ok(true)
 }
 
 #[cfg(windows)]
@@ -749,4 +1014,210 @@ fn unregister_update_watcher(logger: &dyn LogSink) -> Result<()> {
         logger.info("已移除旧的更新守护计划任务。");
     }
     Ok(())
+}
+
+#[cfg(all(test, windows))]
+mod tests {
+    use super::{
+        cleanup_windows_restore_artifacts, restore_windows_backup_from_snapshot, sync_dir_exact,
+        windows_claude_stop_script, windows_external_backup_prefix, windows_resources_look_patched,
+        windowsapps_permission_targets,
+    };
+    use claude_zh_core::{now_millis, NoopLogger};
+    use std::{fs, path::Path};
+
+    #[test]
+    fn windowsapps_permissions_include_app_dir_for_exe_rewrite() {
+        let resources =
+            Path::new(r"C:\Program Files\WindowsApps\Claude_1.2.3.4_x64__pzs8sxrjxfjjc\app\resources");
+
+        let targets = windowsapps_permission_targets(resources);
+
+        assert_eq!(
+            targets,
+            vec![
+                resources.to_path_buf(),
+                Path::new(
+                    r"C:\Program Files\WindowsApps\Claude_1.2.3.4_x64__pzs8sxrjxfjjc\app"
+                )
+                .to_path_buf()
+            ]
+        );
+    }
+
+    #[test]
+    fn windows_external_backup_prefix_uses_package_dir_name() {
+        let app =
+            Path::new(r"C:\Program Files\WindowsApps\Claude_1.2.3.4_x64__pzs8sxrjxfjjc");
+
+        let prefix = windows_external_backup_prefix(app).unwrap();
+
+        assert_eq!(prefix, "Claude_1.2.3.4_x64__pzs8sxrjxfjjc");
+    }
+
+    #[test]
+    fn windows_resources_look_patched_detects_added_language_files() {
+        let root = std::env::temp_dir().join(format!(
+            "claude-zh-platform-patched-detect-{}",
+            now_millis()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("zh-CN.json"), "{}").unwrap();
+
+        assert!(windows_resources_look_patched(&root));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn restore_windows_backup_from_snapshot_replaces_resources_and_exe() {
+        let root = std::env::temp_dir().join(format!(
+            "claude-zh-platform-restore-snapshot-{}",
+            now_millis()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        let app_dir = root.join("app");
+        let resources = app_dir.join("resources");
+        let snapshot = root.join("snapshot");
+        fs::create_dir_all(resources.join("nested")).unwrap();
+        fs::create_dir_all(snapshot.join("app").join("resources").join("nested")).unwrap();
+        fs::write(app_dir.join("Claude.exe"), b"patched-exe").unwrap();
+        fs::write(
+            app_dir.join("Claude.restore-current-20260609-124541.exe"),
+            b"stale-exe",
+        )
+        .unwrap();
+        fs::create_dir_all(app_dir.join("resources.restore-current-20260609-124541")).unwrap();
+        fs::write(resources.join("app.asar"), b"patched-asar").unwrap();
+        fs::write(resources.join("zh-CN.json"), b"patched-lang").unwrap();
+        fs::write(
+            snapshot.join("app").join("Claude.exe"),
+            b"clean-exe",
+        )
+        .unwrap();
+        fs::write(
+            snapshot.join("app").join("resources").join("app.asar"),
+            b"clean-asar",
+        )
+        .unwrap();
+        fs::write(
+            snapshot
+                .join("app")
+                .join("resources")
+                .join("nested")
+                .join("keep.txt"),
+            b"clean-file",
+        )
+        .unwrap();
+
+        restore_windows_backup_from_snapshot(&snapshot, &app_dir, &resources, &NoopLogger).unwrap();
+
+        assert_eq!(fs::read(app_dir.join("Claude.exe")).unwrap(), b"clean-exe");
+        assert_eq!(fs::read(resources.join("app.asar")).unwrap(), b"clean-asar");
+        assert!(!resources.join("zh-CN.json").exists());
+        assert!(!app_dir
+            .join("Claude.restore-current-20260609-124541.exe")
+            .exists());
+        assert!(!app_dir
+            .join("resources.restore-current-20260609-124541")
+            .exists());
+        assert_eq!(
+            fs::read(resources.join("nested").join("keep.txt")).unwrap(),
+            b"clean-file"
+        );
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn sync_dir_exact_removes_extra_entries_and_restores_expected_files() {
+        let root = std::env::temp_dir().join(format!(
+            "claude-zh-platform-sync-dir-exact-{}",
+            now_millis()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        let src = root.join("src");
+        let dst = root.join("dst");
+        fs::create_dir_all(src.join("nested")).unwrap();
+        fs::create_dir_all(dst.join("extra-dir")).unwrap();
+        fs::write(src.join("same.txt"), b"clean").unwrap();
+        fs::write(src.join("nested").join("keep.txt"), b"keep").unwrap();
+        fs::write(dst.join("same.txt"), b"patched").unwrap();
+        fs::write(dst.join("extra.txt"), b"extra").unwrap();
+        fs::write(dst.join("extra-dir").join("extra.txt"), b"extra").unwrap();
+
+        sync_dir_exact(&src, &dst).unwrap();
+
+        assert_eq!(fs::read(dst.join("same.txt")).unwrap(), b"clean");
+        assert_eq!(fs::read(dst.join("nested").join("keep.txt")).unwrap(), b"keep");
+        assert!(!dst.join("extra.txt").exists());
+        assert!(!dst.join("extra-dir").exists());
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn cleanup_windows_restore_artifacts_removes_only_stale_restore_entries() {
+        let root = std::env::temp_dir().join(format!(
+            "claude-zh-platform-cleanup-restore-artifacts-{}",
+            now_millis()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("resources.restore-current-20260609-124541")).unwrap();
+        fs::write(
+            root.join("Claude.restore-current-20260609-124541.exe"),
+            b"stale-exe",
+        )
+        .unwrap();
+        fs::write(root.join("Claude.exe"), b"real-exe").unwrap();
+        fs::create_dir_all(root.join("resources")).unwrap();
+
+        cleanup_windows_restore_artifacts(&root, &NoopLogger).unwrap();
+
+        assert!(!root
+            .join("resources.restore-current-20260609-124541")
+            .exists());
+        assert!(!root
+            .join("Claude.restore-current-20260609-124541.exe")
+            .exists());
+        assert!(root.join("Claude.exe").exists());
+        assert!(root.join("resources").exists());
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn cleanup_windows_restore_artifacts_removes_readonly_stale_restore_entries() {
+        let root = std::env::temp_dir().join(format!(
+            "claude-zh-platform-cleanup-readonly-restore-artifacts-{}",
+            now_millis()
+        ));
+        let stale_dir = root.join("resources.restore-current-20260609-124541");
+        let stale_file = stale_dir.join("readonly.txt");
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&stale_dir).unwrap();
+        fs::write(&stale_file, b"stale").unwrap();
+        let mut permissions = fs::metadata(&stale_file).unwrap().permissions();
+        permissions.set_readonly(true);
+        fs::set_permissions(&stale_file, permissions).unwrap();
+
+        cleanup_windows_restore_artifacts(&root, &NoopLogger).unwrap();
+
+        assert!(!stale_dir.exists());
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn windows_quit_script_kills_inaccessible_claude_processes() {
+        let script = windows_claude_stop_script();
+
+        assert!(script.contains("Get-CimInstance Win32_Process"));
+        assert!(script.contains("$_.ExecutablePath"));
+        assert!(script.contains("ParentProcessId"));
+        assert!(script.contains("WindowsApps\\Claude_*"));
+        assert!(script.contains("AnthropicClaude\\app-*\\*"));
+        assert!(script.contains("Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue"));
+    }
 }

@@ -160,11 +160,7 @@ fn elevated_command(exe: &Path, request_path: &Path) -> Result<Command> {
 
 #[cfg(windows)]
 fn elevated_command(exe: &Path, request_path: &Path) -> Result<Command> {
-    let command = format!(
-        "Start-Process -FilePath {} -ArgumentList @('--cli-file',{}) -Verb RunAs -WindowStyle Hidden -Wait",
-        powershell_single_quote(&exe.display().to_string()),
-        powershell_single_quote(&request_path.display().to_string())
-    );
+    let command = elevated_command_script(exe, request_path);
     let mut cmd = Command::new("powershell.exe");
     cmd.args([
         "-NoProfile",
@@ -176,6 +172,15 @@ fn elevated_command(exe: &Path, request_path: &Path) -> Result<Command> {
     ]);
     hide_command_window(&mut cmd);
     Ok(cmd)
+}
+
+#[cfg(windows)]
+fn elevated_command_script(exe: &Path, request_path: &Path) -> String {
+    format!(
+        "$p = Start-Process -FilePath {} -ArgumentList @('--cli-file',{}) -Verb RunAs -WindowStyle Hidden -PassThru; $null = $p.WaitForExit(); exit $p.ExitCode",
+        powershell_single_quote(&exe.display().to_string()),
+        powershell_single_quote(&request_path.display().to_string())
+    )
 }
 
 #[cfg(windows)]
@@ -191,4 +196,23 @@ fn elevated_command(_exe: &Path, _request_path: &Path) -> Result<Command> {
 #[cfg(target_os = "macos")]
 fn shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\\''"))
+}
+
+#[cfg(all(test, windows))]
+mod tests {
+    use super::elevated_command_script;
+    use std::path::Path;
+
+    #[test]
+    fn windows_elevated_command_waits_for_installer_process_only() {
+        let script = elevated_command_script(
+            Path::new(r"C:\tool\claude-desktop-zh-cn-rs.exe"),
+            Path::new(r"C:\Temp\request.json"),
+        );
+
+        assert!(script.contains("-PassThru"));
+        assert!(script.contains(".WaitForExit()"));
+        assert!(script.contains("exit $p.ExitCode"));
+        assert!(!script.contains(" -Wait"));
+    }
 }

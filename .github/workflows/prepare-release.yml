@@ -58,9 +58,50 @@ jobs:
         env:
           VERSION: ${{ inputs.version }}
 
-      - name: Validate scripts
+      - name: Validate release structure
         run: |
-          bash -n install-mac.command
+          python3 - <<'PY'
+          import json
+          import tomllib
+          from pathlib import Path
+
+          package_json = json.loads(Path("apps/desktop/package.json").read_text(encoding="utf-8"))
+          package_lock = json.loads(Path("apps/desktop/package-lock.json").read_text(encoding="utf-8"))
+          cargo_toml = tomllib.loads(Path("apps/desktop/src-tauri/Cargo.toml").read_text(encoding="utf-8"))
+          tauri_conf = json.loads(Path("apps/desktop/src-tauri/tauri.conf.json").read_text(encoding="utf-8"))
+          release_json = json.loads(Path("resources/release.json").read_text(encoding="utf-8"))
+
+          package_name = package_json["name"]
+          lock_name = package_lock["name"]
+          lock_root_name = package_lock["packages"][""]["name"]
+          cargo_name = cargo_toml["package"]["name"]
+          product_name = tauri_conf["productName"]
+
+          if not (package_name == lock_name == lock_root_name == cargo_name):
+              raise SystemExit(
+                  "Desktop package names are inconsistent across package.json, package-lock.json, and src-tauri/Cargo.toml; this shared package name determines the CLI/exe filename."
+              )
+
+          if package_name != "claude-desktop-zh-cn":
+              raise SystemExit(
+                  "Desktop package name must remain claude-desktop-zh-cn because the shared package name is the source of the built CLI/exe filename."
+              )
+
+          if product_name != "Claude-Zh":
+              raise SystemExit(
+                  "src-tauri/tauri.conf.json productName must remain Claude-Zh; it is the installer/display name and is validated separately from the CLI/exe filename."
+              )
+
+          if release_json.get("repo") != "javaht/claude-desktop-zh-cn":
+              raise SystemExit("resources/release.json repo must match javaht/claude-desktop-zh-cn")
+
+          if "release" not in release_json:
+              raise SystemExit("resources/release.json must contain a release field")
+
+          print(
+              "Validated desktop naming chain: package name 'claude-desktop-zh-cn' drives the CLI/exe filename, while productName 'Claude-Zh' remains the installer/display name."
+          )
+          PY
           git diff --check
 
       - name: Commit and tag
@@ -112,7 +153,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: claude-desktop-zh-cn-rs/apps/desktop/package-lock.json
+          cache-dependency-path: apps/desktop/package-lock.json
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -121,33 +162,31 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: |
-            claude-desktop-zh-cn-rs -> claude-desktop-zh-cn-rs/target
-            claude-desktop-zh-cn-rs/apps/desktop/src-tauri -> claude-desktop-zh-cn-rs/apps/desktop/src-tauri/target
+            # Root Cargo workspace writes build artifacts to the repository target/
+            . -> target
 
       - name: Install frontend dependencies
-        working-directory: claude-desktop-zh-cn-rs/apps/desktop
+        working-directory: apps/desktop
         run: npm ci
 
       - name: Run Rust tests
-        working-directory: claude-desktop-zh-cn-rs
         run: cargo test --workspace
 
       - name: Build Tauri installer
-        working-directory: claude-desktop-zh-cn-rs/apps/desktop
+        working-directory: apps/desktop
         run: npm run tauri -- build --ci --no-sign --bundles ${{ matrix.bundles }}
 
       - name: List bundle outputs
         shell: bash
         run: |
-          find claude-desktop-zh-cn-rs/target/release/bundle claude-desktop-zh-cn-rs/apps/desktop/src-tauri/target/release/bundle -maxdepth 3 -type f -print 2>/dev/null || true
+          find target/release/bundle -maxdepth 3 -type f -print 2>/dev/null || true
 
       - name: Upload installer artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
           path: |
-            claude-desktop-zh-cn-rs/target/release/bundle/**
-            claude-desktop-zh-cn-rs/apps/desktop/src-tauri/target/release/bundle/**
+            target/release/bundle/**
           if-no-files-found: error
 
   publish-rs-installers:

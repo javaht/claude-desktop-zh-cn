@@ -322,7 +322,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "claude-desktop-zh-cn-rs"
+name = "claude-desktop-zh-cn"
 version = "0.1.6"
 dependencies = [
  "claude-zh-core",

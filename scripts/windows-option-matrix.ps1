@@ -40,7 +40,7 @@ function Test-IsAdmin {
 }
 
 if ([string]::IsNullOrWhiteSpace($ExePath)) {
-    $ExePath = Join-Path $RepoRoot "target\release\claude-desktop-zh-cn-rs.exe"
+    $ExePath = Join-Path $RepoRoot "target\release\claude-desktop-zh-cn.exe"
 }
 if ([string]::IsNullOrWhiteSpace($ResourcesPath)) {
     $ResourcesPath = Join-Path $RepoRoot "resources"

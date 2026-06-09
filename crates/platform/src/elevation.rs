@@ -210,8 +210,9 @@ mod tests {
 
     #[test]
     fn windows_elevated_command_waits_for_installer_process_only() {
+        // The elevated child process uses the built exe filename, which follows the shared package name.
         let script = elevated_command_script(
-            Path::new(r"C:\tool\claude-desktop-zh-cn-rs.exe"),
+            Path::new(r"C:\tool\claude-desktop-zh-cn.exe"),
             Path::new(r"C:\Temp\request.json"),
         );
 

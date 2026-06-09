@@ -1,13 +1,13 @@
 {
-  "name": "claude-desktop-zh-cn-rs",
+  "name": "claude-desktop-zh-cn",
   "version": "0.1.6",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "node ./node_modules/typescript/lib/tsc.js && node ./node_modules/vite/bin/vite.js build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "node ./node_modules/@tauri-apps/cli/tauri.js"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.9.0",

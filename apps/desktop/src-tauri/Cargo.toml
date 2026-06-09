@@ -1,12 +1,12 @@
 [package]
-name = "claude-desktop-zh-cn-rs"
+name = "claude-desktop-zh-cn"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
 
 [lib]
-name = "claude_desktop_zh_cn_rs_lib"
+name = "claude_desktop_zh_cn_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

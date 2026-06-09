@@ -38,7 +38,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: claude-desktop-zh-cn-rs/apps/desktop/package-lock.json
+          cache-dependency-path: apps/desktop/package-lock.json
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -47,33 +47,31 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: |
-            claude-desktop-zh-cn-rs -> claude-desktop-zh-cn-rs/target
-            claude-desktop-zh-cn-rs/apps/desktop/src-tauri -> claude-desktop-zh-cn-rs/apps/desktop/src-tauri/target
+            # Root Cargo workspace writes build artifacts to the repository target/
+            . -> target
 
       - name: Install frontend dependencies
-        working-directory: claude-desktop-zh-cn-rs/apps/desktop
+        working-directory: apps/desktop
         run: npm ci
 
       - name: Run Rust tests
-        working-directory: claude-desktop-zh-cn-rs
         run: cargo test --workspace
 
       - name: Build Tauri installer
-        working-directory: claude-desktop-zh-cn-rs/apps/desktop
+        working-directory: apps/desktop
         run: npm run tauri -- build --ci --no-sign --bundles ${{ matrix.bundles }}
 
       - name: List bundle outputs
         shell: bash
         run: |
-          find claude-desktop-zh-cn-rs/target/release/bundle claude-desktop-zh-cn-rs/apps/desktop/src-tauri/target/release/bundle -maxdepth 3 -type f -print 2>/dev/null || true
+          find target/release/bundle -maxdepth 3 -type f -print 2>/dev/null || true
 
       - name: Upload installer artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
           path: |
-            claude-desktop-zh-cn-rs/target/release/bundle/**
-            claude-desktop-zh-cn-rs/apps/desktop/src-tauri/target/release/bundle/**
+            target/release/bundle/**
           if-no-files-found: error
 
   publish-release:

@@ -1,0 +1,51 @@
+name: 校验 PR 标题
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  check-title:
+    name: 检查 PR 标题格式
+    runs-on: ubuntu-latest
+    steps:
+      - name: 校验 Conventional Commits 格式
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            perf
+            test
+            build
+            ci
+            chore
+            revert
+          scopes: |
+            安装器
+            核心
+            前端
+            平台
+            CI
+            文档
+            发布
+            依赖
+            仓库结构
+          requireScope: false
+          subjectPattern: ^.{1,50}$
+          subjectPatternError: |
+            PR 标题描述部分不超过 50 个字符，当前: "{subject}"
+          headerPattern: ^(?:Revert ")?(\w+)(?:\(([^)]+)\))?: (.+)$
+          headerPatternError: |
+            PR 标题格式必须为 `type(scope): 中文描述`，例如：
+            - feat(安装器): 添加 Windows 安装前环境检查
+            - fix(平台): 修复 macOS 恢复流程路径判断
+            - docs(规范): 新增中文 GitHub 协作规范

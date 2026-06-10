@@ -1,0 +1,67 @@
+name: 功能建议
+description: 提出新功能或改进建议
+title: "[Feature] "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢你的建议！请尽量详细描述你的需求，这有助于我们更好地理解和实现。
+
+  - type: textarea
+    id: feature_description
+    attributes:
+      label: 功能描述
+      description: 简要描述你希望添加的功能
+      placeholder: 例如：希望添加安装进度条显示
+    validations:
+      required: true
+
+  - type: textarea
+    id: use_case
+    attributes:
+      label: 使用场景
+      description: 描述你在什么场景下需要这个功能
+      placeholder: 例如：安装时不知道进度，用户体验不好
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: 预期效果
+      description: 描述你期望的功能表现
+      placeholder: 例如：安装过程中显示百分比进度条
+    validations:
+      required: false
+
+  - type: textarea
+    id: implementation_idea
+    attributes:
+      label: 实现思路
+      description: 如果你有实现想法，请在这里描述
+      placeholder: 例如：可以使用 Tauri 的事件机制向前端推送进度
+    validations:
+      required: false
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: 涉及平台
+      description: 这个功能涉及哪些平台
+      multiple: false
+      options:
+        - Windows
+        - macOS
+        - 两个平台都涉及
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: 补充信息
+      description: 其他需要补充的信息，如截图、参考链接等
+    validations:
+      required: false

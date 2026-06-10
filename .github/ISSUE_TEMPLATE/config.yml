@@ -1,1 +1,8 @@
 blank_issues_enabled: false
+contact_links:
+  - name: GitHub Discussions
+    url: https://github.com/javaht/claude-desktop-zh-cn/discussions
+    about: 参与讨论、分享经验、提出开放性问题
+  - name: 常见问题
+    url: https://github.com/javaht/claude-desktop-zh-cn/blob/main/SUPPORT.md
+    about: 查看常见问题和解决方案

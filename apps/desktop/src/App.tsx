@@ -25,7 +25,7 @@ import { useTheme } from "./hooks/useTheme";
 import type { ActionStarted, Language, PatchMode } from "./types";
 
 export default function App() {
-  useTheme(); // 跟随系统主题，无需消费返回值
+  const { theme } = useTheme(); // 跟随系统主题
   const reduced = useReducedMotion();
   const { env, detectEnvironment } = useEnvironment();
   const {
@@ -48,7 +48,7 @@ export default function App() {
     void runRefresh();
   }, [runRefresh]);
 
-  const { pendingUpdate, approveUpdate, dismissUpdate } = useResourceRelease(appendLog, runBackgroundAction);
+  const { pendingUpdate, approveUpdate, dismissUpdate } = useResourceRelease(appendLog, runBackgroundAction, Boolean(busy));
 
   const canRun = Boolean(env?.resourcesOk && env?.claudePath && !busy);
 
@@ -97,7 +97,7 @@ export default function App() {
     <div className="flex flex-col h-screen bg-background text-foreground">
       <TitleBar />
       <motion.main
-        className="flex-1 overflow-hidden flex flex-col p-4 gap-4"
+        className="flex-1 overflow-y-auto flex flex-col p-4 gap-4"
         variants={staggerContainer}
         initial="hidden"
         animate="visible"
@@ -155,7 +155,7 @@ export default function App() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <Toaster richColors position="bottom-right" closeButton />
+      <Toaster richColors position="bottom-right" closeButton theme={theme} />
     </div>
   );
 }

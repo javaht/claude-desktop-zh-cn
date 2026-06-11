@@ -34,15 +34,17 @@ function MacTitleBar() {
       <div
         data-tauri-drag-region="false"
         className="absolute left-0 top-0 flex items-center gap-2 pl-3 h-full z-10"
+        role="group"
+        aria-label="窗口控制"
       >
         <TrafficLight color="#FF5F57" onClick={handleClose} title="关闭">
-          <X size={8} strokeWidth={2.5} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+          <X size={8} strokeWidth={2.5} className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity" />
         </TrafficLight>
         <TrafficLight color="#FEBC2E" onClick={handleMinimize} title="最小化">
-          <Minus size={8} strokeWidth={2.5} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+          <Minus size={8} strokeWidth={2.5} className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity" />
         </TrafficLight>
         <TrafficLight color="#28C840" onClick={handleToggleMaximize} title="最大化">
-          <Maximize2 size={7} strokeWidth={2.5} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+          <Maximize2 size={7} strokeWidth={2.5} className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity" />
         </TrafficLight>
       </div>
 
@@ -72,10 +74,11 @@ function TrafficLight({
     <button
       type="button"
       title={title}
+      aria-label={title}
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="group relative w-3 h-3 rounded-full border border-black/[0.06] flex items-center justify-center transition-colors"
+      className="group relative w-3 h-3 rounded-full border border-black/[0.06] flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
       style={{ backgroundColor: color }}
     >
       {hovered && (
@@ -136,9 +139,10 @@ function WinButton({
     <button
       type="button"
       title={title}
+      aria-label={title}
       onClick={onClick}
       className={cn(
-        "w-[46px] h-8 flex items-center justify-center text-foreground transition-colors",
+        "w-[46px] h-8 flex items-center justify-center text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
         isClose
           ? "hover:bg-destructive hover:text-destructive-foreground"
           : "hover:bg-muted"

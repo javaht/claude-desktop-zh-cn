@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { toast } from "sonner";
 import type { ActionStarted, GitHubRelease, LogEvent, ResourceReleaseManifest } from "../types";
 import { compareVersions, normalizeVersion } from "../utils/version";
 
@@ -15,6 +16,7 @@ export function useResourceRelease(
     name: string,
     fn: (actionId: string) => Promise<ActionStarted>,
   ) => Promise<void>,
+  busy: boolean,
 ) {
   const checkedResourceUpdateRef = useRef(false);
   const [pendingUpdate, setPendingUpdate] = useState<PendingUpdate | null>(null);
@@ -22,6 +24,10 @@ export function useResourceRelease(
   runBackgroundActionRef.current = runBackgroundAction;
 
   const approveUpdate = useCallback(async () => {
+    if (busy) {
+      toast.warning("当前有任务在执行，请稍候再确认");
+      return;
+    }
     if (!pendingUpdate) return;
     const { release, zipballUrl, repo } = pendingUpdate;
     setPendingUpdate(null);
@@ -33,7 +39,7 @@ export function useResourceRelease(
         repo,
       }),
     );
-  }, [pendingUpdate]);
+  }, [busy, pendingUpdate]);
 
   const dismissUpdate = useCallback(() => {
     setPendingUpdate(null);

@@ -1,11 +1,11 @@
 import { useEffect, useRef } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { Copy, Eraser, ScrollText, Terminal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { fadeInUp, useReducedMotion } from "../lib/motion";
+import { useReducedMotion } from "../lib/motion";
 import type { LogEvent } from "../types";
 
 type LogPanelProps = {
@@ -67,21 +67,15 @@ export function LogPanel({ logs, logText, onCopy, onClear }: LogPanelProps) {
                 <span className="text-xs text-muted-foreground">暂无日志</span>
               </motion.div>
             ) : (
-              <AnimatePresence initial={false}>
-                {logs.map((log, i) => (
-                  <motion.div
+                logs.map((log, i) => (
+                  <div
                     key={i}
-                    variants={fadeInUp}
-                    initial="hidden"
-                    animate="visible"
-                    transition={{ duration: reduced ? 0 : 0.2, ease: "easeOut" }}
                     className={`${levelColor(log.level)} py-0.5`}
                   >
                     {log.message}
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            )}
+                  </div>
+                ))
+              )}
             <div ref={logEndRef} />
           </div>
         </ScrollArea>

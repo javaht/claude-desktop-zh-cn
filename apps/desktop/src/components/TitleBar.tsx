@@ -92,69 +92,23 @@ function TrafficLight({
 
 /* ─────────────────────────────── Windows ─────────────────────────────── */
 
-function WinTitleBar() {
-  return (
-    <div
-      data-tauri-drag-region
-      className={cn(
-        "relative flex items-center h-8 bg-background border-b border-border select-none shrink-0"
-      )}
-    >
-      {/* 左侧应用名 */}
-      <span className="ml-3 text-sm font-medium text-foreground pointer-events-none">
-        Claude-Zh
-      </span>
-
-      {/* 右侧控制按钮 —— 排除拖拽 */}
-      <div
-        data-tauri-drag-region="false"
-        className="absolute right-0 top-0 flex items-center h-full"
-      >
-        <WinButton onClick={handleMinimize} title="最小化">
-          <Minus size={16} />
-        </WinButton>
-        <WinButton onClick={handleToggleMaximize} title="最大化">
-          <Maximize2 size={14} />
-        </WinButton>
-        <WinButton onClick={handleClose} title="关闭" isClose>
-          <X size={16} />
-        </WinButton>
-      </div>
-    </div>
-  )
-}
-
-function WinButton({
-  onClick,
-  title,
-  isClose = false,
-  children,
-}: {
-  onClick: () => void
-  title: string
-  isClose?: boolean
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      title={title}
-      aria-label={title}
-      onClick={onClick}
-      className={cn(
-        "w-[46px] h-8 flex items-center justify-center text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
-        isClose
-          ? "hover:bg-destructive hover:text-destructive-foreground"
-          : "hover:bg-muted"
-      )}
-    >
-      {children}
-    </button>
-  )
+/**
+ * Windows 平台使用原生窗口装饰（标题栏 + 控制按钮）。
+ *
+ * WebView2 在 Windows 无边框模式（decorations: false）下存在
+ * 渲染管线限制：自绘 HTML 内容在客户端区域仅左侧 ~100px 可见，
+ * 右侧大面积不可见（经 BitBlt 像素验证确认）。
+ *
+ * 回退方案：在 lib.rs setup hook 中调用 set_decorations(true)
+ * 启用原生标题栏，此组件返回 null 不渲染自绘 TitleBar。
+ * macOS 保持无边框 + 自绘红绿灯。
+ */
+function WinNativeTitleBar() {
+  return null
 }
 
 /* ─────────────────────────────── 入口 ─────────────────────────────── */
 
 export function TitleBar() {
-  return isMacOS ? <MacTitleBar /> : <WinTitleBar />
+  return isMacOS ? <MacTitleBar /> : <WinNativeTitleBar />
 }

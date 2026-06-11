@@ -323,6 +323,16 @@ pub fn run() {
             sync_cc_switch_skills,
             unsync_cc_switch_skills
         ])
+        .setup(|app| {
+            // Windows 平台启用原生窗口装饰（标题栏 + 控制按钮），
+            // 回避 WebView2 无边框模式下自绘内容大面积不可见的渲染问题。
+            #[cfg(target_os = "windows")]
+            {
+                let window = app.get_webview_window("main").unwrap();
+                let _ = window.set_decorations(true);
+            }
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

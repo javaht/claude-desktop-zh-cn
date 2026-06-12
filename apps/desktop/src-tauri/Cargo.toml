@@ -18,4 +18,5 @@ claude-zh-platform = { path = "../../../crates/platform" }
 serde.workspace = true
 serde_json.workspace = true
 tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
 thiserror.workspace = true

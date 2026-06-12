@@ -6,12 +6,22 @@ use std::{
     io::Write,
     path::PathBuf,
     process::{Command, Stdio},
+    sync::atomic::{AtomicBool, Ordering},
 };
 #[cfg(windows)]
 use windows::Win32::Globalization::{MultiByteToWideChar, CP_OEMCP, MULTI_BYTE_TO_WIDE_CHAR_FLAGS};
 
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+/// 当 FileLogger 用于提权子进程时（父进程通过 jsonl 文件读日志），
+/// 不应该再向 stdout 打印——父进程已将子进程 stdout 设为 Stdio::null()，
+/// 写入只是浪费且会让本地排查日志变得嘈杂。
+static FILE_LOGGER_SILENT_STDOUT: AtomicBool = AtomicBool::new(false);
+
+pub fn set_file_logger_silent_stdout(silent: bool) {
+    FILE_LOGGER_SILENT_STDOUT.store(silent, Ordering::Relaxed);
+}
 
 pub struct FileLogger {
     path: PathBuf,
@@ -40,7 +50,9 @@ impl LogSink for FileLogger {
             let _ = serde_json::to_writer(&mut file, &event);
             let _ = file.write_all(b"\n");
         }
-        println!("[{level}] {message}");
+        if !FILE_LOGGER_SILENT_STDOUT.load(Ordering::Relaxed) {
+            println!("[{level}] {message}");
+        }
     }
 }
 

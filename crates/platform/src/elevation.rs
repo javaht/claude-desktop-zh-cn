@@ -18,7 +18,6 @@ use crate::{
         install_patch, restore_patch, set_auto_updates, sync_cc_switch_skills,
         unsync_cc_switch_skills,
     },
-    logging::decode_command_output,
     resources::resolve_resources,
 };
 
@@ -81,9 +80,11 @@ pub fn run_elevated_cli(
     }
     logger.info("需要管理员权限，正在请求系统授权。");
 
+    // 提权子进程的所有日志走 jsonl 文件，stdout/stderr 直接丢弃，
+    // 避免 OS pipe 填满后 println! 阻塞子进程、而父进程又一直等子进程退出的死锁。
     let mut child = elevated_command(&exe, &request_path)?
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .spawn()?;
     logger.info("授权流程已提交，正在等待管理员子进程写入日志。");
     let start = Instant::now();
@@ -93,17 +94,6 @@ pub fn run_elevated_cli(
         offset = drain_jsonl_log(&log_path, offset, logger)?;
         if let Some(status) = child.try_wait()? {
             let _ = drain_jsonl_log(&log_path, offset, logger)?;
-            let output = child.wait_with_output()?;
-            for line in decode_command_output(&output.stdout).lines() {
-                if !line.trim().is_empty() {
-                    logger.info(line);
-                }
-            }
-            for line in decode_command_output(&output.stderr).lines() {
-                if !line.trim().is_empty() {
-                    logger.warn(line);
-                }
-            }
             let _ = fs::remove_file(&request_path);
             if !status.success() {
                 return err(format!("管理员子进程失败，退出码: {status}"));

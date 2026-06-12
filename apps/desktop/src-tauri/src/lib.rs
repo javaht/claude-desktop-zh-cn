@@ -6,6 +6,7 @@ use serde::Serialize;
 use std::{
     collections::HashMap,
     env, fs,
+    panic::{catch_unwind, AssertUnwindSafe},
     path::PathBuf,
     sync::{Mutex, OnceLock},
 };
@@ -84,6 +85,9 @@ fn action_logs() -> &'static Mutex<HashMap<String, ActionLogState>> {
 
 fn init_action_log(action_id: &str) {
     let mut logs = action_logs().lock().expect("action log lock poisoned");
+    if logs.len() > 64 {
+        logs.retain(|_, state| state.finished.is_none());
+    }
     logs.entry(action_id.to_string()).or_insert(ActionLogState {
         logs: Vec::new(),
         finished: None,
@@ -161,8 +165,23 @@ where
     logger.info(format!("后台任务已启动：{action}，日志会持续写入下方。"));
     async_runtime::spawn_blocking(move || {
         let task_logger = TauriLogger::for_action(task_app.clone(), task_action_id.clone());
-        let result = task(task_logger.clone(), resource_dir).map_err(|error| error.to_string());
-        let error = result.err();
+        let result = catch_unwind(AssertUnwindSafe(|| {
+            task(task_logger.clone(), resource_dir).map_err(|error| error.to_string())
+        }));
+        let error = match result {
+            Ok(Ok(())) => None,
+            Ok(Err(msg)) => Some(msg),
+            Err(panic_payload) => {
+                let message = if let Some(s) = panic_payload.downcast_ref::<&str>() {
+                    s.to_string()
+                } else if let Some(s) = panic_payload.downcast_ref::<String>() {
+                    s.clone()
+                } else {
+                    "unknown panic".to_string()
+                };
+                Some(format!("后台任务发生 panic: {message}"))
+            }
+        };
         if let Some(message) = &error {
             task_logger.error(message);
         }
@@ -193,7 +212,7 @@ fn install_patch(app: AppHandle, action_id: String, request: InstallRequest) -> 
 
 #[tauri::command]
 fn drain_action_logs(action_id: String, offset: usize) -> ActionLogDrain {
-    let logs = action_logs().lock().expect("action log lock poisoned");
+    let mut logs = action_logs().lock().expect("action log lock poisoned");
     let Some(state) = logs.get(&action_id) else {
         return ActionLogDrain {
             logs: Vec::new(),
@@ -202,10 +221,17 @@ fn drain_action_logs(action_id: String, offset: usize) -> ActionLogDrain {
         };
     };
     let start = offset.min(state.logs.len());
+    let drained_logs = state.logs[start..].to_vec();
+    let next_offset = state.logs.len();
+    let finished = state.finished.clone();
+    // 若已完成且前端已拿到全部日志，清理该 entry
+    if state.finished.is_some() && next_offset == state.logs.len() {
+        logs.remove(&action_id);
+    }
     ActionLogDrain {
-        logs: state.logs[start..].to_vec(),
-        next_offset: state.logs.len(),
-        finished: state.finished.clone(),
+        logs: drained_logs,
+        next_offset,
+        finished,
     }
 }
 
@@ -257,6 +283,7 @@ fn run_cli_file(path: PathBuf) -> i32 {
             return 2;
         }
     };
+    platform::set_file_logger_silent_stdout(true);
     let logger_path = request.log_path.clone();
     let logger = logger_path
         .map(FileLogger::new)
@@ -285,6 +312,7 @@ pub fn run() {
                 eprintln!("missing --cli-action value");
                 std::process::exit(2);
             };
+            platform::set_file_logger_silent_stdout(true);
             let logger = FileLogger::new(env::temp_dir().join("claude-zh-cn-rs-cli.jsonl"));
             let request = CliRequest {
                 action,

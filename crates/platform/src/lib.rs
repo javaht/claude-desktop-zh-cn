@@ -17,7 +17,7 @@ pub use environment::{
 pub use environment::{
     detect_windows_claude_in_localappdata, detect_windows_claude_in_windowsapps,
 };
-pub use logging::{run_command, FileLogger};
+pub use logging::{run_command, set_file_logger_silent_stdout, FileLogger};
 pub use paths::{
     cc_switch_skills_dir, claude_config_paths, config_library_paths, skills_plugin_root, user_home,
 };

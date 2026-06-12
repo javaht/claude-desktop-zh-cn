@@ -3,6 +3,7 @@ use claude_zh_core::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
+    collections::HashSet,
     env, fs,
     path::{Path, PathBuf},
     process::Command,
@@ -82,6 +83,7 @@ pub fn install_resource_update(
     let archive = temp_root.join("release.zip");
     let unpack_dir = temp_root.join("unpacked");
     fs::create_dir_all(&unpack_dir)?;
+    ensure_resources_writable(&target_resources)?;
     logger.info(format!("开始下载补丁资源更新: {zipball_url}"));
     download_release_archive(zipball_url, &archive, logger)?;
     logger.info("补丁资源下载完成，开始解压。");
@@ -102,7 +104,47 @@ pub fn install_resource_update(
     Ok(())
 }
 
+fn ensure_resources_writable(target: &Path) -> Result<()> {
+    let probe = target.join(format!(".zh-cn-writable-probe-{}", Uuid::new_v4()));
+    fs::write(&probe, [0u8]).map_err(|e| {
+        err::<()>(format!(
+            "随包资源目录不可写：{}。请使用最新安装器升级整个应用，或以管理员身份重新启动后再试。底层错误：{e}",
+            target.display()
+        ))
+        .unwrap_err()
+    })?;
+    let _ = fs::remove_file(&probe);
+    Ok(())
+}
+
 fn copy_resources_over(source: &Path, target: &Path) -> Result<()> {
+    // 收集 source 中所有文件的相对路径
+    let mut source_files = HashSet::new();
+    for entry in WalkDir::new(source) {
+        let entry = entry?;
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        let rel = entry.path().strip_prefix(source).unwrap();
+        source_files.insert(rel.to_path_buf());
+    }
+    // 删除 target 中不在 source 集合中的 stale 文件
+    if target.is_dir() {
+        for entry in WalkDir::new(target) {
+            let entry = entry?;
+            if !entry.file_type().is_file() {
+                continue;
+            }
+            let rel = match entry.path().strip_prefix(target) {
+                Ok(r) => r,
+                Err(_) => continue,
+            };
+            if !source_files.contains(rel) {
+                let _ = remove_path(entry.path());
+            }
+        }
+    }
+    // 从 source 复制到 target
     for entry in WalkDir::new(source) {
         let entry = entry?;
         let rel = entry.path().strip_prefix(source).unwrap();

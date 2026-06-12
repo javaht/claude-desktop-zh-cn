@@ -36,7 +36,6 @@ export default function App() {
     logText,
     lastError,
     appendLog,
-    setLogs,
     runAction,
     runBackgroundAction,
     runRefresh,
@@ -102,7 +101,7 @@ export default function App() {
             <div className="flex rounded-xl overflow-hidden h-8 select-none bg-neutral-100/60 dark:bg-neutral-800/30 ring-1 ring-border/30 dark:ring-border/20">
               <button
                 type="button"
-                onClick={() => void openUrl("https://github.com/anthropics/claude-code/issues")}
+                onClick={() => void openUrl("https://github.com/javaht/claude-desktop-zh-cn/issues")}
                 className="flex-1 flex items-center justify-center gap-1.5 text-neutral-600 dark:text-neutral-300 hover:text-sky-700 dark:hover:text-sky-300 hover:bg-sky-500/[0.06] dark:hover:bg-sky-400/[0.08] transition-all duration-200 cursor-pointer active:scale-[0.98] group"
                 title="去 GitHub Issues 反馈问题"
                 aria-label="遇到问题"
@@ -113,9 +112,9 @@ export default function App() {
               <div className="w-px bg-border/30 self-stretch" />
               <button
                 type="button"
-                onClick={() => void openUrl("https://github.com/anthropics/claude-code")}
+                onClick={() => void openUrl("https://github.com/javaht/claude-desktop-zh-cn")}
                 className="flex-1 flex items-center justify-center gap-1.5 text-neutral-600 dark:text-neutral-300 hover:text-amber-800 dark:hover:text-amber-200 hover:bg-amber-500/[0.06] dark:hover:bg-amber-400/[0.08] transition-all duration-200 cursor-pointer active:scale-[0.98] group"
-                title="给 Claude Code 点个 Star"
+                title="给本项目点个 Star"
                 aria-label="点个 Star"
               >
                 <Star className="h-4 w-4 flex-shrink-0 text-neutral-500 group-hover:text-amber-600 dark:text-neutral-400 dark:group-hover:text-amber-400 group-hover:rotate-12 transition-all duration-200" />

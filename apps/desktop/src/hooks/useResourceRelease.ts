@@ -7,7 +7,6 @@ import { compareVersions, normalizeVersion } from "../utils/version";
 type PendingUpdate = {
   release: string;
   zipballUrl: string;
-  repo: string;
 };
 
 export function useResourceRelease(
@@ -29,14 +28,13 @@ export function useResourceRelease(
       return;
     }
     if (!pendingUpdate) return;
-    const { release, zipballUrl, repo } = pendingUpdate;
+    const { release, zipballUrl } = pendingUpdate;
     setPendingUpdate(null);
     await runBackgroundActionRef.current("更新补丁资源", (actionId) =>
       invoke<ActionStarted>("install_resource_update", {
         actionId,
         zipballUrl,
         release,
-        repo,
       }),
     );
   }, [busy, pendingUpdate]);
@@ -55,6 +53,9 @@ export function useResourceRelease(
     void (async () => {
       try {
         const manifest = await invoke<ResourceReleaseManifest>("resource_release_manifest");
+        if (!/^[\w.-]+\/[\w.-]+$/.test(manifest.repo)) {
+          throw new Error(`Invalid repo format: ${manifest.repo}`);
+        }
         const response = await fetch(`https://api.github.com/repos/${manifest.repo}/releases/latest`, {
           headers: { Accept: "application/vnd.github+json" },
         });
@@ -74,7 +75,6 @@ export function useResourceRelease(
         setPendingUpdate({
           release: latestVersion,
           zipballUrl: latest.zipball_url,
-          repo: manifest.repo,
         });
       } catch (error) {
         appendLog({ level: "warn", message: `检查补丁资源更新失败: ${String(error)}` });

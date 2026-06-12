@@ -34,7 +34,9 @@
     "icon": ["icons/icon.icns", "icons/icon.ico"],
     "windows": {
       "nsis": {
-        "installerHooks": "nsis-hooks.nsh"
+        "installerHooks": "nsis-hooks.nsh",
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico"
       }
     },
     "macOS": {

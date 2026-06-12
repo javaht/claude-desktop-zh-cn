@@ -112,7 +112,41 @@ jobs:
           VERSION: ${{ inputs.version }}
 
       - name: Refresh Cargo lockfile
-        run: cargo check --workspace
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          version = os.environ["VERSION"]
+          package_names = {
+              "claude-desktop-zh-cn",
+              "claude-zh-core",
+              "claude-zh-platform",
+          }
+          path = Path("Cargo.lock")
+          text = path.read_text(encoding="utf-8")
+
+          def update_package(match: re.Match[str]) -> str:
+              block = match.group(0)
+              name_match = re.search(r'(?m)^name = "([^"]+)"$', block)
+              if not name_match or name_match.group(1) not in package_names:
+                  return block
+              updated, count = re.subn(
+                  r'(?m)^version = "[^"]+"$',
+                  f'version = "{version}"',
+                  block,
+                  count=1,
+              )
+              if count != 1:
+                  raise SystemExit(f"Failed to update Cargo.lock package {name_match.group(1)}")
+              return updated
+
+          updated = re.sub(r'(?ms)^\[\[package\]\]\n.*?(?=^\[\[package\]\]|\Z)', update_package, text)
+          path.write_text(updated, encoding="utf-8")
+          PY
+        env:
+          VERSION: ${{ inputs.version }}
 
       - name: Validate release structure
         run: |

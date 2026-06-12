@@ -7,7 +7,6 @@ use crate::{
     environment::{detect_claude, is_admin},
     os::{launch_claude, platform_install_patch, platform_restore_patch},
     paths::{cc_switch_skills_dir, skills_plugin_root},
-    resources::resolve_resources,
 };
 
 pub fn install_patch(resources: &Path, req: &InstallRequest, logger: &dyn LogSink) -> Result<()> {

@@ -10,11 +10,20 @@ pub struct InstallRequest {
     pub dry_run: bool,
 }
 
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RestoreRequest {
+    #[serde(default)]
+    pub dry_run: bool,
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CliRequest {
     pub action: String,
     pub install: Option<InstallRequest>,
+    #[serde(default)]
+    pub restore: Option<RestoreRequest>,
     pub enabled: Option<bool>,
     pub resources_path: Option<PathBuf>,
     pub log_path: Option<PathBuf>,

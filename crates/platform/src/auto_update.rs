@@ -341,6 +341,7 @@ mod tests {
         let request = CliRequest {
             action: "set_auto_updates".to_string(),
             install: None,
+            restore: None,
             enabled: None,
             resources_path: None,
             log_path: None,

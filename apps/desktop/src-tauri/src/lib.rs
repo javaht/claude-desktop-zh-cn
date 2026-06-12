@@ -1,5 +1,5 @@
 use claude_zh_core::{
-    CliRequest, EnvironmentReport, InstallRequest, LogEvent, LogSink, LogSinkExt,
+    CliRequest, EnvironmentReport, InstallRequest, LogEvent, LogSink, LogSinkExt, RestoreRequest,
 };
 use claude_zh_platform::{self as platform, FileLogger, ResourceReleaseManifest};
 use serde::Serialize;
@@ -236,9 +236,14 @@ fn drain_action_logs(action_id: String, offset: usize) -> ActionLogDrain {
 }
 
 #[tauri::command]
-fn restore_patch(app: AppHandle, action_id: String) -> ActionStarted {
-    spawn_background_action(app, "恢复原样", action_id, |logger, _| {
-        platform::restore_patch(&logger)
+fn restore_patch(
+    app: AppHandle,
+    action_id: String,
+    request: Option<RestoreRequest>,
+) -> ActionStarted {
+    let request = request.unwrap_or_default();
+    spawn_background_action(app, "恢复原样", action_id, move |logger, _| {
+        platform::restore_patch(request.dry_run, &logger)
     })
 }
 
@@ -333,6 +338,7 @@ pub fn run() {
             let request = CliRequest {
                 action,
                 install: None,
+                restore: None,
                 enabled,
                 resources_path: None,
                 log_path: None,

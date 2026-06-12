@@ -63,8 +63,10 @@ export default function App() {
   }, [dryRun, language, launchAfter, mode, runBackgroundAction]);
 
   const handleRestore = useCallback(() => {
-    void runBackgroundAction("恢复原样", (actionId) => invoke<ActionStarted>("restore_patch", { actionId }));
-  }, [runBackgroundAction]);
+    void runBackgroundAction("恢复原样", (actionId) =>
+      invoke<ActionStarted>("restore_patch", { actionId, request: { dryRun } }),
+    );
+  }, [dryRun, runBackgroundAction]);
 
   const handleEnableAutoUpdates = useCallback(() => {
     void runAction("开启自动更新", () => invoke("set_auto_updates", { enabled: true }));

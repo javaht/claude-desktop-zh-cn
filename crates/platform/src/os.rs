@@ -47,8 +47,7 @@ fn quit_claude(logger: &dyn LogSink) {
 }
 
 #[cfg(windows)]
-fn windows_claude_stop_script() -> &'static str {
-    r#"
+const WINDOWS_CLAUDE_PROCESS_TREE_FUNCTION: &str = r#"
 function Get-ClaudeDesktopProcessTree {
   $all = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
     Where-Object {
@@ -96,12 +95,22 @@ function Get-ClaudeDesktopProcessTree {
 
   @($all | Where-Object { $selected.ContainsKey([int]$_.ProcessId) })
 }
+"#;
 
-Get-ClaudeDesktopProcessTree |
-  ForEach-Object {
-    Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
-  }
-"#
+#[cfg(windows)]
+fn windows_claude_stop_script() -> String {
+    format!(
+        "{}\nGet-ClaudeDesktopProcessTree |\n  ForEach-Object {{\n    Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue\n  }}\n",
+        WINDOWS_CLAUDE_PROCESS_TREE_FUNCTION
+    )
+}
+
+#[cfg(windows)]
+fn windows_claude_probe_script() -> String {
+    format!(
+        "{}\n$procs = @(Get-ClaudeDesktopProcessTree)\nif ($procs.Count -gt 0) {{\n  Write-Output (\"FOUND:\" + $procs.Count)\n  $procs | ForEach-Object {{ Write-Output (\" - PID=\" + $_.ProcessId + \" EXE=\" + $_.ExecutablePath) }}\n}} else {{\n  Write-Output \"NONE\"\n}}\n",
+        WINDOWS_CLAUDE_PROCESS_TREE_FUNCTION
+    )
 }
 
 #[cfg(windows)]
@@ -109,13 +118,14 @@ fn quit_claude(logger: &dyn LogSink) {
     logger.info("正在关闭 Claude Desktop 进程。");
     // 使用 PowerShell 精确匹配已知安装路径，避免误杀 Claude Code CLI
     let mut cmd = Command::new("powershell.exe");
+    let script = windows_claude_stop_script();
     cmd.args([
         "-NoProfile",
         "-NonInteractive",
         "-ExecutionPolicy",
         "Bypass",
         "-Command",
-        windows_claude_stop_script(),
+        script.as_str(),
     ]);
     hide_command_window(&mut cmd);
     let _ = run_command(cmd, logger, "关闭 Claude Desktop");
@@ -693,6 +703,105 @@ fn windows_resources_look_patched(resources: &Path) -> bool {
 }
 
 #[cfg(windows)]
+struct DryRunSyncStats {
+    to_add: usize,
+    to_overwrite: usize,
+    to_delete: usize,
+    to_keep: usize,
+}
+
+#[cfg(windows)]
+fn dry_run_sync_dir_stats(src: &Path, dst: &Path) -> Result<DryRunSyncStats> {
+    use std::collections::HashMap;
+    let mut src_files: HashMap<PathBuf, u64> = HashMap::new();
+    if src.is_dir() {
+        for e in WalkDir::new(src) {
+            let e = e?;
+            if e.file_type().is_file() {
+                let rel = e.path().strip_prefix(src).unwrap().to_path_buf();
+                src_files.insert(rel, e.metadata()?.len());
+            }
+        }
+    }
+    let mut dst_files: HashMap<PathBuf, u64> = HashMap::new();
+    if dst.is_dir() {
+        for e in WalkDir::new(dst) {
+            let e = e?;
+            if e.file_type().is_file() {
+                let rel = e.path().strip_prefix(dst).unwrap().to_path_buf();
+                dst_files.insert(rel, e.metadata()?.len());
+            }
+        }
+    }
+    let mut to_add = 0;
+    let mut to_overwrite = 0;
+    let mut to_keep = 0;
+    for (rel, src_len) in &src_files {
+        match dst_files.get(rel) {
+            None => to_add += 1,
+            Some(dst_len) if dst_len == src_len => to_keep += 1,
+            Some(_) => to_overwrite += 1,
+        }
+    }
+    let to_delete = dst_files
+        .keys()
+        .filter(|k| !src_files.contains_key(*k))
+        .count();
+    Ok(DryRunSyncStats {
+        to_add,
+        to_overwrite,
+        to_delete,
+        to_keep,
+    })
+}
+
+#[cfg(windows)]
+fn dry_run_remove_language_files_check(resources: &Path) -> Vec<PathBuf> {
+    let langs = ["zh-CN", "zh-TW", "zh-HK"];
+    let mut existing = Vec::new();
+    for lang in langs {
+        let candidates = [
+            resources.join(format!("{lang}.json")),
+            resources
+                .join("ion-dist")
+                .join("i18n")
+                .join(format!("{lang}.json")),
+            resources
+                .join("ion-dist")
+                .join("i18n")
+                .join("statsig")
+                .join(format!("{lang}.json")),
+        ];
+        for c in candidates {
+            if c.exists() {
+                existing.push(c);
+            }
+        }
+    }
+    existing
+}
+
+#[cfg(windows)]
+fn dry_run_unregister_language_check(resources: &Path) -> Vec<PathBuf> {
+    // 仅统计 ion-dist/assets/v1 下的 .js 文件数量；不做正则匹配（避免重复 core 的实现）
+    // 真正"哪些会改"需要跑正则，这里只给上限提示，让用户知道 JS 注册会被扫
+    let dir = resources.join("ion-dist").join("assets").join("v1");
+    if !dir.is_dir() {
+        return Vec::new();
+    }
+    let mut files = Vec::new();
+    if let Ok(entries) = fs::read_dir(&dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() && path.extension().is_some_and(|ext| ext == "js") {
+                files.push(path);
+            }
+        }
+    }
+    files
+}
+
+#[cfg(windows)]
 fn windows_claude_exe_path(app_dir: &Path) -> Result<PathBuf> {
     [app_dir.join("Claude.exe"), app_dir.join("claude.exe")]
         .into_iter()
@@ -911,7 +1020,96 @@ pub(crate) fn platform_install_patch(
 }
 
 #[cfg(target_os = "macos")]
-pub(crate) fn platform_restore_patch(logger: &dyn LogSink) -> Result<()> {
+pub(crate) fn platform_restore_patch(dry_run: bool, logger: &dyn LogSink) -> Result<()> {
+    if dry_run {
+        // 步骤 1: 扫描备份
+        let backups = match macos_backup_candidates() {
+            Ok(b) => b,
+            Err(e) => {
+                logger.warn(format!("dry-run 预诊：扫描备份失败: {e}"));
+                return Ok(());
+            }
+        };
+        if backups.is_empty() {
+            logger.warn("dry-run 预诊：未找到任何官方备份，真实卸载会失败。请先重装官方 Claude Desktop。");
+            return Ok(());
+        }
+        logger.info(format!("dry-run 预诊：找到 {} 个官方备份。", backups.len()));
+        for path in &backups {
+            logger.info(format!("  - {}", path.display()));
+        }
+
+        // 步骤 2: 报告将恢复的备份
+        let backup = backups.first().unwrap();
+        logger.info(format!("dry-run 预诊：将恢复备份: {}", backup.display()));
+
+        // 步骤 3: 检测 Claude 进程
+        if let Ok(output) = Command::new("pgrep").arg("-x").arg("Claude").output() {
+            if output.status.success() {
+                logger.warn("dry-run 预诊：Claude Desktop 正在运行，真实卸载会先关闭它。");
+            } else {
+                logger.info("dry-run 预诊：Claude Desktop 当前未运行。");
+            }
+        }
+
+        // 步骤 4: 检测 /Applications/Claude.app 路径
+        let app_path = PathBuf::from("/Applications/Claude.app");
+        if app_path.exists() {
+            logger.info("dry-run 预诊：当前 Claude.app 存在，真实卸载会先移到临时路径再清理。");
+        } else {
+            logger.info("dry-run 预诊：当前 Claude.app 不存在，将直接 rename 备份到该位置。");
+        }
+
+        // 步骤 5: /Applications 可写性（基于 metadata 的粗略判断）
+        match fs::metadata("/Applications") {
+            Ok(meta) => {
+                if meta.permissions().readonly() {
+                    logger.info("dry-run 预诊：当前进程对 /Applications 无写权限（基于 metadata 的粗略判断）；非 dry-run 会走管理员授权后写入。");
+                } else {
+                    logger.info("dry-run 预诊：当前进程对 /Applications 有写权限（基于 metadata 的粗略判断）。");
+                }
+            }
+            Err(e) => {
+                logger.warn(format!(
+                    "dry-run 预诊：无法读取 /Applications 元数据（{e}），无法判断写权限。"
+                ));
+            }
+        }
+
+        // 步骤 6: 备份完整性
+        if backup.is_dir() {
+            logger.info("dry-run 预诊：备份目录完整可读。");
+        } else {
+            logger.warn("dry-run 预诊：备份不是有效目录，真实卸载可能失败。");
+        }
+
+        // 步骤 7: 旧备份清理
+        let stale = backups.len().saturating_sub(1);
+        if stale > 0 {
+            logger.info(format!("dry-run 预诊：将清理 {} 个旧备份。", stale));
+            for path in backups.iter().skip(1) {
+                logger.info(format!("  - {}", path.display()));
+            }
+        }
+
+        // 步骤 8: locale 预演
+        for path in claude_config_paths() {
+            if path.exists() {
+                logger.info(format!("dry-run 预诊：config 存在: {}", path.display()));
+            } else {
+                logger.info(format!(
+                    "dry-run 预诊：config 不存在，真实卸载会新建: {}",
+                    path.display()
+                ));
+            }
+        }
+        let cur = crate::environment::current_locale().unwrap_or_else(|| "<未设置>".to_string());
+        logger.info(format!("dry-run 预诊：当前 locale = {cur} → 将改为 en-US"));
+
+        // 步骤 9: 收尾
+        logger.info("dry-run 预诊完成：未修改任何文件。");
+        return Ok(());
+    }
     let app = PathBuf::from("/Applications/Claude.app");
     logger.info("正在查找 macOS Claude.app 备份。");
     let mut backups: Vec<PathBuf> = fs::read_dir("/Applications")?
@@ -961,7 +1159,183 @@ pub(crate) fn platform_restore_patch(logger: &dyn LogSink) -> Result<()> {
 }
 
 #[cfg(windows)]
-pub(crate) fn platform_restore_patch(logger: &dyn LogSink) -> Result<()> {
+pub(crate) fn platform_restore_patch(dry_run: bool, logger: &dyn LogSink) -> Result<()> {
+    if dry_run {
+        // Step 1: 检测 Claude 安装
+        let (app, resources, _) = detect_claude().ok_or_else(|| {
+            CoreError::Message("dry-run 预诊：未找到 Claude Desktop。真实卸载会失败。".to_string())
+        })?;
+        logger.info(format!(
+            "dry-run 预诊：Claude Desktop 路径 = {}",
+            app.display()
+        ));
+        logger.info(format!(
+            "dry-run 预诊：目标 resources = {}",
+            resources.display()
+        ));
+
+        // Step 2: 检测 Claude 进程
+        {
+            let mut cmd = Command::new("powershell.exe");
+            let script = windows_claude_probe_script();
+            cmd.args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                script.as_str(),
+            ]);
+            hide_command_window(&mut cmd);
+            match cmd.output() {
+                Ok(out) => {
+                    let text = crate::logging::decode_command_output(&out.stdout);
+                    let first_line = text.lines().next().unwrap_or("");
+                    if first_line == "NONE" {
+                        logger.info("dry-run 预诊：Claude Desktop 当前未运行。");
+                    } else if let Some(rest) = first_line.strip_prefix("FOUND:") {
+                        let n: usize = rest.trim().parse().unwrap_or(0);
+                        logger.warn(format!(
+                            "dry-run 预诊：检测到 {} 个 Claude Desktop 进程，真实卸载会先关闭它们。",
+                            n
+                        ));
+                        for line in text.lines().skip(1) {
+                            logger.info(line.to_string());
+                        }
+                    }
+                }
+                Err(_) => {
+                    logger.warn("dry-run 预诊：进程探测失败，跳过。");
+                }
+            }
+        }
+
+        // Step 3: WindowsApps 权限
+        let perm_targets = windowsapps_permission_targets(&resources);
+        if perm_targets.is_empty() {
+            logger.info("dry-run 预诊：非 WindowsApps 安装，无需获取额外权限。");
+        } else {
+            logger.warn(
+                "dry-run 预诊：WindowsApps 安装，真实卸载需要 takeown + icacls 提权下列路径：",
+            );
+            for p in &perm_targets {
+                logger.info(format!("  - {}", p.display()));
+            }
+        }
+
+        // Step 4: 备份检测
+        let pristine = match windows_latest_pristine_backup(&app) {
+            Ok(opt) => opt,
+            Err(e) => {
+                logger.warn(format!("dry-run 预诊：读取包外纯净备份目录失败（{e}），降级检查 legacy 备份。"));
+                None
+            }
+        };
+        let mut snapshot_for_diff: Option<PathBuf> = None;
+        match pristine {
+            Some(snap) => {
+                logger.info(format!(
+                    "dry-run 预诊：找到包外纯净备份: {}",
+                    snap.display()
+                ));
+                let res_dir = snap.join("app").join("resources");
+                let exe = snap.join("app").join("Claude.exe");
+                if res_dir.is_dir() && exe.is_file() {
+                    logger.info("dry-run 预诊：备份完整可用。");
+                    snapshot_for_diff = Some(snap);
+                } else {
+                    logger.warn(format!(
+                        "dry-run 预诊：纯净备份不完整: {}，真实卸载会失败。",
+                        snap.display()
+                    ));
+                }
+            }
+            None => {
+                let legacy = resources.join(".zh-cn-backups");
+                let legacy_has = legacy.is_dir()
+                    && fs::read_dir(&legacy)
+                        .map(|it| it.flatten().any(|e| e.path().is_dir()))
+                        .unwrap_or(false);
+                if legacy_has {
+                    logger.info(
+                        "dry-run 预诊：未找到包外纯净备份，将使用包内 legacy 备份。",
+                    );
+                } else {
+                    logger.warn(
+                        "dry-run 预诊：未找到任何备份，真实卸载会失败。请先重装官方 Claude Desktop。",
+                    );
+                    return Ok(());
+                }
+            }
+        }
+
+        // Step 5: 文件 diff 预演（仅有 pristine snapshot 时）
+        if let Some(snap) = &snapshot_for_diff {
+            let snap_res = snap.join("app").join("resources");
+            match dry_run_sync_dir_stats(&snap_res, &resources) {
+                Ok(s) => logger.info(format!(
+                    "dry-run 预诊：备份恢复将新增 {} 个文件、覆盖 {} 个文件、删除 {} 个文件、保留 {} 个文件。",
+                    s.to_add, s.to_overwrite, s.to_delete, s.to_keep
+                )),
+                Err(e) => logger.warn(format!("dry-run 预诊：文件 diff 统计失败：{e}")),
+            }
+        }
+
+        // Step 6: 语言文件删除预演
+        let existing = dry_run_remove_language_files_check(&resources);
+        logger.info(format!(
+            "dry-run 预诊：将删除 {} 个中文语言文件。",
+            existing.len()
+        ));
+        for p in &existing {
+            logger.info(format!("  - {}", p.display()));
+        }
+
+        // Step 6.5: JS 语言注册取消预演
+        let js_files = dry_run_unregister_language_check(&resources);
+        if js_files.is_empty() {
+            logger.info("dry-run 预诊：未找到 ion-dist/assets/v1 下的 JS 文件，无需取消语言注册。");
+        } else {
+            logger.info(format!("dry-run 预诊：将扫描 {} 个 JS 文件并尝试取消中文语言注册（仅匹配的文件会被改写）。", js_files.len()));
+        }
+
+        // Step 7: locale 预演
+        for cfg in claude_config_paths() {
+            if cfg.exists() {
+                logger.info(format!("dry-run 预诊：config 存在: {}", cfg.display()));
+            } else {
+                logger.info(format!(
+                    "dry-run 预诊：config 不存在，真实卸载会新建: {}",
+                    cfg.display()
+                ));
+            }
+        }
+        let cur = crate::environment::current_locale().unwrap_or_else(|| "<未设置>".to_string());
+        logger.info(format!(
+            "dry-run 预诊：当前 locale = {cur} → 将改为 en-US"
+        ));
+
+        // Step 8: 更新守护计划任务
+        {
+            let mut cmd = Command::new("schtasks");
+            hide_command_window(&mut cmd);
+            cmd.args(["/Query", "/TN", WATCHER_TASK])
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null());
+            match cmd.status() {
+                Ok(s) if s.success() => {
+                    logger.info("dry-run 预诊：找到更新守护计划任务，真实卸载会删除它。")
+                }
+                Ok(_) => logger.info("dry-run 预诊：未找到更新守护计划任务。"),
+                Err(e) => logger.warn(format!("dry-run 预诊：schtasks 命令执行失败（{e}），无法判断计划任务状态。")),
+            }
+        }
+
+        // Step 9: 收尾
+        logger.info("dry-run 预诊完成：未修改任何文件。");
+        return Ok(());
+    }
     let (app, resources, _) =
         detect_claude().ok_or_else(|| CoreError::Message("未找到 Claude Desktop。".to_string()))?;
     logger.info(format!(
@@ -986,7 +1360,7 @@ pub(crate) fn platform_restore_patch(logger: &dyn LogSink) -> Result<()> {
 }
 
 #[cfg(not(any(target_os = "macos", windows)))]
-pub(crate) fn platform_restore_patch(_logger: &dyn LogSink) -> Result<()> {
+pub(crate) fn platform_restore_patch(_dry_run: bool, _logger: &dyn LogSink) -> Result<()> {
     err("unsupported platform")
 }
 

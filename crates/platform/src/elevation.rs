@@ -32,7 +32,10 @@ pub fn run_cli_request(request: CliRequest, logger: &dyn LogSink) -> Result<()> 
                 .ok_or_else(|| CoreError::Message("缺少 install 参数。".to_string()))?;
             install_patch(&resources, &install, logger)
         }
-        "restore_patch" => restore_patch(logger),
+        "restore_patch" => {
+            let dry_run = request.restore.map(|r| r.dry_run).unwrap_or(false);
+            restore_patch(dry_run, logger)
+        }
         "set_auto_updates" => {
             let enabled = request
                 .enabled
@@ -52,6 +55,7 @@ pub fn run_cli_request(request: CliRequest, logger: &dyn LogSink) -> Result<()> 
 pub fn run_elevated_cli(
     action: &str,
     install: Option<claude_zh_core::InstallRequest>,
+    restore: Option<claude_zh_core::RestoreRequest>,
     enabled: Option<bool>,
     resources_path: Option<&Path>,
     logger: &dyn LogSink,
@@ -60,6 +64,7 @@ pub fn run_elevated_cli(
     let request = CliRequest {
         action: action.to_string(),
         install,
+        restore,
         enabled,
         resources_path: resources_path.map(|p| p.to_path_buf()),
         log_path: Some(log_path.clone()),
@@ -80,8 +85,8 @@ pub fn run_elevated_cli(
             install.language, install.mode, install.launch_after, install.dry_run
         ));
     }
-    if let Some(enabled) = request.enabled {
-        logger.info(format!("自动更新参数: enabled={enabled}"));
+    if let Some(restore) = &request.restore {
+        logger.info(format!("恢复参数: dry_run={}", restore.dry_run));
     }
     logger.info("需要管理员权限，正在请求系统授权。");
 

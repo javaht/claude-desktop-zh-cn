@@ -21,8 +21,6 @@ on:
   push:
     branches:
       - main
-    tags:
-      - "*"
 
 jobs:
   build:
@@ -107,42 +105,3 @@ jobs:
           path: |
             target/release/bundle/**
           if-no-files-found: error
-
-  publish-release:
-    name: Publish Rust installers to GitHub Release
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: write
-
-    steps:
-      - name: Download installer artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: release-artifacts
-          merge-multiple: true
-
-      - name: List release assets
-        shell: bash
-        run: find release-artifacts -type f -print | sort
-
-      - name: Create or update GitHub Release
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          tag="${GITHUB_REF_NAME}"
-          mapfile -t assets < <(find release-artifacts -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.msi" \) | sort)
-          if [ "${#assets[@]}" -eq 0 ]; then
-            echo "No release assets found."
-            find release-artifacts -type f -print | sort
-            exit 1
-          fi
-          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$tag" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --clobber
-          else
-            gh release create "$tag" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --title "$tag" --generate-notes
-          fi

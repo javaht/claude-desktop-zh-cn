@@ -50,26 +50,69 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Update release metadata
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Update release version
         run: |
           python3 - <<'PY'
           import json
           import os
+          import re
           from pathlib import Path
 
           version = os.environ["VERSION"]
-          path = Path("resources/release.json")
-          if path.exists():
-              data = json.loads(path.read_text(encoding="utf-8"))
+
+          cargo_path = Path("Cargo.toml")
+          cargo_text = cargo_path.read_text(encoding="utf-8")
+          cargo_text, count = re.subn(
+              r'(?m)^(\[workspace\.package\]\nversion = ")[^"]+(")',
+              rf'\g<1>{version}\2',
+              cargo_text,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit("Failed to update [workspace.package] version in Cargo.toml")
+          cargo_path.write_text(cargo_text, encoding="utf-8")
+
+          package_path = Path("apps/desktop/package.json")
+          package_json = json.loads(package_path.read_text(encoding="utf-8"))
+          package_json["version"] = version
+          package_path.write_text(json.dumps(package_json, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+          package_lock_path = Path("apps/desktop/package-lock.json")
+          package_lock = json.loads(package_lock_path.read_text(encoding="utf-8"))
+          package_lock["version"] = version
+          package_lock["packages"][""]["version"] = version
+          package_lock_path.write_text(json.dumps(package_lock, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+          tauri_conf_path = Path("apps/desktop/src-tauri/tauri.conf.json")
+          tauri_conf = json.loads(tauri_conf_path.read_text(encoding="utf-8"))
+          tauri_conf["version"] = version
+          tauri_conf_path.write_text(json.dumps(tauri_conf, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+          release_path = Path("resources/release.json")
+          if release_path.exists():
+              data = json.loads(release_path.read_text(encoding="utf-8"))
           else:
-              path.parent.mkdir(parents=True, exist_ok=True)
+              release_path.parent.mkdir(parents=True, exist_ok=True)
               data = {"repo": "javaht/claude-desktop-zh-cn"}
           data["repo"] = "javaht/claude-desktop-zh-cn"
           data["release"] = version
-          path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+          release_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
           PY
         env:
           VERSION: ${{ inputs.version }}
+
+      - name: Refresh Cargo lockfile
+        run: cargo check --workspace
 
       - name: Validate release structure
         run: |
@@ -80,15 +123,25 @@ jobs:
 
           package_json = json.loads(Path("apps/desktop/package.json").read_text(encoding="utf-8"))
           package_lock = json.loads(Path("apps/desktop/package-lock.json").read_text(encoding="utf-8"))
+          workspace = tomllib.loads(Path("Cargo.toml").read_text(encoding="utf-8"))
           cargo_toml = tomllib.loads(Path("apps/desktop/src-tauri/Cargo.toml").read_text(encoding="utf-8"))
           tauri_conf = json.loads(Path("apps/desktop/src-tauri/tauri.conf.json").read_text(encoding="utf-8"))
           release_json = json.loads(Path("resources/release.json").read_text(encoding="utf-8"))
 
+          expected_version = "${{ inputs.version }}"
           package_name = package_json["name"]
           lock_name = package_lock["name"]
           lock_root_name = package_lock["packages"][""]["name"]
           cargo_name = cargo_toml["package"]["name"]
           product_name = tauri_conf["productName"]
+          versions = {
+              "Cargo.toml": workspace["workspace"]["package"]["version"],
+              "package.json": package_json["version"],
+              "package-lock.json": package_lock["version"],
+              "package-lock root package": package_lock["packages"][""]["version"],
+              "tauri.conf.json": tauri_conf["version"],
+              "resources/release.json": release_json["release"],
+          }
 
           if not (package_name == lock_name == lock_root_name == cargo_name):
               raise SystemExit(
@@ -108,11 +161,12 @@ jobs:
           if release_json.get("repo") != "javaht/claude-desktop-zh-cn":
               raise SystemExit("resources/release.json repo must match javaht/claude-desktop-zh-cn")
 
-          if "release" not in release_json:
-              raise SystemExit("resources/release.json must contain a release field")
+          mismatched_versions = {name: value for name, value in versions.items() if value != expected_version}
+          if mismatched_versions:
+              raise SystemExit(f"Release versions are inconsistent: {mismatched_versions}")
 
           print(
-              "Validated desktop naming chain: package name 'claude-desktop-zh-cn' drives the CLI/exe filename, while productName 'Claude-Zh' remains the installer/display name."
+              f"Validated desktop naming chain and release version {expected_version}."
           )
           PY
           git diff --check
@@ -125,7 +179,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add resources/release.json
+          git add Cargo.toml Cargo.lock apps/desktop/package.json apps/desktop/package-lock.json apps/desktop/src-tauri/tauri.conf.json resources/release.json
           if git diff --cached --quiet; then
             echo "No release metadata changes to commit"
           else

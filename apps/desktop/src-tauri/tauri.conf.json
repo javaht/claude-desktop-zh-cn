@@ -1,0 +1,51 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Claude-Zh",
+  "version": "1.2.3",
+  "identifier": "cn.javaht.claude-desktop-zh-cn",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://127.0.0.1:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Claude-Zh",
+        "width": 318,
+        "height": 388,
+        "minWidth": 318,
+        "minHeight": 388,
+        "maxWidth": 318,
+        "maxHeight": 388,
+        "resizable": false,
+        "decorations": false,
+        "transparent": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: asset: http://asset.localhost; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost https://api.github.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["dmg", "nsis"],
+    "icon": ["icons/icon.icns", "icons/icon.ico"],
+    "windows": {
+      "nsis": {
+        "installerHooks": "nsis-hooks.nsh",
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "12.0",
+      "signingIdentity": null,
+      "hardenedRuntime": false
+    },
+    "resources": {
+      "../../../resources": "resources"
+    }
+  }
+}

@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"Claude-Zh 桌面应用默认权限","local":true,"windows":["main"],"permissions":["core:default","opener:default"]}}

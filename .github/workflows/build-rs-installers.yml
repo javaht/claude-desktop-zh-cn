@@ -1,5 +1,9 @@
 name: Build Rust installers
 
+# 注意：本工作流中部分步骤（如 find、bash 命令）依赖 GNU 工具，
+# 在 Windows runner 上由 Git Bash 提供（actions/checkout 默认安装），
+# 不需要额外配置。
+
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -8,6 +12,12 @@ permissions:
 
 on:
   workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to checkout (branch/tag/sha). Defaults to main."
+        required: false
+        type: string
+        default: "main"
   push:
     branches:
       - main
@@ -32,13 +42,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: claude-desktop-zh-cn-rs/apps/desktop/package-lock.json
+          cache-dependency-path: apps/desktop/package-lock.json
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -47,33 +59,31 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: |
-            claude-desktop-zh-cn-rs -> claude-desktop-zh-cn-rs/target
-            claude-desktop-zh-cn-rs/apps/desktop/src-tauri -> claude-desktop-zh-cn-rs/apps/desktop/src-tauri/target
+            # Root Cargo workspace writes build artifacts to the repository target/
+            . -> target
 
       - name: Install frontend dependencies
-        working-directory: claude-desktop-zh-cn-rs/apps/desktop
+        working-directory: apps/desktop
         run: npm ci
 
       - name: Run Rust tests
-        working-directory: claude-desktop-zh-cn-rs
         run: cargo test --workspace
 
       - name: Build Tauri installer
-        working-directory: claude-desktop-zh-cn-rs/apps/desktop
+        working-directory: apps/desktop
         run: npm run tauri -- build --ci --no-sign --bundles ${{ matrix.bundles }}
 
       - name: List bundle outputs
         shell: bash
         run: |
-          find claude-desktop-zh-cn-rs/target/release/bundle claude-desktop-zh-cn-rs/apps/desktop/src-tauri/target/release/bundle -maxdepth 3 -type f -print 2>/dev/null || true
+          find target/release/bundle -maxdepth 3 -type f -print 2>/dev/null || true
 
       - name: Upload installer artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
           path: |
-            claude-desktop-zh-cn-rs/target/release/bundle/**
-            claude-desktop-zh-cn-rs/apps/desktop/src-tauri/target/release/bundle/**
+            target/release/bundle/**
           if-no-files-found: error
 
   publish-release:

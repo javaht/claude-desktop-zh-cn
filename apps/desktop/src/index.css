@@ -1,0 +1,88 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* 明色：中性冷白工具感 */
+    --background: 0 0% 98%;
+    --foreground: 0 0% 9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 9%;
+    --primary: 15 70% 55%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
+    --accent: 0 0% 96%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 65% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 90%;
+    --border-subtle: 0 0% 94%;
+    --input: 0 0% 90%;
+    --ring: 15 70% 55% / 0.3;
+    --radius: 0.5rem;
+
+    /* 额外语义色 */
+    --success: 145 50% 42%;
+    --warning: 38 85% 52%;
+    --warning-foreground: 38 70% 35%;
+    --error: 0 65% 55%;
+
+    /* z-index 阶梯 */
+    --z-titlebar: 50;
+    --z-dropdown: 100;
+    --z-dialog: 200;
+    --z-toast: 300;
+  }
+
+  .dark {
+    /* 暗色：带极微蓝调的深灰 */
+    --background: 220 13% 11%;
+    --foreground: 0 0% 95%;
+    --card: 220 13% 14%;
+    --card-foreground: 0 0% 95%;
+    --popover: 220 13% 14%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 15 70% 58%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 10% 18%;
+    --secondary-foreground: 0 0% 95%;
+    --muted: 220 10% 18%;
+    --muted-foreground: 220 5% 60%;
+    --accent: 220 10% 18%;
+    --accent-foreground: 0 0% 95%;
+    --destructive: 0 65% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 8% 22%;
+    --border-subtle: 220 8% 18%;
+    --input: 220 8% 22%;
+    --ring: 15 70% 58% / 0.3;
+
+    --success: 145 45% 48%;
+    --warning: 38 80% 58%;
+    --warning-foreground: 38 80% 65%;
+    --error: 0 70% 60%;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -10%, hsl(var(--primary) / 0.04), transparent),
+      radial-gradient(ellipse 60% 40% at 100% 100%, hsl(var(--muted) / 0.5), transparent);
+    background-attachment: fixed;
+  }
+
+  /* 紧凑焦点环（避免窄窗中默认 ring 太粗） */
+  *:focus-visible {
+    @apply outline-none ring-1 ring-ring/50 ring-offset-1 ring-offset-background;
+  }
+}

@@ -1,0 +1,61 @@
+name: 问题咨询
+description: 使用相关问题或疑问
+title: "[Question] "
+labels:
+  - question
+body:
+  - type: markdown
+    attributes:
+      value: |
+        如果你在使用过程中遇到问题，可以先查看以下资源：
+        - [README](https://github.com/javaht/claude-desktop-zh-cn#readme)：项目介绍和使用说明
+        - [GitHub Discussions](https://github.com/javaht/claude-desktop-zh-cn/discussions)：参与讨论和问答
+
+  - type: textarea
+    id: question
+    attributes:
+      label: 问题描述
+      description: 请详细描述你的问题或疑问
+      placeholder: 例如：安装后如何确认中文补丁已生效？
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: 使用平台
+      description: 请选择你使用的操作系统
+      options:
+        - macOS
+        - Windows
+        - 其他
+    validations:
+      required: false
+
+  - type: input
+    id: claude_version
+    attributes:
+      label: Claude Desktop 版本
+      description: 请填写 Claude Desktop 版本号
+      placeholder: 例如 0.11.2
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: 补充信息
+      description: 提供更多上下文信息，如截图、错误信息等
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: 自检清单
+      description: 在提交前，请确认以下事项
+      options:
+        - label: 我已搜索过现有的 Issues，没有找到相同的问题
+          required: true
+        - label: 我已阅读过 README 和相关文档
+          required: true

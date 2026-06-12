@@ -12,31 +12,31 @@ body:
   - type: dropdown
     id: platform
     attributes:
-      label: 平台是啥
-      description: 请选择你使用的平台
+      label: 使用平台
+      description: 请选择你使用的操作系统
       options:
         - macOS
         - Windows
         - 其他
     validations:
       required: true
-      
+
   - type: dropdown
     id: isnew
     attributes:
-      label: 是否使用最新代码
-      description: 没使用最新代码的话先用最新代码试试
+      label: 是否使用最新版本
+      description: 如果不是最新版本，请先升级到最新版本再尝试
       options:
-        - 是
-        - 否
-        - 其他
+        - 是，已使用最新版本
+        - 否，使用的是旧版本
+        - 不确定
     validations:
-      required: true     
+      required: true
 
   - type: input
     id: claude_version
     attributes:
-      label: Clade Desktop版本是多少
+      label: Claude Desktop 版本
       description: 请填写 Claude Desktop 版本号，例如 0.11.2
       placeholder: 例如 x.xx.x
     validations:
@@ -45,11 +45,11 @@ body:
   - type: dropdown
     id: third_party_api_mode
     attributes:
-      label: 是否用的第三方 API 模式
-      description: README 提到本项目仅支持 API 使用方式，请说明当前是否启用了第三方模式
+      label: 是否使用第三方 API 模式
+      description: 本项目仅支持 API 使用方式，请说明当前是否启用了第三方模式
       options:
-        - 是
-        - 否
+        - 是，已启用
+        - 否，未启用
         - 不确定
     validations:
       required: true
@@ -62,3 +62,38 @@ body:
       placeholder: 例如：安装完成后 Claude 无法启动，或界面没有切换成中文
     validations:
       required: true
+
+  - type: textarea
+    id: steps_to_reproduce
+    attributes:
+      label: 复现步骤
+      description: 请提供详细的复现步骤
+      placeholder: |
+        1. 打开 Claude Desktop
+        2. 点击 xxx
+        3. 看到 xxx 错误
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: 期望行为
+      description: 你期望发生什么？
+    validations:
+      required: false
+
+  - type: textarea
+    id: actual_behavior
+    attributes:
+      label: 实际行为
+      description: 实际发生了什么？
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 相关日志
+      description: 如果有错误日志，请粘贴在这里
+      render: shell

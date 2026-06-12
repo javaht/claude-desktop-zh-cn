@@ -4,4 +4,40 @@ __pycache__/
 .venv/
 venv/
 *.log
+target/
+node_modules/
+dist/
+*.tmp
+apps/desktop/src-tauri/target/
+apps/desktop/dist/
+.codegraph/
+
+# 工具生成目录
+.claude/
+.omc/
+.understand-anything/
+
+# AI agent 工作笔记（仅本地保留，不入主仓）
+docs/superpowers/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS 临时文件
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# 本地开发脚本与运行时产物
+run-tauri-dev.bat
+tauri-dev.log*
+tauri-dev.pid
+
+# pnpm 工具副产物（项目统一用 npm 与 npm ci，pnpm 仅本地偶发触发）
+apps/desktop/pnpm-lock.yaml
+apps/desktop/pnpm-workspace.yaml
 

@@ -1,5 +1,9 @@
 name: Build Rust installers
 
+# 注意：本工作流中部分步骤（如 find、bash 命令）依赖 GNU 工具，
+# 在 Windows runner 上由 Git Bash 提供（actions/checkout 默认安装），
+# 不需要额外配置。
+
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 

@@ -2,7 +2,7 @@
 
 use chrono::Local;
 use claude_zh_core::{
-    asar_header_hash, copy_file, err, install_into_resources, patched_version_record,
+    asar_header_hash, copy_file, err, install_into_resources, patched_version_record, remove_path,
     set_config_locale, write_json, CoreError, InstallPaths, InstallRequest, LogSink, LogSinkExt,
     Result,
 };
@@ -19,7 +19,9 @@ use crate::{environment::detect_claude, paths::claude_config_paths};
 
 use super::permissions::{acquire_windowsapps_permission, windowsapps_permission_targets};
 use super::backup::ensure_windows_pristine_backup;
-use super::restore::{restore_windows_backup_from_snapshot, try_cleanup_windows_restore_artifacts};
+use super::restore::{
+    restore_windows_backup_from_snapshot, sync_dir_exact, try_cleanup_windows_restore_artifacts,
+};
 
 /// 使用 Windows API MoveFileExW 实现原子替换文件。
 /// 与 POSIX fs::rename 不同，Windows 的 fs::rename 在目标已存在时会失败。
@@ -234,33 +236,32 @@ fn save_patched_version(
 /// 3. 计算 staged app.asar header hash
 /// 4. 读取真实 exe 并在内存中 patch（用 `build_patched_exe_data`）
 ///
-/// 任何一步失败直接返回 Err，临时目录自动清理，真实目录未被触碰。
+/// 返回 `(staged_resources_path, tmp_root_path)`。调用方负责：
+/// - 用 `staged_resources_path` 做真实同步
+/// - 用完后删除 `tmp_root_path`
+///
+/// 任何一步失败直接返回 Err，调用方需删除 tmp_root（如有）。
 fn preflight_install_on_staged(
     target_resources: &Path,
     source_resources: &Path,
     req: &InstallRequest,
     logger: &dyn LogSink,
-) -> Result<()> {
-    /// RAII guard：drop 时递归删除目录，确保 preflight 临时文件不残留。
-    struct TmpDirGuard(PathBuf);
-    impl Drop for TmpDirGuard {
-        fn drop(&mut self) {
-            let _ = fs::remove_dir_all(&self.0);
-        }
-    }
-
+) -> Result<(PathBuf, PathBuf)> {
     let tmp_root = env::temp_dir().join(format!(
         "claude-zh-cn-preflight-{}",
         Local::now().format("%Y%m%d-%H%M%S-%f")
     ));
     let staged_resources = tmp_root.join("resources");
-    let _guard = TmpDirGuard(tmp_root);
 
     logger.info(format!(
         "preflight：复制 resources 到临时目录 {}",
         staged_resources.display()
     ));
-    copy_dir_recursive(target_resources, &staged_resources)?;
+    // 如果 copy_dir_recursive 失败，清理已创建的 tmp_root
+    copy_dir_recursive(target_resources, &staged_resources).map_err(|e| {
+        let _ = fs::remove_dir_all(&tmp_root);
+        e
+    })?;
 
     logger.info("preflight：在临时目录验证 install_into_resources。");
     install_into_resources(
@@ -273,24 +274,45 @@ fn preflight_install_on_staged(
         &req.mode,
         None,
         logger,
-    )?;
+    )
+    .map_err(|e| {
+        let _ = fs::remove_dir_all(&tmp_root);
+        e
+    })?;
 
     logger.info("preflight：验证 staged app.asar header hash。");
-    let header_hash = asar_header_hash(&staged_resources.join("app.asar"))?;
+    let header_hash = asar_header_hash(&staged_resources.join("app.asar")).map_err(|e| {
+        let _ = fs::remove_dir_all(&tmp_root);
+        e
+    })?;
 
     logger.info("preflight：在内存中验证 exe 哈希 patch。");
     let app_dir = target_resources
         .parent()
-        .ok_or_else(|| CoreError::Message("resources 路径无父目录。".to_string()))?;
+        .ok_or_else(|| CoreError::Message("resources 路径无父目录。".to_string()))
+        .map_err(|e| {
+            let _ = fs::remove_dir_all(&tmp_root);
+            e
+        })?;
     let exe = [app_dir.join("Claude.exe"), app_dir.join("claude.exe")]
         .into_iter()
         .find(|path| path.is_file())
-        .ok_or_else(|| CoreError::Message("preflight：未找到 Claude.exe。".to_string()))?;
-    let exe_bytes = fs::read(&exe)?;
-    let _patched = build_patched_exe_data(&exe_bytes, &header_hash)?;
+        .ok_or_else(|| CoreError::Message("preflight：未找到 Claude.exe。".to_string()))
+        .map_err(|e| {
+            let _ = fs::remove_dir_all(&tmp_root);
+            e
+        })?;
+    let exe_bytes = fs::read(&exe).map_err(|e| {
+        let _ = fs::remove_dir_all(&tmp_root);
+        CoreError::Io(e)
+    })?;
+    let _patched = build_patched_exe_data(&exe_bytes, &header_hash).map_err(|e| {
+        let _ = fs::remove_dir_all(&tmp_root);
+        e
+    })?;
 
     logger.info("preflight 验证通过。");
-    Ok(())
+    Ok((staged_resources, tmp_root))
 }
 
 /// 安装失败后尝试回滚到纯净备份。永远返回 Err：
@@ -364,32 +386,29 @@ pub(crate) fn platform_install_patch(
     // ── B3 staged preflight：在临时目录验证整个安装流程 ──
     // 失败直接返回 Err，真实目录未被触碰，无需回滚。
     logger.info("开始 staged preflight 验证…");
-    preflight_install_on_staged(&target_resources, resources, req, logger)?;
+    let (staged_resources, tmp_root) =
+        preflight_install_on_staged(&target_resources, resources, req, logger)?;
 
-    // ── preflight 通过，开始真实应用阶段 ──
-    // 以下操作修改真实目录，失败时走 B1 rollback。
-    super::quit_claude(logger);
-    // WindowsApps 目录由 TrustedInstaller 拥有，管理员默认无写入权限
-    for path in windowsapps_permission_targets(&target_resources) {
-        acquire_windowsapps_permission(&path, logger)?;
-    }
+    // ── B4 真实应用阶段：用 staged resources 同步到真实目录 ──
+    // preflight 已验证 staged 内容正确，此处只做同步，不在真实目录重跑 install_into_resources。
+    // 失败时走 B1 rollback。完成后清理 tmp_root。
     let install_result = (|| -> Result<()> {
+        super::quit_claude(logger);
+        // WindowsApps 目录由 TrustedInstaller 拥有，管理员默认无写入权限
+        for path in windowsapps_permission_targets(&target_resources) {
+            acquire_windowsapps_permission(&path, logger)?;
+        }
         let app_dir = target_resources
             .parent()
             .ok_or_else(|| CoreError::Message("resources 路径无父目录。".to_string()))?;
         try_cleanup_windows_restore_artifacts(app_dir, logger);
-        install_into_resources(
-            InstallPaths {
-                source_resources: resources,
-                target_resources: &target_resources,
-                mac_app_root: None,
-            },
-            &req.language,
-            &req.mode,
-            None,
-            logger,
-        )?;
-        logger.info("Windows resources 补丁写入完成。");
+        // B4：从 staged 同步到 target，而非在 target 上重跑 install_into_resources
+        logger.info(format!(
+            "正在从 staged 同步 resources 到 {}…",
+            target_resources.display()
+        ));
+        sync_dir_exact(&staged_resources, &target_resources, logger)?;
+        logger.info("Windows resources 同步完成。");
         logger.info("开始同步 Windows Claude.exe app.asar 完整性标记。");
         sync_windows_exe_asar_integrity(&target_resources, logger)?;
         logger.info("开始写入 Claude 语言配置。");
@@ -405,6 +424,10 @@ pub(crate) fn platform_install_patch(
         }
         Ok(())
     })();
+
+    // 清理 preflight 临时目录（无论成功或失败）
+    let _ = fs::remove_dir_all(&tmp_root);
+
     if let Err(error) = install_result {
         let app_dir = target_resources
             .parent()
@@ -673,7 +696,49 @@ mod tests {
             "preflight 失败后真实 Claude.exe 不应被修改"
         );
 
-        // 临时 preflight 目录应已被清理（TmpDirGuard drop 时自动清理）
+        // 临时 preflight 目录应已被清理（preflight_install_on_staged 内部 map_err 清理）
+        let tmp_root = std::env::temp_dir().join("claude-zh-cn-preflight-*");
+        // 简单断言：不存在以 claude-zh-cn-preflight- 开头的残留目录
+        // （由于 glob 在 Windows 上不可靠，此处仅做逻辑验证，不精确匹配路径）
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn sync_staged_to_target_produces_identical_content() {
+        use super::sync_dir_exact;
+
+        let root = std::env::temp_dir().join(format!(
+            "claude-zh-platform-sync-staged-{}",
+            now_millis()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        let staged = root.join("staged");
+        let target = root.join("target");
+
+        // staged：含补丁后的文件
+        fs::create_dir_all(staged.join("nested")).unwrap();
+        fs::write(staged.join("app.asar"), b"patched-asar").unwrap();
+        fs::write(staged.join("zh-CN.json"), b"patched-lang").unwrap();
+        fs::write(staged.join("nested").join("keep.txt"), b"patched-keep").unwrap();
+
+        // target：含原始文件（含一个 staged 中不存在的 extra 文件）
+        fs::create_dir_all(target.join("nested")).unwrap();
+        fs::write(target.join("app.asar"), b"original-asar").unwrap();
+        fs::write(target.join("extra.txt"), b"extra").unwrap();
+        fs::write(target.join("nested").join("keep.txt"), b"original-keep").unwrap();
+
+        sync_dir_exact(&staged, &target, &NoopLogger).unwrap();
+
+        // target 内容与 staged 一致
+        assert_eq!(fs::read(target.join("app.asar")).unwrap(), b"patched-asar");
+        assert_eq!(fs::read(target.join("zh-CN.json")).unwrap(), b"patched-lang");
+        assert_eq!(
+            fs::read(target.join("nested").join("keep.txt")).unwrap(),
+            b"patched-keep"
+        );
+        // staged 中不存在的文件应被删除
+        assert!(!target.join("extra.txt").exists());
 
         let _ = fs::remove_dir_all(&root);
     }

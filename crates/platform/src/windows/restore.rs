@@ -130,7 +130,7 @@ fn dry_run_unregister_language_check(resources: &Path) -> Vec<PathBuf> {
     files
 }
 
-fn sync_dir_exact(src: &Path, dst: &Path, logger: &dyn LogSink) -> Result<()> {
+pub(super) fn sync_dir_exact(src: &Path, dst: &Path, logger: &dyn LogSink) -> Result<()> {
     fs::create_dir_all(dst)?;
     for entry in fs::read_dir(dst)? {
         let entry = entry?;

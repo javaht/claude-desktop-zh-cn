@@ -23,12 +23,12 @@ pub(crate) fn platform_install_patch(
     _req: &InstallRequest,
     _logger: &dyn LogSink,
 ) -> Result<()> {
-    err("unsupported platform")
+    err("不支持的平台")
 }
 
 #[cfg(not(any(target_os = "macos", windows)))]
 pub(crate) fn platform_restore_patch(_dry_run: bool, _logger: &dyn LogSink) -> Result<()> {
-    err("unsupported platform")
+    err("不支持的平台")
 }
 
 mod paths;

@@ -289,7 +289,7 @@ fn download_release_archive(url: &str, target: &Path, logger: &dyn LogSink) -> R
 
 #[cfg(not(any(target_os = "macos", windows)))]
 fn download_release_archive(_url: &str, _target: &Path, _logger: &dyn LogSink) -> Result<()> {
-    err("unsupported platform")
+    err("不支持的平台")
 }
 
 #[cfg(windows)]
@@ -327,7 +327,7 @@ fn extract_release_archive(archive: &Path, target: &Path, logger: &dyn LogSink) 
 
 #[cfg(not(any(target_os = "macos", windows)))]
 fn extract_release_archive(_archive: &Path, _target: &Path, _logger: &dyn LogSink) -> Result<()> {
-    err("unsupported platform")
+    err("不支持的平台")
 }
 
 #[cfg(windows)]

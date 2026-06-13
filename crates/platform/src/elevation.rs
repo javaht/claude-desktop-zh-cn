@@ -255,7 +255,7 @@ fn powershell_single_quote(value: &str) -> String {
 
 #[cfg(not(any(target_os = "macos", windows)))]
 fn elevated_command(_exe: &Path, _request_path: &Path) -> Result<Command> {
-    err("unsupported platform")
+    err("不支持的平台")
 }
 
 #[cfg(target_os = "macos")]

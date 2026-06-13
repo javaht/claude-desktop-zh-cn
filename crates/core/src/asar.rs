@@ -27,13 +27,13 @@ impl AsarArchive {
 
     pub fn from_data(path: PathBuf, data: Vec<u8>) -> Result<Self> {
         if data.len() < 16 {
-            return err(format!("Unsupported app.asar header: {}", path.display()));
+            return err(format!("不支持的 app.asar header: {}", path.display()));
         }
         let size_pickle = u32::from_le_bytes(data[0..4].try_into().unwrap()) as usize;
         let header_size = u32::from_le_bytes(data[4..8].try_into().unwrap()) as usize;
         if size_pickle != 4 || header_size == 0 || data.len() < 8 + header_size {
             return err(format!(
-                "Unsupported app.asar size pickle: {}",
+                "不支持的 app.asar size pickle: {}",
                 path.display()
             ));
         }
@@ -58,7 +58,7 @@ impl AsarArchive {
             .ok_or_else(|| CoreError::Message("app.asar pickle_size 溢出".to_string()))?;
         if payload_size != expected_payload_size || header_size != expected_pickle_size {
             return err(format!(
-                "Unsupported app.asar header pickle: {}",
+                "不支持的 app.asar header pickle: {}",
                 path.display()
             ));
         }
@@ -346,7 +346,7 @@ mod tests {
     fn asar_data_too_short_returns_error() {
         // 不足 16 字节
         let err = AsarArchive::from_data("test.asar".into(), vec![0u8; 10]).unwrap_err();
-        assert!(err.to_string().contains("Unsupported app.asar header"));
+        assert!(err.to_string().contains("不支持的 app.asar header"));
     }
 
     #[test]
@@ -373,7 +373,7 @@ mod tests {
 
         let err = AsarArchive::from_data("test.asar".into(), data).unwrap_err();
         // 应被 data.len() < 8 + header_size 或溢出检查拦截
-        assert!(err.to_string().contains("Unsupported app.asar"));
+        assert!(err.to_string().contains("不支持的 app.asar"));
     }
 
     #[test]
@@ -392,7 +392,7 @@ mod tests {
         data.resize(8 + 4 + correct_payload, 0);
 
         let err = AsarArchive::from_data("test.asar".into(), data).unwrap_err();
-        assert!(err.to_string().contains("Unsupported app.asar header pickle"));
+        assert!(err.to_string().contains("不支持的 app.asar header pickle"));
     }
 
     #[test]

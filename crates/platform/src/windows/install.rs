@@ -226,6 +226,73 @@ fn save_patched_version(
     Ok(())
 }
 
+/// Staged preflight：在临时目录中验证整个安装流程，不修改真实 Claude 安装。
+///
+/// 步骤：
+/// 1. 复制 target_resources → 临时 staged 目录
+/// 2. 在 staged 上跑 `install_into_resources`
+/// 3. 计算 staged app.asar header hash
+/// 4. 读取真实 exe 并在内存中 patch（用 `build_patched_exe_data`）
+///
+/// 任何一步失败直接返回 Err，临时目录自动清理，真实目录未被触碰。
+fn preflight_install_on_staged(
+    target_resources: &Path,
+    source_resources: &Path,
+    req: &InstallRequest,
+    logger: &dyn LogSink,
+) -> Result<()> {
+    /// RAII guard：drop 时递归删除目录，确保 preflight 临时文件不残留。
+    struct TmpDirGuard(PathBuf);
+    impl Drop for TmpDirGuard {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    let tmp_root = env::temp_dir().join(format!(
+        "claude-zh-cn-preflight-{}",
+        Local::now().format("%Y%m%d-%H%M%S-%f")
+    ));
+    let staged_resources = tmp_root.join("resources");
+    let _guard = TmpDirGuard(tmp_root);
+
+    logger.info(format!(
+        "preflight：复制 resources 到临时目录 {}",
+        staged_resources.display()
+    ));
+    copy_dir_recursive(target_resources, &staged_resources)?;
+
+    logger.info("preflight：在临时目录验证 install_into_resources。");
+    install_into_resources(
+        InstallPaths {
+            source_resources,
+            target_resources: &staged_resources,
+            mac_app_root: None,
+        },
+        &req.language,
+        &req.mode,
+        None,
+        logger,
+    )?;
+
+    logger.info("preflight：验证 staged app.asar header hash。");
+    let header_hash = asar_header_hash(&staged_resources.join("app.asar"))?;
+
+    logger.info("preflight：在内存中验证 exe 哈希 patch。");
+    let app_dir = target_resources
+        .parent()
+        .ok_or_else(|| CoreError::Message("resources 路径无父目录。".to_string()))?;
+    let exe = [app_dir.join("Claude.exe"), app_dir.join("claude.exe")]
+        .into_iter()
+        .find(|path| path.is_file())
+        .ok_or_else(|| CoreError::Message("preflight：未找到 Claude.exe。".to_string()))?;
+    let exe_bytes = fs::read(&exe)?;
+    let _patched = build_patched_exe_data(&exe_bytes, &header_hash)?;
+
+    logger.info("preflight 验证通过。");
+    Ok(())
+}
+
 /// 安装失败后尝试回滚到纯净备份。永远返回 Err：
 /// - 回滚成功 → 错误消息说明已自动恢复
 /// - 回滚失败 → 错误消息包含原始错误和回滚错误，并提示手动恢复路径
@@ -293,6 +360,14 @@ pub(crate) fn platform_install_patch(
         ));
         return Ok(());
     }
+
+    // ── B3 staged preflight：在临时目录验证整个安装流程 ──
+    // 失败直接返回 Err，真实目录未被触碰，无需回滚。
+    logger.info("开始 staged preflight 验证…");
+    preflight_install_on_staged(&target_resources, resources, req, logger)?;
+
+    // ── preflight 通过，开始真实应用阶段 ──
+    // 以下操作修改真实目录，失败时走 B1 rollback。
     super::quit_claude(logger);
     // WindowsApps 目录由 TrustedInstaller 拥有，管理员默认无写入权限
     for path in windowsapps_permission_targets(&target_resources) {
@@ -321,7 +396,9 @@ pub(crate) fn platform_install_patch(
         for config in claude_config_paths() {
             set_config_locale(&config, &req.language, logger)?;
         }
-        save_patched_version(&app, &req.mode, &req.language, logger)?;
+        if let Err(e) = save_patched_version(&app, &req.mode, &req.language, logger) {
+            logger.warn(format!("记录补丁版本失败（不影响安装）: {e}"));
+        }
         let _ = super::unregister_update_watcher(logger);
         if req.launch_after {
             super::launch_claude(&app, logger);
@@ -543,5 +620,61 @@ mod tests {
         assert_eq!(hex2.len(), 12, "hex2 长度错误: {hex2}");
         assert!(hex1.chars().all(|c| c.is_ascii_hexdigit()), "hex1 含非 hex 字符: {hex1}");
         assert!(hex2.chars().all(|c| c.is_ascii_hexdigit()), "hex2 含非 hex 字符: {hex2}");
+    }
+
+    #[test]
+    fn preflight_failure_does_not_modify_real_target_resources() {
+        use super::preflight_install_on_staged;
+        use claude_zh_core::InstallRequest;
+
+        let root = std::env::temp_dir().join(format!(
+            "claude-zh-platform-preflight-fail-{}",
+            now_millis()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        let app_dir = root.join("app");
+        let target_resources = app_dir.join("resources");
+
+        // 建立真实的 target_resources（含原始内容）
+        fs::create_dir_all(&target_resources).unwrap();
+        fs::write(target_resources.join("app.asar"), b"original-asar").unwrap();
+        fs::write(app_dir.join("Claude.exe"), b"original-exe").unwrap();
+
+        // source_resources 为空目录 → install_into_resources 在 staged 上会失败
+        let source_resources = root.join("empty-source");
+        fs::create_dir_all(&source_resources).unwrap();
+
+        let req = InstallRequest {
+            language: "zh-CN".to_string(),
+            mode: "full".to_string(),
+            dry_run: false,
+            launch_after: false,
+        };
+
+        let result = preflight_install_on_staged(
+            &target_resources,
+            &source_resources,
+            &req,
+            &NoopLogger,
+        );
+
+        // preflight 应该失败
+        assert!(result.is_err(), "preflight 应失败: {:?}", result);
+
+        // 真实 target_resources 未被修改
+        assert_eq!(
+            fs::read(target_resources.join("app.asar")).unwrap(),
+            b"original-asar",
+            "preflight 失败后真实 app.asar 不应被修改"
+        );
+        assert_eq!(
+            fs::read(app_dir.join("Claude.exe")).unwrap(),
+            b"original-exe",
+            "preflight 失败后真实 Claude.exe 不应被修改"
+        );
+
+        // 临时 preflight 目录应已被清理（TmpDirGuard drop 时自动清理）
+
+        let _ = fs::remove_dir_all(&root);
     }
 }

@@ -1,7 +1,7 @@
 use aho_corasick::AhoCorasick;
 use std::{fs, path::Path};
 
-use crate::{err, CoreError, LogSink, Result};
+use crate::{err, CoreError, LogSink, LogSinkExt, Result};
 
 pub fn patch_hardcoded_frontend(
     assets_dir: &Path,

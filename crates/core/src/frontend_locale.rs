@@ -1,6 +1,6 @@
 use std::{fs, path::Path};
 
-use crate::{copy_file, read_json, write_json, CoreError, LanguagePack, LogSink, Result};
+use crate::{copy_file, read_json, write_json, CoreError, LanguagePack, LogSink, LogSinkExt, Result};
 
 pub fn merge_frontend_locale(
     i18n_dir: &Path,

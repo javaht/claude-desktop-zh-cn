@@ -3,7 +3,7 @@ use serde_json::Value;
 use std::{collections::BTreeMap, ops::Range, path::Path};
 
 use crate::hardcoded::hardcoded_replacements;
-use crate::{asar::patch_asar_text, err, LogSink, Result};
+use crate::{asar::patch_asar_text, err, LogSink, LogSinkExt, Result};
 
 pub const ONLINE_MARKER: &str = "__claudeZhOnlineLocaleMain";
 

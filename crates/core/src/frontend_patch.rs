@@ -1,6 +1,6 @@
 use std::{ffi::OsStr, fs, path::Path};
 
-use crate::{err, js_files, language_list_regex, resources::BASE_LANGUAGE_LIST, LogSink, Result};
+use crate::{err, js_files, language_list_regex, resources::BASE_LANGUAGE_LIST, LogSink, LogSinkExt, Result};
 
 pub fn patch_language_display_names(assets_dir: &Path, logger: &dyn LogSink) -> Result<()> {
     let marker = "__claudeZhLabelPatch";

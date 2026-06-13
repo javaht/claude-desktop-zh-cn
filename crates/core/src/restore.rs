@@ -1,7 +1,8 @@
 use std::path::Path;
 
 use crate::{
-    js_files, language_list_regex, remove_path, resources::BASE_LANGUAGE_LIST, LogSink, Result,
+    js_files, language_list_regex, remove_path, resources::BASE_LANGUAGE_LIST, LogSink, LogSinkExt,
+    Result,
 };
 
 pub fn remove_language_files(resources: &Path) -> Result<()> {

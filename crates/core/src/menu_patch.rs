@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, path::Path};
 
-use crate::{asar::patch_asar_text, LogSink, Result};
+use crate::{asar::patch_asar_text, LogSink, LogSinkExt, Result};
 
 fn menu_replacements(lang: &str) -> BTreeMap<&'static str, &'static str> {
     match lang {

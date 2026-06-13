@@ -4,10 +4,10 @@ use std::{
 };
 
 use crate::{
-    backup, build_online_translation_map, install_desktop_locale, install_statsig_locale,
+    build_online_translation_map, install_desktop_locale, install_statsig_locale,
     js_files, language_pack, merge_frontend_locale, patch_hardcoded_frontend,
     patch_language_display_names, patch_language_whitelist, patch_menu_labels,
-    patch_online_dom_translation, InstallPaths, LogSink, Result,
+    patch_online_dom_translation, InstallPaths, LogSink, LogSinkExt, Result,
 };
 
 #[allow(clippy::type_complexity)]

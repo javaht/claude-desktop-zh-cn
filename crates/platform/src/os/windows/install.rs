@@ -155,6 +155,33 @@ fn save_patched_version(
     Ok(())
 }
 
+/// 安装失败后尝试回滚到纯净备份。永远返回 Err：
+/// - 回滚成功 → 错误消息说明已自动恢复
+/// - 回滚失败 → 错误消息包含原始错误和回滚错误，并提示手动恢复路径
+fn rollback_after_windows_install_failure(
+    original_error: &CoreError,
+    pristine_backup: &Path,
+    app_dir: &Path,
+    target_resources: &Path,
+    logger: &dyn LogSink,
+) -> CoreError {
+    logger.error(format!("安装失败，正在尝试从纯净备份恢复官方文件：{original_error}"));
+    match restore_windows_backup_from_snapshot(pristine_backup, app_dir, target_resources, logger) {
+        Ok(()) => CoreError::Message(format!(
+            "Windows 安装失败，已自动恢复官方文件: {original_error}"
+        )),
+        Err(rollback_error) => {
+            logger.error(format!("自动恢复也失败: {rollback_error}"));
+            CoreError::Message(format!(
+                "Windows 安装失败: {original_error}；自动恢复也失败: {rollback_error}。请手动从 {} 恢复 {} 和 {}",
+                pristine_backup.display(),
+                app_dir.display(),
+                target_resources.display(),
+            ))
+        }
+    }
+}
+
 pub(crate) fn platform_install_patch(
     resources: &Path,
     req: &InstallRequest,
@@ -231,12 +258,11 @@ pub(crate) fn platform_install_patch(
         Ok(())
     })();
     if let Err(error) = install_result {
-        logger.error(format!("安装失败，正在尝试从纯净备份恢复官方文件：{error}"));
         let app_dir = target_resources
             .parent()
             .ok_or_else(|| CoreError::Message("resources 路径无父目录。".to_string()))?;
-        // 已在错误回滚路径中，恢复失败不覆盖原始安装错误
-        let _ = restore_windows_backup_from_snapshot(
+        let rollback_err = rollback_after_windows_install_failure(
+            &error,
             &pristine_backup,
             app_dir,
             &target_resources,
@@ -247,15 +273,15 @@ pub(crate) fn platform_install_patch(
                 logger.warn(format!("恢复 locale 失败: {} — {e}", config.display()));
             }
         }
-        return Err(error);
+        return Err(rollback_err);
     }
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{patch_exe_hash_data, windows_resources_look_patched};
-    use claude_zh_core::now_millis;
+    use super::{patch_exe_hash_data, rollback_after_windows_install_failure, windows_resources_look_patched};
+    use claude_zh_core::{now_millis, CoreError, NoopLogger};
     use std::fs;
 
     #[test]
@@ -308,5 +334,88 @@ mod tests {
         let new_hash = "a".repeat(64);
         patch_exe_hash_data(&mut data, &new_hash).unwrap();
         assert_eq!(&data[marker.len()..marker.len() + 64], new_hash.as_bytes());
+    }
+
+    #[test]
+    fn rollback_after_windows_install_failure_rollback_ok_reports_auto_recovery() {
+        let root = std::env::temp_dir().join(format!(
+            "claude-zh-platform-rollback-ok-{}",
+            now_millis()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        let app_dir = root.join("app");
+        let resources = app_dir.join("resources");
+        let snapshot = root.join("snapshot");
+        // 建立回滚所需的纯净备份结构
+        fs::create_dir_all(snapshot.join("app").join("resources")).unwrap();
+        fs::write(snapshot.join("app").join("Claude.exe"), b"clean-exe").unwrap();
+        fs::write(
+            snapshot.join("app").join("resources").join("app.asar"),
+            b"clean-asar",
+        )
+        .unwrap();
+        // 建立当前（被破坏的）安装结构
+        fs::create_dir_all(&resources).unwrap();
+        fs::write(app_dir.join("Claude.exe"), b"patched-exe").unwrap();
+        fs::write(resources.join("app.asar"), b"patched-asar").unwrap();
+
+        let original = CoreError::Message("模拟安装失败".to_string());
+        let result = rollback_after_windows_install_failure(
+            &original,
+            &snapshot,
+            &app_dir,
+            &resources,
+            &NoopLogger,
+        );
+
+        // 永远返回 Err
+        let msg = result.to_string();
+        assert!(msg.contains("已自动恢复官方文件"), "消息应说明已自动恢复: {msg}");
+        assert!(msg.contains("模拟安装失败"), "消息应包含原始错误: {msg}");
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn rollback_after_windows_install_failure_rollback_fail_reports_manual_recovery() {
+        let root = std::env::temp_dir().join(format!(
+            "claude-zh-platform-rollback-fail-{}",
+            now_millis()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        let app_dir = root.join("app");
+        let resources = app_dir.join("resources");
+        // 不创建 snapshot 目录，使 restore 必然失败
+        let nonexistent_snapshot = root.join("no-snapshot-here");
+        fs::create_dir_all(&resources).unwrap();
+        fs::write(app_dir.join("Claude.exe"), b"patched-exe").unwrap();
+
+        let original = CoreError::Message("模拟安装失败".to_string());
+        let result = rollback_after_windows_install_failure(
+            &original,
+            &nonexistent_snapshot,
+            &app_dir,
+            &resources,
+            &NoopLogger,
+        );
+
+        // 永远返回 Err
+        let msg = result.to_string();
+        assert!(msg.contains("自动恢复也失败"), "消息应说明恢复失败: {msg}");
+        assert!(
+            msg.contains(&nonexistent_snapshot.display().to_string()),
+            "消息应包含 pristine_backup 路径: {msg}"
+        );
+        assert!(
+            msg.contains(&app_dir.display().to_string()),
+            "消息应包含 app_dir 路径: {msg}"
+        );
+        assert!(
+            msg.contains(&resources.display().to_string()),
+            "消息应包含 target_resources 路径: {msg}"
+        );
+        assert!(msg.contains("模拟安装失败"), "消息应包含原始错误: {msg}");
+
+        let _ = fs::remove_dir_all(&root);
     }
 }

@@ -12,6 +12,10 @@ use std::{
     time::Instant,
 };
 use tauri::{async_runtime, AppHandle, Emitter, Manager};
+use tracing_subscriber::EnvFilter;
+use tracing_subscriber::Layer;
+use tracing_appender::rolling;
+use std::sync::Once;
 
 /// finished 的 action log entry 保留时长（秒），超过后由 drain/init 清理。
 const ACTION_LOG_TTL_SECS: u64 = 60;
@@ -324,7 +328,81 @@ fn run_cli_file(path: PathBuf) -> i32 {
     }
 }
 
+/// 初始化 tracing 日志系统（幂等，多次调用安全）。
+///
+/// - 文件 appender：写入 `%LocalAppData%\ClaudeDesktopZhCn\logs\app.YYYY-MM-DD`（Windows）
+///   或 `~/Library/Logs/ClaudeDesktopZhCn/app.YYYY-MM-DD`（macOS），
+///   由 tracing-appender 按日自动滚动。
+/// - 控制台输出：dev 模式默认开（stderr），release 模式默认关（可通过 `RUST_LOG` 覆盖）。
+/// - 环境过滤：优先从 `RUST_LOG` 读，否则默认 `info,claude_zh=debug`。
+/// - 失败降级：log 目录创建失败时降级为只 console 输出，不阻塞应用启动。
+///
+/// ## 查看日志
+///
+/// - 文件日志位于：
+///   - Windows: `%LocalAppData%\ClaudeDesktopZhCn\logs\`
+///   - macOS: `~/Library/Logs/ClaudeDesktopZhCn/`
+/// - 设置环境变量 `RUST_LOG=debug` 可提升日志级别。
+/// - 在 release 模式下，默认只输出到文件，设置 `RUST_LOG=info` 后仍无控制台输出；
+///   若需控制台输出，可自行构建 subscriber 或改用 `debug_assertions` 条件编译。
+fn init_tracing() {
+    static INIT: Once = Once::new();
+    INIT.call_once(|| {
+        // 环境过滤器：优先 RUST_LOG，默认 info,claude_zh=debug
+        let env_filter = EnvFilter::try_from_default_env()
+            .unwrap_or_else(|_| EnvFilter::new("info,claude_zh=debug"));
+
+        // 尝试构建文件 appender
+        let file_layer = dirs::data_local_dir().and_then(|data_dir| {
+            let log_dir = data_dir.join("ClaudeDesktopZhCn").join("logs");
+            fs::create_dir_all(&log_dir).ok()?;
+            let file_appender = rolling::daily(&log_dir, "app");
+            let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
+            // guard 必须存活直到进程退出，否则 non_blocking 会停止写入
+            std::mem::forget(guard);
+            let layer = tracing_subscriber::fmt::layer()
+                .with_writer(non_blocking)
+                .with_ansi(false)
+                .with_target(false)
+                .with_thread_ids(false)
+                .with_file(false)
+                .with_line_number(false)
+                .boxed();
+            Some(layer)
+        });
+
+        if file_layer.is_none() {
+            eprintln!("[tracing] 无法创建日志目录，降级为仅控制台输出");
+        }
+
+        // dev 模式：同时输出到 stderr；release 模式：仅文件（无控制台输出）
+        let console_layer: Option<Box<dyn Layer<_>>> = if cfg!(debug_assertions) {
+            Some(
+                tracing_subscriber::fmt::layer()
+                    .with_writer(std::io::stderr)
+                    .with_ansi(true)
+                    .with_target(false)
+                    .with_thread_ids(false)
+                    .with_file(false)
+                    .with_line_number(false)
+                    .boxed(),
+            )
+        } else {
+            None
+        };
+
+        tracing_subscriber::registry()
+            .with(env_filter)
+            .with(file_layer)
+            .with(console_layer)
+            .init();
+
+        tracing::info!("tracing 日志系统已初始化");
+    });
+}
+
 pub fn run() {
+    init_tracing();
     let mut args = env::args().skip(1);
     if let Some(first) = args.next() {
         if first == "--cli-file" {

@@ -15,8 +15,12 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 claude-zh-core = { path = "../../../crates/core" }
 claude-zh-platform = { path = "../../../crates/platform" }
+dirs.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 thiserror.workspace = true
+tracing.workspace = true
+tracing-appender.workspace = true
+tracing-subscriber.workspace = true

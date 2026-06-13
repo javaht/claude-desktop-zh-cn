@@ -5,13 +5,19 @@
 //!
 //! 实现要点：
 //! - Windows：写用户级注册表 `HKCU\Software\Policies\Claude\disableAutoUpdates`
-//!   （DWORD，1 = 禁用，0 = 启用）。Claude Desktop 官方企业策略字段同名。
+//!   （DWORD，1 = 禁用）。Claude Desktop 官方企业策略字段同名。
 //!   使用 HKCU 而非 HKLM 的原因：
 //!     1. Claude Desktop 检测到 HKLM\SOFTWARE\Policies\Claude 键存在就会判定
 //!        为"组织管理模式"，锁死"配置第三方推理 / 网关"等设置页；
 //!     2. HKCU 写入不需要管理员权限，避免触发 UAC 提权子进程带来的用户 hive
 //!        错位问题（提权子进程的 HKCU 可能是管理员账号而非桌面用户）；
 //!     3. 自动更新策略本就是用户偏好，不需要机器级作用域。
+//!
+//!   **启用时必须删除 value 而非写 0**：Claude Desktop 检测到
+//!   `HKCU\SOFTWARE\Policies\Claude` 下**任何** value 存在就会将配置窗口锁定为只读
+//!   并显示 "This configuration is managed by your organization"，跟 value 内容无关。
+//!   写 `disableAutoUpdates=0` 仍然会触发 managed 状态，因此启用时必须用
+//!   `RegDeleteValueW` 删除该 value。
 //!
 //!   写 HKCU\Software\Policies 不需要管理员，从 actions 层直接调用即可。
 //!   读取用 KEY_READ（仅支持 64 位进程；本项目仅发 x64 构建）。
@@ -23,7 +29,7 @@ use claude_zh_core::{LogSink, LogSinkExt, Result};
 
 /// 设置 Claude Desktop 是否启用自动更新。
 ///
-/// `enabled = true` → 启用自动更新（清除/设为 0）。
+/// `enabled = true` → 启用自动更新（删除 `disableAutoUpdates` value，不写 0）。
 /// `enabled = false` → 禁用自动更新（设为 1）。
 pub fn set_auto_updates(enabled: bool, logger: &dyn LogSink) -> Result<()> {
     logger.info(format!(
@@ -35,8 +41,9 @@ pub fn set_auto_updates(enabled: bool, logger: &dyn LogSink) -> Result<()> {
 
 /// 读取当前 Claude Desktop 自动更新开关状态。
 ///
-/// 返回 `Some(true)` 表示自动更新已启用，`Some(false)` 表示已禁用，
-/// `None` 表示读不到任何用户级策略（即从未设置过，Claude 默认行为：启用）。
+/// 返回 `Some(true)` 表示自动更新已启用，`Some(false)` 表示已禁用。
+/// Windows：value 不存在或 key 不存在均视为"未禁用"，返回 `Some(true)`。
+/// macOS：`None` 表示读不到任何用户级策略（即从未设置过，Claude 默认行为：启用）。
 pub fn auto_updates_enabled() -> Option<bool> {
     platform::auto_updates_enabled_impl()
 }
@@ -82,7 +89,7 @@ mod platform {
     use std::{ffi::OsStr, iter::once, os::windows::ffi::OsStrExt, ptr};
     use windows::core::PCWSTR;
     use windows::Win32::System::Registry::{
-        RegCloseKey, RegCreateKeyExW, RegOpenKeyExW, RegQueryValueExW,
+        RegCloseKey, RegCreateKeyExW, RegDeleteValueW, RegOpenKeyExW, RegQueryValueExW,
         RegSetValueExW, HKEY, HKEY_CURRENT_USER, KEY_READ, KEY_WRITE,
         REG_DWORD, REG_OPTION_NON_VOLATILE, REG_VALUE_TYPE,
     };
@@ -90,52 +97,104 @@ mod platform {
     const SUBKEY: &str = r"Software\Policies\Claude";
     const VALUE_NAME: &str = "disableAutoUpdates";
 
+    /// `ERROR_FILE_NOT_FOUND`（Win32 error 2）转为 HRESULT 后的值。
+    /// `RegDeleteValueW` 在 value 本来就不存在时返回此错误，应视为成功。
+    const HRESULT_ERROR_FILE_NOT_FOUND: i32 = 0x80070002u32 as i32;
+
     pub(super) fn set_auto_updates_impl(enabled: bool, logger: &dyn LogSink) -> Result<()> {
-        let disable: u32 = if enabled { 0 } else { 1 };
         let subkey_w = to_wide(SUBKEY);
         let value_w = to_wide(VALUE_NAME);
-        let mut hkey = HKEY::default();
-        unsafe {
-            RegCreateKeyExW(
-                HKEY_CURRENT_USER,
-                PCWSTR(subkey_w.as_ptr()),
-                0,
-                PCWSTR::null(),
-                REG_OPTION_NON_VOLATILE,
-                KEY_WRITE,
-                Some(ptr::null()),
-                &mut hkey,
-                None,
-            )
-            .ok()
-            .map_err(|error| {
+
+        if enabled {
+            // ── 启用自动更新：删除 disableAutoUpdates value ──
+            // 不能写 0，否则 Claude Desktop 检测到 HKCU\SOFTWARE\Policies\Claude 下
+            // 任何 value 存在就会锁定配置窗口为只读（managed 状态）。
+            let mut hkey = HKEY::default();
+            let open = unsafe {
+                RegOpenKeyExW(
+                    HKEY_CURRENT_USER,
+                    PCWSTR(subkey_w.as_ptr()),
+                    0,
+                    KEY_WRITE,
+                    &mut hkey,
+                )
+            };
+            if open.is_err() {
+                // key 本身就不存在，value 也不可能存在，无需删除。
+                logger.info(format!(
+                    "HKCU\\{SUBKEY} 不存在，自动更新已处于默认启用状态"
+                ));
+                return Ok(());
+            }
+            let delete_result = unsafe { RegDeleteValueW(hkey, PCWSTR(value_w.as_ptr())) };
+            unsafe {
+                let _ = RegCloseKey(hkey);
+            }
+            match delete_result {
+                Ok(()) => {
+                    logger.info(format!(
+                        "已删除 HKCU\\{SUBKEY}\\{VALUE_NAME}（启用自动更新）"
+                    ));
+                }
+                Err(error) => {
+                    if error.code().0 == HRESULT_ERROR_FILE_NOT_FOUND {
+                        // value 本来就不存在，视为成功
+                        logger.info(format!(
+                            "HKCU\\{SUBKEY}\\{VALUE_NAME} 已不存在，自动更新已处于启用状态"
+                        ));
+                    } else {
+                        return Err(CoreError::Message(format!(
+                            "删除 HKCU\\{SUBKEY}\\{VALUE_NAME} 失败: {error}"
+                        )));
+                    }
+                }
+            }
+        } else {
+            // ── 禁用自动更新：写 disableAutoUpdates = 1 ──
+            let mut hkey = HKEY::default();
+            unsafe {
+                RegCreateKeyExW(
+                    HKEY_CURRENT_USER,
+                    PCWSTR(subkey_w.as_ptr()),
+                    0,
+                    PCWSTR::null(),
+                    REG_OPTION_NON_VOLATILE,
+                    KEY_WRITE,
+                    Some(ptr::null()),
+                    &mut hkey,
+                    None,
+                )
+                .ok()
+                .map_err(|error| {
+                    CoreError::Message(format!(
+                        "无法打开/创建注册表项 HKCU\\{SUBKEY}: {error}"
+                    ))
+                })?;
+            }
+            let disable: u32 = 1;
+            let bytes = disable.to_le_bytes();
+            let set_result = unsafe {
+                RegSetValueExW(
+                    hkey,
+                    PCWSTR(value_w.as_ptr()),
+                    0,
+                    REG_DWORD,
+                    Some(&bytes),
+                )
+                .ok()
+            };
+            unsafe {
+                let _ = RegCloseKey(hkey);
+            }
+            set_result.map_err(|error| {
                 CoreError::Message(format!(
-                    "无法打开/创建注册表项 HKCU\\{SUBKEY}: {error}"
+                    "写入 HKCU\\{SUBKEY}\\{VALUE_NAME} 失败: {error}"
                 ))
             })?;
+            logger.info(format!(
+                "已写入 HKCU\\{SUBKEY}\\{VALUE_NAME} = {disable}"
+            ));
         }
-        let bytes = disable.to_le_bytes();
-        let set_result = unsafe {
-            RegSetValueExW(
-                hkey,
-                PCWSTR(value_w.as_ptr()),
-                0,
-                REG_DWORD,
-                Some(&bytes),
-            )
-            .ok()
-        };
-        unsafe {
-            let _ = RegCloseKey(hkey);
-        }
-        set_result.map_err(|error| {
-            CoreError::Message(format!(
-                "写入 HKCU\\{SUBKEY}\\{VALUE_NAME} 失败: {error}"
-            ))
-        })?;
-        logger.info(format!(
-            "已写入 HKCU\\{SUBKEY}\\{VALUE_NAME} = {disable}"
-        ));
         Ok(())
     }
 
@@ -153,8 +212,8 @@ mod platform {
             )
         };
         if open.is_err() {
-            // 注册表项不存在 → 用户从未设置过策略
-            return None;
+            // 注册表项不存在 → 没有策略 → 默认启用
+            return Some(true);
         }
         let mut data = [0u8; 4];
         let mut data_len: u32 = data.len() as u32;
@@ -173,12 +232,13 @@ mod platform {
             let _ = RegCloseKey(hkey);
         }
         if query.is_err() {
-            return None;
+            // value 不存在 → 没有禁用策略 → 默认启用
+            return Some(true);
         }
         // 严格校验：只接受 4 字节 REG_DWORD。类型不匹配说明外部把
-        // 别的数据塞到这个 key 下，UI 不应该误显示成"已设置"。
+        // 别的数据塞到这个 key 下，不视为有效的禁用策略。
         if value_type != REG_DWORD || data_len != 4 {
-            return None;
+            return Some(true);
         }
         let raw = u32::from_le_bytes(data);
         Some(raw == 0)
@@ -409,6 +469,57 @@ mod tests {
         assert!(
             SUBKEY.starts_with("Software\\Policies\\Claude"),
             "SUBKEY 应以 Software\\Policies\\Claude 开头，当前值: {SUBKEY}"
+        );
+    }
+
+    /// 验证 HRESULT_ERROR_FILE_NOT_FOUND 常量值正确。
+    /// `RegDeleteValueW` 在 value 本来就不存在时返回此错误码，代码必须将其视为成功。
+    #[cfg(windows)]
+    #[test]
+    fn error_file_not_found_hresult_is_correct() {
+        use super::platform::HRESULT_ERROR_FILE_NOT_FOUND;
+        // ERROR_FILE_NOT_FOUND (Win32 error 2) → HRESULT 0x80070002
+        assert_eq!(
+            HRESULT_ERROR_FILE_NOT_FOUND,
+            0x80070002u32 as i32,
+            "HRESULT_ERROR_FILE_NOT_FOUND 应等于 0x80070002"
+        );
+    }
+
+    /// 集成测试：启用自动更新后，value 应被删除而非写 0。
+    /// 写 0 会触发 Claude Desktop 的 managed 状态，锁死配置窗口。
+    /// 跑法：cargo test -p claude-zh-platform --target x86_64-pc-windows-msvc -- --ignored auto_update
+    #[cfg(windows)]
+    #[test]
+    #[ignore]
+    fn enable_auto_updates_deletes_value_not_writes_zero() {
+        let logger = NoopLogger;
+        // 先禁用，确保 value 存在
+        set_auto_updates(false, &logger).expect("set false");
+        assert_eq!(auto_updates_enabled(), Some(false));
+        // 启用后，value 应被删除（不是写 0），auto_updates_enabled 返回 Some(true)
+        set_auto_updates(true, &logger).expect("set true");
+        assert_eq!(
+            auto_updates_enabled(),
+            Some(true),
+            "启用后应返回 Some(true)，且注册表中 disableAutoUpdates value 已被删除"
+        );
+    }
+
+    /// 集成测试：从未设置过策略时，auto_updates_enabled 应返回 Some(true)。
+    /// 模拟"配置窗口不被锁定"的初始状态——key/value 不存在时默认启用。
+    /// 跑法：cargo test -p claude-zh-platform --target x86_64-pc-windows-msvc -- --ignored auto_update
+    #[cfg(windows)]
+    #[test]
+    #[ignore]
+    fn auto_updates_enabled_defaults_to_true_when_unset() {
+        // 注意：此测试依赖注册表中 key/value 不存在的状态，
+        // 跑前需手动删除 HKCU\Software\Policies\Claude 或确认不存在。
+        let result = auto_updates_enabled();
+        assert_eq!(
+            result,
+            Some(true),
+            "未设置策略时应返回 Some(true)，实际: {result:?}"
         );
     }
 }

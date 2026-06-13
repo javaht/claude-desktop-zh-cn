@@ -9,6 +9,7 @@ use claude_zh_core::{
 use std::{
     env,
     fs,
+    io::{self, ErrorKind},
     path::{Path, PathBuf},
     thread,
     time::Duration,
@@ -35,13 +36,23 @@ fn atomic_replace_file(src: &Path, dst: &Path) -> Result<()> {
     let src_w: Vec<u16> = src.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
     let dst_w: Vec<u16> = dst.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
 
+    // SAFETY: src_w 和 dst_w 均为以 null 结尾的宽字符路径；flags 使用 windows-rs 文档允许的 MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH。
     unsafe {
         MoveFileExW(
             PCWSTR(src_w.as_ptr()),
             PCWSTR(dst_w.as_ptr()),
             MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH,
         )
-        .map_err(|e| CoreError::Message(format!("MoveFileExW 失败: {e}")))?;
+        .map_err(|e| {
+            let hresult = e.code().0 as u32;
+            // MoveFileExW 通过 GetLastError / HRESULT_FROM_WIN32 返回 Win32 错误码，低 16 位即为原始错误码。
+            let raw = if (hresult >> 16) & 0x1FFF == 7 {
+                hresult & 0xFFFF
+            } else {
+                hresult
+            };
+            CoreError::Io(io::Error::from_raw_os_error(raw as i32))
+        })?;
     }
     Ok(())
 }
@@ -141,28 +152,23 @@ fn dry_run_tmp_dir_name() -> String {
     )
 }
 
-/// 带重试的 exe 替换：先写入唯一 tmp 文件，再通过 MoveFileExW 原子替换。
-/// 可重试错误：MoveFileExW 失败（exe 被锁定）。
-/// 重试前调用 quit_claude 释放锁，退避序列 [150, 300, 500, 800, 1200, 1800]ms。
-/// 不可重试错误立即返回，清理 tmp；最终失败也清理 tmp（best effort）。
-fn write_and_replace_exe_with_retries(
+/// 带重试的文件替换核心逻辑，接受可注入的 replace 与 quit 函数以便测试。
+fn replace_with_retries<F, Q>(
+    tmp_path: &Path,
     target_exe: &Path,
-    new_data: &[u8],
+    mut replace: F,
+    mut quit: Q,
     logger: &dyn LogSink,
-) -> Result<()> {
+) -> Result<()>
+where
+    F: FnMut(&Path, &Path) -> Result<()>,
+    Q: FnMut(&dyn LogSink),
+{
     const RETRY_DELAYS_MS: [u64; 6] = [150, 300, 500, 800, 1200, 1800];
-    let tmp_path = unique_tmp_path(target_exe);
-
-    // 写入唯一 tmp 文件（非重试路径；唯一路径避免锁竞争）
-    fs::write(&tmp_path, new_data).map_err(|e| {
-        let _ = fs::remove_file(&tmp_path);
-        CoreError::Io(e)
-    })?;
-
     let mut last_error: Option<CoreError> = None;
 
     for (attempt, delay_ms) in RETRY_DELAYS_MS.iter().enumerate() {
-        match atomic_replace_file(&tmp_path, target_exe) {
+        match replace(tmp_path, target_exe) {
             Ok(()) => {
                 if attempt > 0 {
                     logger.info(format!(
@@ -172,34 +178,68 @@ fn write_and_replace_exe_with_retries(
                 }
                 return Ok(());
             }
-            Err(CoreError::Message(ref msg)) if msg.contains("MoveFileExW") => {
+            Err(CoreError::Io(ref io_err))
+                if matches!(
+                    io_err.kind(),
+                    ErrorKind::PermissionDenied | ErrorKind::WouldBlock | ErrorKind::TimedOut
+                ) =>
+            {
                 logger.warn(format!(
-                    "Claude.exe 替换失败（第 {} 次）: {msg}；等待 {delay_ms}ms 后重试。",
+                    "Claude.exe 替换失败（第 {} 次）: {io_err}；等待 {delay_ms}ms 后重试。",
                     attempt + 1
                 ));
-                last_error = Some(CoreError::Message(msg.clone()));
-                super::quit_claude(logger);
+                last_error = Some(CoreError::Io(io::Error::new(
+                    io_err.kind(),
+                    io_err.to_string(),
+                )));
+                quit(logger);
                 thread::sleep(Duration::from_millis(*delay_ms));
             }
             Err(error) => {
                 // 不可重试错误：清理 tmp，立即返回
-                let _ = fs::remove_file(&tmp_path);
+                let _ = fs::remove_file(tmp_path);
                 return Err(error);
             }
         }
     }
 
     // 所有重试耗尽后的最终尝试
-    match atomic_replace_file(&tmp_path, target_exe) {
+    match replace(tmp_path, target_exe) {
         Ok(()) => Ok(()),
         Err(error) => {
-            let _ = fs::remove_file(&tmp_path);
+            let _ = fs::remove_file(tmp_path);
             Err(CoreError::Message(format!(
                 "Claude.exe 替换最终失败: {}",
                 last_error.unwrap_or(error)
             )))
         }
     }
+}
+
+/// 带重试的 exe 替换：先写入唯一 tmp 文件，再通过 MoveFileExW 原子替换。
+/// 可重试错误：MoveFileExW 返回 PermissionDenied / WouldBlock / TimedOut（exe 被锁定）。
+/// 重试前调用 quit_claude 释放锁，退避序列 [150, 300, 500, 800, 1200, 1800]ms。
+/// 不可重试错误立即返回，清理 tmp；最终失败也清理 tmp（best effort）。
+fn write_and_replace_exe_with_retries(
+    target_exe: &Path,
+    new_data: &[u8],
+    logger: &dyn LogSink,
+) -> Result<()> {
+    let tmp_path = unique_tmp_path(target_exe);
+
+    // 写入唯一 tmp 文件（非重试路径；唯一路径避免锁竞争）
+    fs::write(&tmp_path, new_data).map_err(|e| {
+        let _ = fs::remove_file(&tmp_path);
+        CoreError::Io(e)
+    })?;
+
+    replace_with_retries(
+        &tmp_path,
+        target_exe,
+        atomic_replace_file,
+        super::quit_claude,
+        logger,
+    )
 }
 
 fn sync_windows_exe_asar_integrity(resources: &Path, logger: &dyn LogSink) -> Result<()> {
@@ -473,11 +513,15 @@ pub(crate) fn platform_install_patch(
 #[cfg(test)]
 mod tests {
     use super::{
-        build_patched_exe_data, patch_exe_hash_data, rollback_after_windows_install_failure,
-        dry_run_tmp_dir_name, unique_tmp_path, windows_resources_look_patched,
+        build_patched_exe_data, patch_exe_hash_data, replace_with_retries,
+        rollback_after_windows_install_failure, dry_run_tmp_dir_name, unique_tmp_path,
+        windows_resources_look_patched,
     };
     use claude_zh_core::{now_millis, CoreError, NoopLogger};
     use std::fs;
+    use std::io;
+    use std::io::ErrorKind;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     #[test]
     fn windows_resources_look_patched_detects_added_language_files() {
@@ -851,5 +895,48 @@ mod tests {
             &patched[marker_pos + marker.len()..marker_pos + marker.len() + 64],
             new_hash.as_bytes()
         );
+    }
+
+    #[test]
+    fn replace_with_retries_retries_on_permission_denied_and_succeeds() {
+        let tmp = std::env::temp_dir().join(format!(
+            "claude-zh-platform-retry-ok-{}",
+            now_millis()
+        ));
+        let target = std::env::temp_dir().join(format!(
+            "claude-zh-platform-retry-target-{}",
+            now_millis()
+        ));
+        let _ = fs::write(&tmp, b"tmp");
+        let _ = fs::write(&target, b"target");
+
+        let attempt = AtomicUsize::new(0);
+        let result = replace_with_retries(
+            &tmp,
+            &target,
+            |_src, _dst| {
+                let n = attempt.fetch_add(1, Ordering::SeqCst);
+                if n < 2 {
+                    Err(CoreError::Io(io::Error::new(
+                        ErrorKind::PermissionDenied,
+                        "模拟文件被占用",
+                    )))
+                } else {
+                    Ok(())
+                }
+            },
+            |_logger| { /* 测试中不调用真实 quit_claude */ },
+            &NoopLogger,
+        );
+
+        assert!(result.is_ok(), "PermissionDenied 重试后应成功: {:?}", result.err());
+        assert_eq!(
+            attempt.load(Ordering::SeqCst),
+            3,
+            "应重试 2 次后第 3 次成功"
+        );
+
+        let _ = fs::remove_file(&tmp);
+        let _ = fs::remove_file(&target);
     }
 }

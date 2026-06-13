@@ -112,6 +112,7 @@ mod platform {
             // 不能写 0，否则 Claude Desktop 检测到 HKCU\SOFTWARE\Policies\Claude 下
             // 任何 value 存在就会锁定配置窗口为只读（managed 状态）。
             let mut hkey = HKEY::default();
+            // SAFETY: subkey_w 来自常量 SUBKEY 的宽字符转换，以 null 结尾；hkey 由 RegOpenKeyExW 写入，调用方持有有效句柄。
             let open = unsafe {
                 RegOpenKeyExW(
                     HKEY_CURRENT_USER,
@@ -128,7 +129,9 @@ mod platform {
                 ));
                 return Ok(());
             }
+            // SAFETY: hkey 已由 RegOpenKeyExW 成功打开；value_w 来自常量 VALUE_NAME 的宽字符转换，以 null 结尾。
             let delete_result = unsafe { RegDeleteValueW(hkey, PCWSTR(value_w.as_ptr())) };
+            // SAFETY: hkey 由上方 RegOpenKeyExW 成功打开，此处关闭该句柄是安全的。
             unsafe {
                 let _ = RegCloseKey(hkey);
             }
@@ -150,6 +153,7 @@ mod platform {
         } else {
             // ── 禁用自动更新：写 disableAutoUpdates = 1 ──
             let mut hkey = HKEY::default();
+            // SAFETY: subkey_w 来自常量 SUBKEY 的宽字符转换且以 null 结尾；hkey 由 RegCreateKeyExW 写入；安全属性传 null 表示使用默认值。
             unsafe {
                 RegCreateKeyExW(
                     HKEY_CURRENT_USER,
@@ -171,6 +175,7 @@ mod platform {
             }
             let disable: u32 = 1;
             let bytes = disable.to_le_bytes();
+            // SAFETY: hkey 由 RegCreateKeyExW 成功打开；value_w 来自常量 VALUE_NAME 的宽字符转换；bytes 为 4 字节 REG_DWORD 数据。
             let set_result = unsafe {
                 RegSetValueExW(
                     hkey,
@@ -181,6 +186,7 @@ mod platform {
                 )
                 .ok()
             };
+            // SAFETY: hkey 由 RegCreateKeyExW 成功打开，此处关闭该句柄是安全的。
             unsafe {
                 let _ = RegCloseKey(hkey);
             }
@@ -200,6 +206,7 @@ mod platform {
         let subkey_w = to_wide(SUBKEY);
         let value_w = to_wide(VALUE_NAME);
         let mut hkey = HKEY::default();
+        // SAFETY: subkey_w 来自常量 SUBKEY 的宽字符转换，以 null 结尾；hkey 由 RegOpenKeyExW 写入，调用方持有有效句柄。
         let open = unsafe {
             RegOpenKeyExW(
                 HKEY_CURRENT_USER,
@@ -221,6 +228,7 @@ mod platform {
         let mut data = [0u8; 4];
         let mut data_len: u32 = data.len() as u32;
         let mut value_type = REG_VALUE_TYPE(0);
+        // SAFETY: hkey 由 RegOpenKeyExW 成功打开；data 为 4 字节可写缓冲区，data_len 已初始化为 data 长度，windows-rs 按文档写入。
         let query = unsafe {
             RegQueryValueExW(
                 hkey,
@@ -231,6 +239,7 @@ mod platform {
                 Some(&mut data_len),
             )
         };
+        // SAFETY: hkey 由 RegOpenKeyExW 成功打开，此处关闭该句柄是安全的。
         unsafe {
             let _ = RegCloseKey(hkey);
         }

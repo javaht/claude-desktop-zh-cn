@@ -108,6 +108,7 @@ fn decode_platform_command_output(bytes: &[u8]) -> String {
     if bytes.is_empty() {
         return String::new();
     }
+    // SAFETY: bytes 来自有效切片且长度正确；MultiByteToWideChar 按文档计算所需宽字符数并写入由调用方分配的 buffer。
     unsafe {
         let needed = MultiByteToWideChar(CP_OEMCP, MULTI_BYTE_TO_WIDE_CHAR_FLAGS(0), bytes, None);
         if needed <= 0 {

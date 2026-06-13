@@ -333,8 +333,10 @@ fn run_cli_file(path: PathBuf) -> i32 {
 /// 初始化 tracing 日志系统（幂等，多次调用安全）。
 ///
 /// - 文件 appender：写入 `%LocalAppData%\ClaudeDesktopZhCn\logs\app.YYYY-MM-DD`（Windows）
-///   或 `~/Library/Logs/ClaudeDesktopZhCn/app.YYYY-MM-DD`（macOS），
-///   由 tracing-appender 按日自动滚动。
+///   或 `~/Library/Application Support/ClaudeDesktopZhCn/logs/app.YYYY-MM-DD`（macOS）。
+///   这是 `dirs` crate 在 macOS 上的默认行为——`data_local_dir()` 返回
+///   `~/Library/Application Support`（与 Windows 的 `%LocalAppData%` 对应），
+///   再由 `tracing-appender` 按日自动滚动。
 /// - 控制台输出：dev 模式默认开（stderr），release 模式默认关（可通过 `RUST_LOG` 覆盖）。
 /// - 环境过滤：优先从 `RUST_LOG` 读，否则默认 `info,claude_zh=debug`。
 /// - 失败降级：log 目录创建失败时降级为只 console 输出，不阻塞应用启动。
@@ -343,7 +345,7 @@ fn run_cli_file(path: PathBuf) -> i32 {
 ///
 /// - 文件日志位于：
 ///   - Windows: `%LocalAppData%\ClaudeDesktopZhCn\logs\`
-///   - macOS: `~/Library/Logs/ClaudeDesktopZhCn/`
+///   - macOS: `~/Library/Application Support/ClaudeDesktopZhCn/logs/`
 /// - 设置环境变量 `RUST_LOG=debug` 可提升日志级别。
 /// - 在 release 模式下，默认只输出到文件，设置 `RUST_LOG=info` 后仍无控制台输出；
 ///   若需控制台输出，可自行构建 subscriber 或改用 `debug_assertions` 条件编译。

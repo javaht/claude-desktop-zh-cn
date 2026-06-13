@@ -64,10 +64,35 @@ pub fn restore_patch(dry_run: bool, logger: &dyn LogSink) -> Result<()> {
 }
 
 pub fn set_auto_updates(enabled: bool, logger: &dyn LogSink) -> Result<()> {
-    // Windows: HKCU\Software\Policies\Claude 是用户级注册表路径，不需要管理员权限，
-    // 直接写入当前用户的注册表即可。不走 elevation，避免提权子进程的 HKCU 指向
-    // 管理员账号而非桌面用户的问题。
-    auto_update::set_auto_updates(enabled, logger)
+    logger.info(format!(
+        "自动更新请求: {}",
+        if enabled { "开启" } else { "停止" }
+    ));
+    // 渐进式：先在当前进程直写，失败再走提权分身。
+    #[cfg(windows)]
+    {
+        match auto_update::set_auto_updates(enabled, logger) {
+            Ok(()) => Ok(()),
+            Err(e) if auto_update::is_access_denied(&e) => {
+                // 正常 HKCU 写入不需要管理员；0x80070005 可能是 ADMX 强锁或受限完整性级别导致。
+                logger.warn("当前进程权限不足，尝试用管理员分身重试。请在 UAC 弹窗中保持当前用户，不要切换到其他管理员账号。");
+                run_elevated_cli(
+                    "set_auto_updates",
+                    None,
+                    None,
+                    Some(enabled),
+                    None,
+                    logger,
+                )
+            }
+            Err(e) => Err(e),
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        // macOS 的 defaults 命令与 elevation 框架不相关，保持原直写行为。
+        auto_update::set_auto_updates(enabled, logger)
+    }
 }
 
 pub fn sync_cc_switch_skills(logger: &dyn LogSink) -> Result<()> {

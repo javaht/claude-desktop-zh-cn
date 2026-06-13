@@ -9,9 +9,9 @@
 //!   使用 HKCU 而非 HKLM 的原因：
 //!     1. Claude Desktop 检测到 HKLM\SOFTWARE\Policies\Claude 键存在就会判定
 //!        为"组织管理模式"，锁死"配置第三方推理 / 网关"等设置页；
-//!     2. HKCU 写入不需要管理员权限，避免触发 UAC 提权子进程带来的用户 hive
-//!        错位问题（提权子进程的 HKCU 可能是管理员账号而非桌面用户）；
-//!     3. 自动更新策略本就是用户偏好，不需要机器级作用域。
+//!     2. 自动更新策略本质是用户偏好，不需要机器级作用域；
+//!     3. HKCU 在标准 UAC 同账号提权下仍指向当前桌面用户，因此可以先在当前
+//!        进程直写，失败后再由 actions 层走提权分身重试。
 //!
 //!   **启用时必须删除 value 而非写 0**：Claude Desktop 检测到
 //!   `HKCU\SOFTWARE\Policies\Claude` 下**任何** value 存在就会将配置窗口锁定为只读
@@ -19,13 +19,22 @@
 //!   写 `disableAutoUpdates=0` 仍然会触发 managed 状态，因此启用时必须用
 //!   `RegDeleteValueW` 删除该 value。
 //!
-//!   写 HKCU\Software\Policies 不需要管理员，从 actions 层直接调用即可。
+//!   写 HKCU\Software\Policies 通常不需要管理员，从 actions 层先直接调用。
+//!   若遇到 0x80070005 (E_ACCESSDENIED)，常见原因包括 GPO 设置了 Deny ACE、
+//!   MDM 策略锁定、或进程完整性级别受限；此时 actions 层会尝试 UAC 提权子进程。
 //!   读取用 KEY_READ（仅支持 64 位进程；本项目仅发 x64 构建）。
+//!
+//!   每次写入后都会用 `RegQueryValueExW` 回读自检；若自检失败，会立即把
+//!   `disableAutoUpdates` 恢复为写入前的原始值，避免部分写入造成未知状态。
+//!   只操作 `disableAutoUpdates` 这一个 value，不会删除整个 key。
 //! - macOS：通过 `defaults` 命令写入 `com.anthropic.claudefordesktop` 域的
 //!   `disableAutoUpdates`（boolean）。`defaults` 走 CFPreferences 标准通道，
 //!   自动处理缓存同步，无需直接读写 plist 文件。
 
 use claude_zh_core::{LogSink, LogSinkExt, Result};
+
+#[cfg(windows)]
+pub(crate) use platform::is_access_denied;
 
 /// 设置 Claude Desktop 是否启用自动更新。
 ///
@@ -103,9 +112,12 @@ mod platform {
     /// windows crate 0.58 的注册表 API 返回 `WIN32_ERROR`，不是 `HRESULT`。
     pub(super) const WIN32_ERROR_FILE_NOT_FOUND: u32 = 2;
 
+    /// `ERROR_ACCESS_DENIED` 的 Win32 error code（裸 Win32 code = 5，
+    /// windows::core::Error 会显示为 0x80070005）。
+    const WIN32_ERROR_ACCESS_DENIED: u32 = 5;
+
     pub(super) fn set_auto_updates_impl(enabled: bool, logger: &dyn LogSink) -> Result<()> {
         let subkey_w = to_wide(SUBKEY);
-        let value_w = to_wide(VALUE_NAME);
 
         if enabled {
             // ── 启用自动更新：删除 disableAutoUpdates value ──
@@ -118,85 +130,171 @@ mod platform {
                     HKEY_CURRENT_USER,
                     PCWSTR(subkey_w.as_ptr()),
                     0,
-                    KEY_WRITE,
+                    KEY_READ | KEY_WRITE,
                     &mut hkey,
                 )
             };
             if open.is_err() {
-                // key 本身就不存在，value 也不可能存在，无需删除。
-                logger.info(format!(
-                    "HKCU\\{SUBKEY} 不存在，自动更新已处于默认启用状态"
+                if open.0 == WIN32_ERROR_FILE_NOT_FOUND {
+                    // key 本身就不存在，value 也不可能存在，无需删除。
+                    logger.info(format!(
+                        "HKCU\\{SUBKEY} 不存在，自动更新已处于默认启用状态"
+                    ));
+                    return Ok(());
+                }
+                return Err(make_registry_error(
+                    "无法打开注册表项以删除 disableAutoUpdates",
+                    SUBKEY,
+                    "",
+                    open.0,
+                    true,
                 ));
-                return Ok(());
             }
-            // SAFETY: hkey 已由 RegOpenKeyExW 成功打开；value_w 来自常量 VALUE_NAME 的宽字符转换，以 null 结尾。
-            let delete_result = unsafe { RegDeleteValueW(hkey, PCWSTR(value_w.as_ptr())) };
+            let original = read_disable_value(hkey).map_err(|code| {
+                // SAFETY: hkey 由上方 RegOpenKeyExW 成功打开，此处关闭该句柄是安全的。
+                unsafe {
+                    let _ = RegCloseKey(hkey);
+                }
+                make_registry_error("读取原始 disableAutoUpdates 值失败", SUBKEY, VALUE_NAME, code, true)
+            })?;
+            if let Err(code) = delete_disable_value(hkey) {
+                // SAFETY: hkey 由上方 RegOpenKeyExW 成功打开，此处关闭该句柄是安全的。
+                unsafe {
+                    let _ = RegCloseKey(hkey);
+                }
+                return Err(make_registry_error(
+                    "删除 disableAutoUpdates 失败",
+                    SUBKEY,
+                    VALUE_NAME,
+                    code,
+                    true,
+                ));
+            }
+            let verify = match read_disable_value(hkey) {
+                Ok(v) => v,
+                Err(_code) => {
+                    let rollback = rollback_to_original(hkey, original);
+                    // SAFETY: hkey 由上方 RegOpenKeyExW 成功打开，此处关闭该句柄是安全的。
+                    unsafe {
+                        let _ = RegCloseKey(hkey);
+                    }
+                    return match rollback {
+                        Ok(()) => Err(CoreError::Message(format!(
+                            "写入后自检失败，已回滚到原状态。完整路径: HKCU\\{SUBKEY}\\{VALUE_NAME}。建议立即检查 HKCU\\Software\\Policies\\Claude 状态"
+                        ))),
+                        Err(code) => Err(CoreError::Message(format!(
+                            "写入后自检失败，回滚也失败，注册表可能处于不一致状态。完整路径: HKCU\\{SUBKEY}\\{VALUE_NAME}，Win32 错误码 0x{code:08X} ({code})。建议立即检查 HKCU\\Software\\Policies\\Claude 状态"
+                        ))),
+                    };
+                }
+            };
+            if verify.is_some() {
+                let rollback = rollback_to_original(hkey, original);
+                // SAFETY: hkey 由上方 RegOpenKeyExW 成功打开，此处关闭该句柄是安全的。
+                unsafe {
+                    let _ = RegCloseKey(hkey);
+                }
+                return match rollback {
+                    Ok(()) => Err(CoreError::Message(format!(
+                        "删除后自检失败，已回滚到原状态。完整路径: HKCU\\{SUBKEY}\\{VALUE_NAME}"
+                    ))),
+                    Err(code) => Err(CoreError::Message(format!(
+                        "删除后自检失败，且回滚也失败。完整路径: HKCU\\{SUBKEY}\\{VALUE_NAME}，Win32 错误码 0x{code:08X} ({code})。建议手动以管理员身份运行 PowerShell 执行：\nreg delete \"HKCU\\SOFTWARE\\Policies\\Claude\" /v disableAutoUpdates /f"
+                    ))),
+                };
+            }
             // SAFETY: hkey 由上方 RegOpenKeyExW 成功打开，此处关闭该句柄是安全的。
             unsafe {
                 let _ = RegCloseKey(hkey);
             }
-            if delete_result.is_ok() {
-                logger.info(format!(
-                    "已删除 HKCU\\{SUBKEY}\\{VALUE_NAME}（启用自动更新）"
-                ));
-            } else if delete_result.0 == WIN32_ERROR_FILE_NOT_FOUND {
-                // value 本来就不存在，视为成功
-                logger.info(format!(
-                    "HKCU\\{SUBKEY}\\{VALUE_NAME} 已不存在，自动更新已处于启用状态"
-                ));
-            } else {
-                return Err(CoreError::Message(format!(
-                    "删除 HKCU\\{SUBKEY}\\{VALUE_NAME} 失败: Win32 错误码 {}",
-                    delete_result.0
-                )));
-            }
+            logger.info(format!(
+                "已删除 HKCU\\{SUBKEY}\\{VALUE_NAME}（启用自动更新）"
+            ));
         } else {
             // ── 禁用自动更新：写 disableAutoUpdates = 1 ──
             let mut hkey = HKEY::default();
             // SAFETY: subkey_w 来自常量 SUBKEY 的宽字符转换且以 null 结尾；hkey 由 RegCreateKeyExW 写入；安全属性传 null 表示使用默认值。
-            unsafe {
+            let create = unsafe {
                 RegCreateKeyExW(
                     HKEY_CURRENT_USER,
                     PCWSTR(subkey_w.as_ptr()),
                     0,
                     PCWSTR::null(),
                     REG_OPTION_NON_VOLATILE,
-                    KEY_WRITE,
+                    KEY_READ | KEY_WRITE,
                     Some(ptr::null()),
                     &mut hkey,
                     None,
                 )
-                .ok()
-                .map_err(|error| {
-                    CoreError::Message(format!(
-                        "无法打开/创建注册表项 HKCU\\{SUBKEY}: {error}"
-                    ))
-                })?;
-            }
-            let disable: u32 = 1;
-            let bytes = disable.to_le_bytes();
-            // SAFETY: hkey 由 RegCreateKeyExW 成功打开；value_w 来自常量 VALUE_NAME 的宽字符转换；bytes 为 4 字节 REG_DWORD 数据。
-            let set_result = unsafe {
-                RegSetValueExW(
-                    hkey,
-                    PCWSTR(value_w.as_ptr()),
-                    0,
-                    REG_DWORD,
-                    Some(&bytes),
-                )
-                .ok()
             };
+            if create.is_err() {
+                return Err(make_registry_error(
+                    "无法打开/创建注册表项",
+                    SUBKEY,
+                    "",
+                    create.0,
+                    false,
+                ));
+            }
+            let original = read_disable_value(hkey).map_err(|code| {
+                // SAFETY: hkey 由 RegCreateKeyExW 成功打开，此处关闭该句柄是安全的。
+                unsafe {
+                    let _ = RegCloseKey(hkey);
+                }
+                make_registry_error("读取原始 disableAutoUpdates 值失败", SUBKEY, VALUE_NAME, code, false)
+            })?;
+            if let Err(code) = write_disable_value(hkey, 1) {
+                // SAFETY: hkey 由 RegCreateKeyExW 成功打开，此处关闭该句柄是安全的。
+                unsafe {
+                    let _ = RegCloseKey(hkey);
+                }
+                return Err(make_registry_error(
+                    "写入 disableAutoUpdates = 1 失败",
+                    SUBKEY,
+                    VALUE_NAME,
+                    code,
+                    false,
+                ));
+            }
+            let verify = match read_disable_value(hkey) {
+                Ok(v) => v,
+                Err(_code) => {
+                    let rollback = rollback_to_original(hkey, original);
+                    // SAFETY: hkey 由 RegCreateKeyExW 成功打开，此处关闭该句柄是安全的。
+                    unsafe {
+                        let _ = RegCloseKey(hkey);
+                    }
+                    return match rollback {
+                        Ok(()) => Err(CoreError::Message(format!(
+                            "写入后自检失败，已回滚到原状态。完整路径: HKCU\\{SUBKEY}\\{VALUE_NAME}。建议立即检查 HKCU\\Software\\Policies\\Claude 状态"
+                        ))),
+                        Err(code) => Err(CoreError::Message(format!(
+                            "写入后自检失败，回滚也失败，注册表可能处于不一致状态。完整路径: HKCU\\{SUBKEY}\\{VALUE_NAME}，Win32 错误码 0x{code:08X} ({code})。建议立即检查 HKCU\\Software\\Policies\\Claude 状态"
+                        ))),
+                    };
+                }
+            };
+            if verify != Some(1) {
+                let rollback = rollback_to_original(hkey, original);
+                // SAFETY: hkey 由 RegCreateKeyExW 成功打开，此处关闭该句柄是安全的。
+                unsafe {
+                    let _ = RegCloseKey(hkey);
+                }
+                return match rollback {
+                    Ok(()) => Err(CoreError::Message(format!(
+                        "写入后自检失败，已回滚到原状态。完整路径: HKCU\\{SUBKEY}\\{VALUE_NAME}"
+                    ))),
+                    Err(code) => Err(CoreError::Message(format!(
+                        "写入后自检失败，且回滚也失败。完整路径: HKCU\\{SUBKEY}\\{VALUE_NAME}，Win32 错误码 0x{code:08X} ({code})。建议手动以管理员身份运行 PowerShell 执行：\nreg add \"HKCU\\SOFTWARE\\Policies\\Claude\" /v disableAutoUpdates /t REG_DWORD /d 1 /f"
+                    ))),
+                };
+            }
             // SAFETY: hkey 由 RegCreateKeyExW 成功打开，此处关闭该句柄是安全的。
             unsafe {
                 let _ = RegCloseKey(hkey);
             }
-            set_result.map_err(|error| {
-                CoreError::Message(format!(
-                    "写入 HKCU\\{SUBKEY}\\{VALUE_NAME} 失败: {error}"
-                ))
-            })?;
             logger.info(format!(
-                "已写入 HKCU\\{SUBKEY}\\{VALUE_NAME} = {disable}"
+                "已写入 HKCU\\{SUBKEY}\\{VALUE_NAME} = 1"
             ));
         }
         Ok(())
@@ -259,6 +357,143 @@ mod platform {
         }
         let raw = u32::from_le_bytes(data);
         Some(raw == 0)
+    }
+
+    /// 判断错误是否由注册表/文件访问被拒绝导致。
+    ///
+    /// 覆盖多种常见格式：
+    /// - HRESULT 包装：`0x80070005`
+    /// - Win32 裸码补零：`0x00000005`
+    /// - 十进制裸码：`5`（前后不是其他数字）
+    /// - 中文/英文描述：`拒绝访问`、`Access is denied`。
+    pub(crate) fn is_access_denied(error: &CoreError) -> bool {
+        match error {
+            CoreError::Message(msg) => {
+                const CODE_ALTS: &[&str] = &["0x80070005", "0x00000005"];
+                if CODE_ALTS.iter().any(|alt| msg.contains(alt)) {
+                    return true;
+                }
+                if msg.contains("拒绝访问")
+                    || msg.contains("Access is denied")
+                    || msg.contains("access is denied")
+                {
+                    return true;
+                }
+                _is_bare_decimal(msg, "5")
+            }
+            _ => false,
+        }
+    }
+
+    /// 检查 `haystack` 中是否存在独立的 `word`（前后都不是数字）。
+    fn _is_bare_decimal(haystack: &str, word: &str) -> bool {
+        haystack.match_indices(word).any(|(idx, _)| {
+            let before = haystack[..idx].chars().next_back();
+            let after = haystack[idx + word.len()..].chars().next();
+            !before.map_or(false, |c| c.is_ascii_digit())
+                && !after.map_or(false, |c| c.is_ascii_digit())
+        })
+    }
+
+    /// 读 `disableAutoUpdates` 的 DWORD 值。
+    /// 返回 `None` 表示 value 不存在；返回 `Err(code)` 表示其他 Win32 错误。
+    fn read_disable_value(hkey: HKEY) -> std::result::Result<Option<u32>, u32> {
+        let value_w = to_wide(VALUE_NAME);
+        let mut data = [0u8; 4];
+        let mut data_len: u32 = data.len() as u32;
+        let mut value_type = REG_VALUE_TYPE(0);
+        // SAFETY: hkey 已由调用方成功打开；value_w 来自常量 VALUE_NAME 的宽字符转换；data 为 4 字节可写缓冲区。
+        let query = unsafe {
+            RegQueryValueExW(
+                hkey,
+                PCWSTR(value_w.as_ptr()),
+                None,
+                Some(&mut value_type),
+                Some(data.as_mut_ptr()),
+                Some(&mut data_len),
+            )
+        };
+        if query.is_ok() {
+            // 类型/长度不合法时，视为不存在（上层按默认启用处理）。
+            if value_type != REG_DWORD || data_len != 4 {
+                return Ok(None);
+            }
+            return Ok(Some(u32::from_le_bytes(data)));
+        }
+        if query.0 == WIN32_ERROR_FILE_NOT_FOUND {
+            Ok(None)
+        } else {
+            Err(query.0)
+        }
+    }
+
+    /// 写 `disableAutoUpdates` 为指定 DWORD 值。
+    fn write_disable_value(hkey: HKEY, val: u32) -> std::result::Result<(), u32> {
+        let value_w = to_wide(VALUE_NAME);
+        let bytes = val.to_le_bytes();
+        // SAFETY: hkey 已由调用方成功打开；value_w 来自常量 VALUE_NAME 的宽字符转换；bytes 为 4 字节 REG_DWORD 数据。
+        let set_result = unsafe {
+            RegSetValueExW(
+                hkey,
+                PCWSTR(value_w.as_ptr()),
+                0,
+                REG_DWORD,
+                Some(&bytes),
+            )
+        };
+        if set_result.is_ok() {
+            Ok(())
+        } else {
+            Err(set_result.0)
+        }
+    }
+
+    /// 删除 `disableAutoUpdates` value；value 不存在时视为成功。
+    fn delete_disable_value(hkey: HKEY) -> std::result::Result<(), u32> {
+        let value_w = to_wide(VALUE_NAME);
+        // SAFETY: hkey 已由调用方成功打开；value_w 来自常量 VALUE_NAME 的宽字符转换。
+        let delete_result = unsafe { RegDeleteValueW(hkey, PCWSTR(value_w.as_ptr())) };
+        if delete_result.is_ok() || delete_result.0 == WIN32_ERROR_FILE_NOT_FOUND {
+            Ok(())
+        } else {
+            Err(delete_result.0)
+        }
+    }
+
+    /// 回滚到写入前的原始值。
+    /// `original = None` 表示原本不存在，回滚即删除 value。
+    fn rollback_to_original(hkey: HKEY, original: Option<u32>) -> std::result::Result<(), u32> {
+        match original {
+            Some(val) => write_disable_value(hkey, val),
+            None => delete_disable_value(hkey),
+        }
+    }
+
+    /// 构造注册表操作的错误信息，包含完整路径、Win32 错误码（hex + 十进制）和手动命令提示。
+    fn make_registry_error(
+        context: &str,
+        subkey: &str,
+        value: &str,
+        code: u32,
+        is_enable_operation: bool,
+    ) -> CoreError {
+        let full_path = if value.is_empty() {
+            format!("HKCU\\{subkey}")
+        } else {
+            format!("HKCU\\{subkey}\\{value}")
+        };
+        let manual_cmd = if code == WIN32_ERROR_ACCESS_DENIED {
+            if is_enable_operation {
+                format!("\n建议手动以管理员身份运行 PowerShell 执行：\nreg delete \"HKCU\\SOFTWARE\\Policies\\Claude\" /v disableAutoUpdates /f")
+            } else {
+                format!("\n建议手动以管理员身份运行 PowerShell 执行：\nreg add \"HKCU\\SOFTWARE\\Policies\\Claude\" /v disableAutoUpdates /t REG_DWORD /d 1 /f")
+            }
+        } else {
+            String::new()
+        };
+        CoreError::Message(format!(
+            "{context}。完整路径: {full_path}，Win32 错误码 0x{code:08X} ({code}){manual_cmd}"
+        ))
     }
 
     fn to_wide(s: &str) -> Vec<u16> {
@@ -356,7 +591,7 @@ mod platform {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use claude_zh_core::NoopLogger;
+    use claude_zh_core::{CoreError, NoopLogger};
 
     /// 本机集成测试：会真实写入当前用户的注册表/偏好文件，所以默认 ignore。
     /// 跑法：cargo test -p claude-zh-platform --target x86_64-pc-windows-msvc -- --ignored auto_update
@@ -557,5 +792,68 @@ mod tests {
             Some(true),
             "未设置策略时应返回 Some(true)，实际: {result:?}"
         );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn is_access_denied_returns_true_for_win32_0x80070005() {
+        use super::is_access_denied;
+        let err = CoreError::Message(
+            "写入 HKCU\\Software\\Policies\\Claude\\disableAutoUpdates 失败: 0x80070005 (E_ACCESSDENIED)".to_string(),
+        );
+        assert!(is_access_denied(&err));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn is_access_denied_returns_true_for_access_denied_chinese() {
+        use super::is_access_denied;
+        let err = CoreError::Message("无法打开/创建注册表项: 拒绝访问。".to_string());
+        assert!(is_access_denied(&err));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn is_access_denied_returns_false_for_other_errors() {
+        use super::is_access_denied;
+        let not_found = CoreError::Message(
+            "无法打开/创建注册表项: 0x80070002 (ERROR_FILE_NOT_FOUND)".to_string(),
+        );
+        assert!(!is_access_denied(&not_found));
+        let bad_align = CoreError::Message(
+            "无法打开/创建注册表项: 0x80000005 (E_INVALIDARG)".to_string(),
+        );
+        assert!(!is_access_denied(&bad_align));
+        let path_not_found = CoreError::Message("路径未找到".to_string());
+        assert!(!is_access_denied(&path_not_found));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn is_access_denied_returns_false_for_non_message_variants() {
+        use super::is_access_denied;
+        let io_err = CoreError::Io(std::io::Error::new(std::io::ErrorKind::PermissionDenied, "test"));
+        assert!(!is_access_denied(&io_err));
+        let json_err = CoreError::Json(serde_json::from_str::<serde_json::Value>("{").unwrap_err());
+        assert!(!is_access_denied(&json_err));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn is_access_denied_returns_true_for_win32_5() {
+        use super::is_access_denied;
+        let err = CoreError::Message(
+            "无法打开/创建注册表项。完整路径: HKCU\\Software\\Policies\\Claude，Win32 错误码 0x00000005 (5)"
+                .to_string(),
+        );
+        assert!(is_access_denied(&err));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn is_access_denied_returns_true_for_bare_decimal_5() {
+        use super::is_access_denied;
+        let err = CoreError::Message("注册表访问失败，Win32 错误码: 5。".to_string());
+        assert!(is_access_denied(&err));
     }
 }

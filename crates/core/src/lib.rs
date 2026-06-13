@@ -10,6 +10,7 @@ mod menu_patch;
 mod online_dom;
 mod record;
 mod resources;
+mod restore;
 mod skills;
 mod types;
 
@@ -25,50 +26,11 @@ pub use menu_patch::*;
 pub use online_dom::*;
 pub use record::*;
 pub use resources::*;
+pub use restore::*;
 pub use skills::*;
 pub use types::*;
 
-use std::{
-    fs,
-    path::Path,
-};
-
 pub const ASAR_PATCH_TARGET: &str = ".vite/build/index.js";
-
-pub fn remove_language_files(resources: &Path) -> Result<()> {
-    for lang in ["zh-CN", "zh-TW", "zh-HK"] {
-        for path in [
-            resources.join(format!("{lang}.json")),
-            resources
-                .join("ion-dist")
-                .join("i18n")
-                .join(format!("{lang}.json")),
-            resources
-                .join("ion-dist")
-                .join("i18n")
-                .join("statsig")
-                .join(format!("{lang}.json")),
-        ] {
-            let _ = remove_path(&path);
-        }
-    }
-    Ok(())
-}
-
-pub fn unregister_language(resources: &Path, logger: &dyn LogSink) -> Result<()> {
-    let assets = resources.join("ion-dist").join("assets").join("v1");
-    let regex = language_list_regex()?;
-    for file in js_files(&assets)? {
-        let text = fs::read_to_string(&file)?;
-        let replacement = format!("{BASE_LANGUAGE_LIST}]");
-        let patched = regex.replacen(&text, 1, replacement).to_string();
-        if patched != text {
-            fs::write(file, patched)?;
-        }
-    }
-    logger.info("已移除中文语言注册");
-    Ok(())
-}
 
 #[cfg(test)]
 mod tests {

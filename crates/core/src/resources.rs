@@ -15,10 +15,12 @@
 
 use crate::{
     error::{err, Result},
-    fs_utils::read_json,
+    fs_utils::{load_json_object_or_backup, read_json, write_json},
+    logging::LogSink,
     types::LanguagePack,
 };
 use regex::Regex;
+use serde_json::Value;
 use std::{
     ffi::OsStr,
     fs,
@@ -135,6 +137,14 @@ pub fn js_files(dir: &Path) -> Result<Vec<PathBuf>> {
     }
     out.sort();
     Ok(out)
+}
+
+/// 读取 Claude Desktop 配置 JSON，设置 `locale` 字段后原子写回。
+pub fn set_config_locale(path: &Path, lang: &str, logger: &dyn LogSink) -> Result<()> {
+    let mut data = load_json_object_or_backup(path, logger)?;
+    data.insert("locale".to_string(), Value::String(lang.to_string()));
+    write_json(path, &Value::Object(data))?;
+    Ok(())
 }
 
 #[cfg(test)]

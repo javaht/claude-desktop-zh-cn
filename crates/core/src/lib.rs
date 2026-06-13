@@ -2,6 +2,8 @@ mod asar;
 mod config;
 mod error;
 mod fs_utils;
+mod frontend_locale;
+mod frontend_patch;
 mod hardcoded;
 mod logging;
 mod menu_patch;
@@ -15,6 +17,8 @@ pub use asar::*;
 pub use config::*;
 pub use error::*;
 pub use fs_utils::*;
+pub use frontend_locale::*;
+pub use frontend_patch::*;
 pub use hardcoded::*;
 pub use logging::*;
 pub use menu_patch::*;
@@ -24,113 +28,12 @@ pub use resources::*;
 pub use skills::*;
 pub use types::*;
 
-use serde_json::{Map, Value};
 use std::{
-    ffi::OsStr,
     fs,
     path::Path,
 };
 
 pub const ASAR_PATCH_TARGET: &str = ".vite/build/index.js";
-
-pub fn patch_language_display_names(assets_dir: &Path, logger: &dyn LogSink) -> Result<()> {
-    let marker = "__claudeZhLabelPatch";
-    let patch = r#";(()=>{const e=Intl.DisplayNames&&Intl.DisplayNames.prototype;if(!e||e.__claudeZhLabelPatch)return;const n=e.of;e.of=function(e){const t=String(e);return t==="zh-CN"?"简体中文":t==="zh-HK"?"繁体中文（中国香港）":t==="zh-TW"?"繁体中文（中国台湾）":n.call(this,e)},Object.defineProperty(e,"__claudeZhLabelPatch",{value:!0})})();"#;
-    let mut count = 0;
-    for path in js_files(assets_dir)? {
-        let name = path.file_name().and_then(OsStr::to_str).unwrap_or_default();
-        if !name.starts_with("index-") {
-            continue;
-        }
-        let text = fs::read_to_string(&path)?;
-        if text.contains(marker) {
-            continue;
-        }
-        fs::write(&path, format!("{text}{patch}"))?;
-        count += 1;
-    }
-    logger.info(format!("已补丁语言显示名: {count} 个文件"));
-    Ok(())
-}
-
-pub fn merge_frontend_locale(
-    i18n_dir: &Path,
-    pack: &LanguagePack,
-    lang: &str,
-    logger: &dyn LogSink,
-) -> Result<()> {
-    logger.info(format!("开始合并前端语言包 {lang}。"));
-    let en = read_json(&i18n_dir.join("en-US.json"))?;
-    let zh = read_json(&pack.frontend)?;
-    let en_obj = en
-        .as_object()
-        .ok_or_else(|| CoreError::Message("en-US.json 格式无效。".to_string()))?;
-    let zh_obj = zh
-        .as_object()
-        .ok_or_else(|| CoreError::Message("frontend 中文资源格式无效。".to_string()))?;
-    let mut merged = Map::new();
-    let mut translated = 0usize;
-    let mut fallback = 0usize;
-    for (key, value) in en_obj {
-        if let Some(target) = zh_obj.get(key) {
-            if target != value {
-                translated += 1;
-            }
-            merged.insert(key.clone(), target.clone());
-        } else {
-            fallback += 1;
-            merged.insert(key.clone(), value.clone());
-        }
-    }
-    write_json(
-        &i18n_dir.join(format!("{lang}.json")),
-        &Value::Object(merged),
-    )?;
-    logger.info(format!(
-        "已合并前端语言包 {lang}: {translated} translated, {fallback} fallback"
-    ));
-    Ok(())
-}
-
-pub fn install_desktop_locale(
-    resources_path: &Path,
-    pack: &LanguagePack,
-    lang: &str,
-    logger: &dyn LogSink,
-) -> Result<()> {
-    logger.info(format!("开始写入桌面语言资源 {lang}。"));
-    copy_file(&pack.desktop, &resources_path.join(format!("{lang}.json")))?;
-    for folder in [
-        format!("{lang}.lproj"),
-        format!("{}.lproj", lang.replace('-', "_")),
-    ] {
-        let out_dir = resources_path.join(folder);
-        fs::create_dir_all(&out_dir)?;
-        copy_file(&pack.localizable, &out_dir.join("Localizable.strings"))?;
-    }
-    logger.info("桌面语言资源已写入。");
-    Ok(())
-}
-
-pub fn install_statsig_locale(
-    i18n_dir: &Path,
-    pack: &LanguagePack,
-    lang: &str,
-    logger: &dyn LogSink,
-) -> Result<()> {
-    let statsig_dir = i18n_dir.join("statsig");
-    if statsig_dir.is_dir() {
-        logger.info(format!("开始写入 statsig 语言资源 {lang}。"));
-        copy_file(&pack.statsig, &statsig_dir.join(format!("{lang}.json")))?;
-        logger.info("statsig 语言资源已写入。");
-    } else {
-        logger.warn(format!(
-            "未找到 statsig 目录，跳过: {}",
-            statsig_dir.display()
-        ));
-    }
-    Ok(())
-}
 
 #[allow(clippy::type_complexity)]
 pub fn install_into_resources(
@@ -200,37 +103,6 @@ pub fn install_into_resources(
         ));
     }
     logger.info("资源安装流程完成。");
-    Ok(())
-}
-
-pub fn patch_language_whitelist(assets_dir: &Path, lang: &str, logger: &dyn LogSink) -> Result<()> {
-    logger.info(format!(
-        "开始注册语言白名单: {lang}，扫描目录 {}",
-        assets_dir.display()
-    ));
-    let regex = language_list_regex()?;
-    let replacement = format!("{BASE_LANGUAGE_LIST},\"{lang}\"]");
-    let mut changed = 0;
-    let mut already = 0;
-    for path in js_files(assets_dir)? {
-        let text = fs::read_to_string(&path)?;
-        if text.contains(&replacement) {
-            already += 1;
-            continue;
-        }
-        if regex.is_match(&text) {
-            let patched = regex.replacen(&text, 1, replacement.as_str()).to_string();
-            fs::write(&path, patched)?;
-            logger.info(format!("已注册语言白名单: {}", path.display()));
-            changed += 1;
-        }
-    }
-    if changed + already == 0 {
-        return err("未能注册中文语言，Claude 前端 bundle 格式可能已经变化。");
-    }
-    logger.info(format!(
-        "语言白名单处理完成：新增 {changed} 个，已存在 {already} 个"
-    ));
     Ok(())
 }
 

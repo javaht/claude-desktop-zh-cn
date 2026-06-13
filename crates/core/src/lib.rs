@@ -2,6 +2,7 @@ mod config;
 mod error;
 mod fs_utils;
 mod logging;
+mod record;
 mod resources;
 mod skills;
 mod types;
@@ -10,12 +11,12 @@ pub use config::*;
 pub use error::*;
 pub use fs_utils::*;
 pub use logging::*;
+pub use record::*;
 pub use resources::*;
 pub use skills::*;
 pub use types::*;
 
 use aho_corasick::AhoCorasick;
-use chrono::Local;
 use regex::Regex;
 use serde_json::{json, Map, Value};
 use std::{
@@ -964,27 +965,6 @@ pub fn unregister_language(resources: &Path, logger: &dyn LogSink) -> Result<()>
 pub fn asar_header_hash(path: &Path) -> Result<String> {
     let asar = AsarArchive::open(path)?;
     Ok(sha256_hex(asar.header_string()?.as_bytes()))
-}
-
-pub fn patched_version_record(
-    app: &Path,
-    mode: &str,
-    language: &str,
-    gui_exe: Option<&Path>,
-) -> Value {
-    let version = app
-        .file_name()
-        .and_then(OsStr::to_str)
-        .and_then(|name| name.strip_prefix("app-"))
-        .unwrap_or("unknown");
-    json!({
-        "version": version,
-        "installPath": app,
-        "patchTime": Local::now().to_rfc3339(),
-        "patchMode": mode,
-        "language": language,
-        "guiExe": gui_exe.map(|path| path.display().to_string())
-    })
 }
 
 #[cfg(test)]

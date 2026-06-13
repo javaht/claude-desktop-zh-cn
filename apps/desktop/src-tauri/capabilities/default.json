@@ -9,7 +9,6 @@
     "core:window:default",
     "core:webview:default",
     "core:path:default",
-    "core:process:default",
     "core:resources:default",
     "core:menu:default",
     "core:image:default",

@@ -96,12 +96,12 @@ mod platform {
         REG_DWORD, REG_OPTION_NON_VOLATILE, REG_VALUE_TYPE,
     };
 
-    const SUBKEY: &str = r"Software\Policies\Claude";
+    pub(super) const SUBKEY: &str = r"Software\Policies\Claude";
     const VALUE_NAME: &str = "disableAutoUpdates";
 
     /// `ERROR_FILE_NOT_FOUND`（Win32 error 2）转为 HRESULT 后的值。
     /// `RegDeleteValueW` 在 value 本来就不存在时返回此错误，应视为成功。
-    const HRESULT_ERROR_FILE_NOT_FOUND: i32 = 0x80070002u32 as i32;
+    pub(super) const HRESULT_ERROR_FILE_NOT_FOUND: i32 = 0x80070002u32 as i32;
 
     pub(super) fn set_auto_updates_impl(enabled: bool, logger: &dyn LogSink) -> Result<()> {
         let subkey_w = to_wide(SUBKEY);
@@ -132,24 +132,21 @@ mod platform {
             unsafe {
                 let _ = RegCloseKey(hkey);
             }
-            match delete_result {
-                Ok(()) => {
-                    logger.info(format!(
-                        "已删除 HKCU\\{SUBKEY}\\{VALUE_NAME}（启用自动更新）"
-                    ));
-                }
-                Err(error) => {
-                    if error.code().0 == HRESULT_ERROR_FILE_NOT_FOUND {
-                        // value 本来就不存在，视为成功
-                        logger.info(format!(
-                            "HKCU\\{SUBKEY}\\{VALUE_NAME} 已不存在，自动更新已处于启用状态"
-                        ));
-                    } else {
-                        return Err(CoreError::Message(format!(
-                            "删除 HKCU\\{SUBKEY}\\{VALUE_NAME} 失败: {error}"
-                        )));
-                    }
-                }
+            const WIN32_ERROR_FILE_NOT_FOUND: u32 = 2;
+            if delete_result.is_ok() {
+                logger.info(format!(
+                    "已删除 HKCU\\{SUBKEY}\\{VALUE_NAME}（启用自动更新）"
+                ));
+            } else if delete_result.0 == WIN32_ERROR_FILE_NOT_FOUND {
+                // value 本来就不存在，视为成功
+                logger.info(format!(
+                    "HKCU\\{SUBKEY}\\{VALUE_NAME} 已不存在，自动更新已处于启用状态"
+                ));
+            } else {
+                return Err(CoreError::Message(format!(
+                    "删除 HKCU\\{SUBKEY}\\{VALUE_NAME} 失败: Win32 错误码 {}",
+                    delete_result.0
+                )));
             }
         } else {
             // ── 禁用自动更新：写 disableAutoUpdates = 1 ──

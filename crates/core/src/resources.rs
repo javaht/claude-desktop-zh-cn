@@ -1,3 +1,18 @@
+//! 项目资源发现与定位。
+//!
+//! 本模块负责查找、校验、加载本项目所需的随包资源：
+//! - 语言包（zh-CN / zh-TW / zh-HK）的前端、桌面、Statsig 等资源文件
+//! - Claude Desktop 的 ion-dist/assets/v1 下的 JS bundle 文件列表
+//! - 前端语言白名单的正则匹配
+//!
+//! **与 Claude Desktop 资源结构深度耦合**（`ion-dist/`、`frontend-{lang}.json`、
+//! `Localizable.strings`、`app.asar` 所在的 assets 目录布局等）。
+//! 若 Claude Desktop 目录结构变化，本模块通常是首先需要更新的地方。
+//!
+//! 新增的项目资源发现、语言包定位、JS 文件扫描等函数应放在此处。
+//!
+//! 纯 IO 工具（不涉及项目特定路径或资源结构）请改放 `fs_utils` 模块。
+
 use crate::{
     error::{err, Result},
     fs_utils::read_json,

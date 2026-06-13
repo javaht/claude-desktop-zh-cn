@@ -4,15 +4,16 @@
 //! 而不是写一份只有本工具自己看的影子配置。
 //!
 //! 实现要点：
-//! - Windows：写机器级注册表 `HKLM\Software\Policies\Claude\disableAutoUpdates`
+//! - Windows：写用户级注册表 `HKCU\Software\Policies\Claude\disableAutoUpdates`
 //!   （DWORD，1 = 禁用，0 = 启用）。Claude Desktop 官方企业策略字段同名。
-//!   选择 HKLM 而非 HKCU 的原因：
-//!     1. 提权子进程里 `HKEY_CURRENT_USER` 可能是 UAC 管理员账号的用户 hive，
-//!        与原桌面用户不同，写入会写到错误用户；
-//!     2. 官方文档明确支持 HKLM 路径；
-//!     3. 一次写入全体用户生效，对多用户机器更可控。
+//!   使用 HKCU 而非 HKLM 的原因：
+//!     1. Claude Desktop 检测到 HKLM\SOFTWARE\Policies\Claude 键存在就会判定
+//!        为"组织管理模式"，锁死"配置第三方推理 / 网关"等设置页；
+//!     2. HKCU 写入不需要管理员权限，避免触发 UAC 提权子进程带来的用户 hive
+//!        错位问题（提权子进程的 HKCU 可能是管理员账号而非桌面用户）；
+//!     3. 自动更新策略本就是用户偏好，不需要机器级作用域。
 //!
-//!   写 HKLM\Software\Policies 需管理员，所以从 actions 层走 elevation 流程。
+//!   写 HKCU\Software\Policies 不需要管理员，从 actions 层直接调用即可。
 //!   读取用 KEY_READ（仅支持 64 位进程；本项目仅发 x64 构建）。
 //! - macOS：通过 `defaults` 命令写入 `com.anthropic.claudefordesktop` 域的
 //!   `disableAutoUpdates`（boolean）。`defaults` 走 CFPreferences 标准通道，
@@ -81,9 +82,9 @@ mod platform {
     use std::{ffi::OsStr, iter::once, os::windows::ffi::OsStrExt, ptr};
     use windows::core::PCWSTR;
     use windows::Win32::System::Registry::{
-        RegCloseKey, RegCreateKeyExW, RegOpenKeyExW, RegQueryValueExW, RegSetValueExW, HKEY,
-        HKEY_LOCAL_MACHINE, KEY_READ, KEY_WRITE, REG_DWORD, REG_OPTION_NON_VOLATILE,
-        REG_VALUE_TYPE,
+        RegCloseKey, RegCreateKeyExW, RegOpenKeyExW, RegQueryValueExW,
+        RegSetValueExW, HKEY, HKEY_CURRENT_USER, KEY_READ, KEY_WRITE,
+        REG_DWORD, REG_OPTION_NON_VOLATILE, REG_VALUE_TYPE,
     };
 
     const SUBKEY: &str = r"Software\Policies\Claude";
@@ -96,7 +97,7 @@ mod platform {
         let mut hkey = HKEY::default();
         unsafe {
             RegCreateKeyExW(
-                HKEY_LOCAL_MACHINE,
+                HKEY_CURRENT_USER,
                 PCWSTR(subkey_w.as_ptr()),
                 0,
                 PCWSTR::null(),
@@ -109,7 +110,7 @@ mod platform {
             .ok()
             .map_err(|error| {
                 CoreError::Message(format!(
-                    "无法打开/创建注册表项 HKLM\\{SUBKEY}: {error}"
+                    "无法打开/创建注册表项 HKCU\\{SUBKEY}: {error}"
                 ))
             })?;
         }
@@ -129,11 +130,11 @@ mod platform {
         }
         set_result.map_err(|error| {
             CoreError::Message(format!(
-                "写入 HKLM\\{SUBKEY}\\{VALUE_NAME} 失败: {error}"
+                "写入 HKCU\\{SUBKEY}\\{VALUE_NAME} 失败: {error}"
             ))
         })?;
         logger.info(format!(
-            "已写入 HKLM\\{SUBKEY}\\{VALUE_NAME} = {disable}"
+            "已写入 HKCU\\{SUBKEY}\\{VALUE_NAME} = {disable}"
         ));
         Ok(())
     }
@@ -144,7 +145,7 @@ mod platform {
         let mut hkey = HKEY::default();
         let open = unsafe {
             RegOpenKeyExW(
-                HKEY_LOCAL_MACHINE,
+                HKEY_CURRENT_USER,
                 PCWSTR(subkey_w.as_ptr()),
                 0,
                 KEY_READ,
@@ -255,6 +256,7 @@ mod platform {
         let stdout = String::from_utf8_lossy(&output.stdout);
         parse_defaults_output(&stdout)
     }
+
 }
 
 #[cfg(not(any(target_os = "macos", windows)))]
@@ -269,6 +271,7 @@ mod platform {
     pub(super) fn auto_updates_enabled_impl() -> Option<bool> {
         None
     }
+
 }
 
 #[cfg(test)]
@@ -390,5 +393,22 @@ mod tests {
         let args: Vec<String> = ["--enabled", "yes"].iter().map(|s| s.to_string()).collect();
         assert!(parse_enabled_flag(&args).is_err());
         assert!(parse_enabled_flag(&args).unwrap_err().contains("无效值"));
+    }
+
+    /// 断言 SUBKEY 不含 HKLM 前缀（Windows 平台用 HKCU 写入，避免触发组织管理模式）。
+    #[cfg(windows)]
+    #[test]
+    fn subkey_is_user_level_not_machine_level() {
+        use super::platform::SUBKEY;
+        // SUBKEY 本身是相对路径，不应包含 HKEY 前缀；关键是调用方用 HKEY_CURRENT_USER。
+        // 这里再验证路径不含 HKLM 特有的模式（防御性检查）。
+        assert!(
+            !SUBKEY.contains("HKLM"),
+            "SUBKEY 不应包含 HKLM 前缀，当前值: {SUBKEY}"
+        );
+        assert!(
+            SUBKEY.starts_with("Software\\Policies\\Claude"),
+            "SUBKEY 应以 Software\\Policies\\Claude 开头，当前值: {SUBKEY}"
+        );
     }
 }

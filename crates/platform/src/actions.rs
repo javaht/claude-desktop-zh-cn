@@ -64,22 +64,9 @@ pub fn restore_patch(dry_run: bool, logger: &dyn LogSink) -> Result<()> {
 }
 
 pub fn set_auto_updates(enabled: bool, logger: &dyn LogSink) -> Result<()> {
-    // Windows: HKLM\Software\Policies\Claude 是机器级注册表路径，写入需管理员权限，所以非 admin 时走 elevation。
-    // 读取永远不需要，所以 UI 状态显示不会受影响。macOS 不需要。
-    #[cfg(windows)]
-    {
-        if !is_admin() {
-            logger.info("当前进程不是管理员权限，切换到系统授权写入注册表策略。");
-            return run_elevated_cli(
-                "set_auto_updates",
-                None,
-                None,
-                Some(enabled),
-                None,
-                logger,
-            );
-        }
-    }
+    // Windows: HKCU\Software\Policies\Claude 是用户级注册表路径，不需要管理员权限，
+    // 直接写入当前用户的注册表即可。不走 elevation，避免提权子进程的 HKCU 指向
+    // 管理员账号而非桌面用户的问题。
     auto_update::set_auto_updates(enabled, logger)
 }
 

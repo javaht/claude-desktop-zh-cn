@@ -131,6 +131,16 @@ fn unique_tmp_path(exe: &Path) -> PathBuf {
     exe.with_extension(format!("exe.tmp-{}", &hex[..12]))
 }
 
+/// 生成 Windows dry-run 临时目录名：`claude-zh-cn-rs-win-{YYYYMMDD-HHMMSS}-{12位hex}`，UUID v4 前 12 位 hex 保证无碰撞。
+fn dry_run_tmp_dir_name() -> String {
+    let hex = uuid::Uuid::new_v4().simple().to_string();
+    format!(
+        "claude-zh-cn-rs-win-{}-{}",
+        Local::now().format("%Y%m%d-%H%M%S"),
+        &hex[..12]
+    )
+}
+
 /// 带重试的 exe 替换：先写入唯一 tmp 文件，再通过 MoveFileExW 原子替换。
 /// 可重试错误：MoveFileExW 失败（exe 被锁定）。
 /// 重试前调用 quit_claude 释放锁，退避序列 [150, 300, 500, 800, 1200, 1800]ms。
@@ -355,10 +365,7 @@ pub(crate) fn platform_install_patch(
     if req.dry_run {
         logger.info("dry-run：复制 resources 到临时目录验证，不会修改真实 Claude 安装。");
         logger.info(format!("dry-run snapshot: {}", pristine_backup.display()));
-        let tmp_root = env::temp_dir().join(format!(
-            "claude-zh-cn-rs-win-{}",
-            Local::now().format("%Y%m%d-%H%M%S")
-        ));
+        let tmp_root = env::temp_dir().join(dry_run_tmp_dir_name());
         let temp_resources = tmp_root.join("resources");
         logger.info(format!(
             "dry-run staged resources: {}",
@@ -467,7 +474,7 @@ pub(crate) fn platform_install_patch(
 mod tests {
     use super::{
         build_patched_exe_data, patch_exe_hash_data, rollback_after_windows_install_failure,
-        unique_tmp_path, windows_resources_look_patched,
+        dry_run_tmp_dir_name, unique_tmp_path, windows_resources_look_patched,
     };
     use claude_zh_core::{now_millis, CoreError, NoopLogger};
     use std::fs;
@@ -655,6 +662,36 @@ mod tests {
         let hex2 = &name2["Claude.exe.tmp-".len()..];
         assert_eq!(hex1.len(), 12, "hex1 长度错误: {hex1}");
         assert_eq!(hex2.len(), 12, "hex2 长度错误: {hex2}");
+        assert!(hex1.chars().all(|c| c.is_ascii_hexdigit()), "hex1 含非 hex 字符: {hex1}");
+        assert!(hex2.chars().all(|c| c.is_ascii_hexdigit()), "hex2 含非 hex 字符: {hex2}");
+    }
+
+    #[test]
+    fn dry_run_tmp_dir_name_includes_uuid_suffix() {
+        let name1 = dry_run_tmp_dir_name();
+        let name2 = dry_run_tmp_dir_name();
+
+        // 两次调用生成不同路径
+        assert_ne!(name1, name2);
+
+        // 格式正确：claude-zh-cn-rs-win-{YYYYMMDD-HHMMSS}-{12hex}
+        assert!(
+            name1.starts_with("claude-zh-cn-rs-win-"),
+            "name1 格式错误: {name1}"
+        );
+        assert!(
+            name2.starts_with("claude-zh-cn-rs-win-"),
+            "name2 格式错误: {name2}"
+        );
+
+        let suffix1 = &name1["claude-zh-cn-rs-win-".len()..];
+        let suffix2 = &name2["claude-zh-cn-rs-win-".len()..];
+        // 前缀应为时间戳（15 字符）加 '-' 加 12 位 hex
+        assert_eq!(suffix1.len(), 15 + 1 + 12, "suffix1 长度错误: {suffix1}");
+        assert_eq!(suffix2.len(), 15 + 1 + 12, "suffix2 长度错误: {suffix2}");
+
+        let hex1 = &suffix1[suffix1.len() - 12..];
+        let hex2 = &suffix2[suffix2.len() - 12..];
         assert!(hex1.chars().all(|c| c.is_ascii_hexdigit()), "hex1 含非 hex 字符: {hex1}");
         assert!(hex2.chars().all(|c| c.is_ascii_hexdigit()), "hex2 含非 hex 字符: {hex2}");
     }

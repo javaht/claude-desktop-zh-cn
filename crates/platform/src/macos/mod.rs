@@ -18,6 +18,26 @@ use walkdir::WalkDir;
 
 use crate::{environment::detect_claude, logging::run_command, paths::claude_config_paths};
 
+/// 生成 macOS 安装临时目录名：`claude-zh-cn-rs-{YYYYMMDD-HHMMSS}-{12位hex}`，UUID v4 前 12 位 hex 保证无碰撞。
+fn macos_install_tmp_dir_name() -> String {
+    let hex = Uuid::new_v4().simple().to_string();
+    format!(
+        "claude-zh-cn-rs-{}-{}",
+        Local::now().format("%Y%m%d-%H%M%S"),
+        &hex[..12]
+    )
+}
+
+/// 生成恢复时当前 app 的临时目录名：`Claude.restore-current-{YYYYMMDD-HHMMSS}-{12位hex}.app`。
+fn macos_restore_current_tmp_name() -> String {
+    let hex = Uuid::new_v4().simple().to_string();
+    format!(
+        "Claude.restore-current-{}-{}.app",
+        Local::now().format("%Y%m%d-%H%M%S"),
+        &hex[..12]
+    )
+}
+
 fn quit_claude(logger: &dyn LogSink) {
     logger.info("正在请求 Claude Desktop 退出。");
     let _ = run_command(
@@ -488,10 +508,7 @@ pub(crate) fn platform_install_patch(
     } else {
         quit_claude(logger);
     }
-    let tmp_root = macos_temp_root().join(format!(
-        "claude-zh-cn-rs-{}",
-        Local::now().format("%Y%m%d-%H%M%S")
-    ));
+    let tmp_root = macos_temp_root().join(macos_install_tmp_dir_name());
     fs::create_dir_all(&tmp_root)?;
     let patched_app = tmp_root.join("Claude.app");
     logger.info(format!("临时工作目录: {}", tmp_root.display()));
@@ -678,10 +695,7 @@ pub(crate) fn platform_restore_patch(dry_run: bool, logger: &dyn LogSink) -> Res
     quit_claude(logger);
     let had_original_app = app.exists();
     let current_tmp = if had_original_app {
-        let tmp = app.with_file_name(format!(
-            "Claude.restore-current-{}.app",
-            Local::now().format("%Y%m%d-%H%M%S")
-        ));
+        let tmp = app.with_file_name(macos_restore_current_tmp_name());
         logger.info(format!(
             "当前 Claude.app 临时移动到: {}",
             tmp.display()
@@ -722,6 +736,67 @@ mod tests {
     use super::*;
     use claude_zh_core::NoopLogger;
     use std::fs;
+
+    #[test]
+    fn macos_install_tmp_dir_name_includes_uuid_suffix() {
+        let name1 = macos_install_tmp_dir_name();
+        let name2 = macos_install_tmp_dir_name();
+
+        // 两次生成不同路径
+        assert_ne!(name1, name2);
+
+        // 格式正确：claude-zh-cn-rs-{YYYYMMDD-HHMMSS}-{12hex}
+        assert!(
+            name1.starts_with("claude-zh-cn-rs-"),
+            "name1 格式错误: {name1}"
+        );
+        assert!(
+            name2.starts_with("claude-zh-cn-rs-"),
+            "name2 格式错误: {name2}"
+        );
+
+        let suffix1 = &name1["claude-zh-cn-rs-".len()..];
+        let suffix2 = &name2["claude-zh-cn-rs-".len()..];
+        // 前缀应为时间戳（15 字符）加 '-' 加 12 位 hex
+        assert_eq!(suffix1.len(), 15 + 1 + 12, "suffix1 长度错误: {suffix1}");
+        assert_eq!(suffix2.len(), 15 + 1 + 12, "suffix2 长度错误: {suffix2}");
+
+        let hex1 = &suffix1[suffix1.len() - 12..];
+        let hex2 = &suffix2[suffix2.len() - 12..];
+        assert!(hex1.chars().all(|c| c.is_ascii_hexdigit()), "hex1 含非 hex 字符: {hex1}");
+        assert!(hex2.chars().all(|c| c.is_ascii_hexdigit()), "hex2 含非 hex 字符: {hex2}");
+    }
+
+    #[test]
+    fn macos_restore_current_tmp_name_includes_uuid_suffix() {
+        let name1 = macos_restore_current_tmp_name();
+        let name2 = macos_restore_current_tmp_name();
+
+        // 两次生成不同路径
+        assert_ne!(name1, name2);
+
+        // 格式正确：Claude.restore-current-{YYYYMMDD-HHMMSS}-{12hex}.app
+        assert!(
+            name1.starts_with("Claude.restore-current-"),
+            "name1 格式错误: {name1}"
+        );
+        assert!(
+            name2.starts_with("Claude.restore-current-"),
+            "name2 格式错误: {name2}"
+        );
+        assert!(name1.ends_with(".app"), "name1 应以 .app 结尾: {name1}");
+        assert!(name2.ends_with(".app"), "name2 应以 .app 结尾: {name2}");
+
+        let body1 = &name1["Claude.restore-current-".len()..name1.len() - ".app".len()];
+        let body2 = &name2["Claude.restore-current-".len()..name2.len() - ".app".len()];
+        assert_eq!(body1.len(), 15 + 1 + 12, "body1 长度错误: {body1}");
+        assert_eq!(body2.len(), 15 + 1 + 12, "body2 长度错误: {body2}");
+
+        let hex1 = &body1[body1.len() - 12..];
+        let hex2 = &body2[body2.len() - 12..];
+        assert!(hex1.chars().all(|c| c.is_ascii_hexdigit()), "hex1 含非 hex 字符: {hex1}");
+        assert!(hex2.chars().all(|c| c.is_ascii_hexdigit()), "hex2 含非 hex 字符: {hex2}");
+    }
 
     /// B-11 反测试：验证第二次 rename 失败时，备份被自动还原回原位。
     ///

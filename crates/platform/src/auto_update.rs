@@ -42,8 +42,10 @@ pub fn set_auto_updates(enabled: bool, logger: &dyn LogSink) -> Result<()> {
 /// 读取当前 Claude Desktop 自动更新开关状态。
 ///
 /// 返回 `Some(true)` 表示自动更新已启用，`Some(false)` 表示已禁用。
-/// Windows：value 不存在或 key 不存在均视为"未禁用"，返回 `Some(true)`。
-/// macOS：`None` 表示读不到任何用户级策略（即从未设置过，Claude 默认行为：启用）。
+/// `None` 表示读取失败（命令执行异常、输出无法解析等），上层应视为"状态未知"。
+///
+/// **默认行为（key 不存在）**：Windows 和 macOS 均视为"未设置禁用策略"，
+/// 即 Claude Desktop 默认启用自动更新，返回 `Some(true)`。
 pub fn auto_updates_enabled() -> Option<bool> {
     platform::auto_updates_enabled_impl()
 }
@@ -310,8 +312,10 @@ mod platform {
             .output()
             .ok()?;
         if !output.status.success() {
-            // defaults read 失败 → 键不存在或域不存在 → 未设置
-            return None;
+            // defaults read 非零退出 → 键不存在或域不存在 → 未设置禁用策略 → 默认启用。
+            // 与 Windows 行为对齐：key/value 不存在均视为 Some(true)。
+            // （命令本身执行失败、权限拒绝等已由上方 .ok()? 捕获为 None。）
+            return Some(true);
         }
         let stdout = String::from_utf8_lossy(&output.stdout);
         parse_defaults_output(&stdout)
@@ -397,6 +401,28 @@ mod tests {
         assert_eq!(platform::parse_defaults_output("true\n"), Some(false));
         assert_eq!(platform::parse_defaults_output("FALSE"), Some(true));
         assert_eq!(platform::parse_defaults_output("Yes"), Some(false));
+    }
+
+    /// macOS 集成测试：从未设置过策略时，auto_updates_enabled 应返回 Some(true)。
+    /// 完整验证需 macOS + Claude Desktop 环境，跑法：
+    ///   cargo test -p claude-zh-platform --target x86_64-apple-darwin -- --ignored auto_update
+    /// 此处用 parse_defaults_output 的行为间接验证：defaults read 失败（键不存在）
+    /// 时 parse_defaults_output 对空输出返回 None，而 auto_updates_enabled_impl
+    /// 会在 defaults read 非零退出时拦截并返回 Some(true)。
+    #[cfg(target_os = "macos")]
+    #[test]
+    #[ignore]
+    fn auto_updates_enabled_defaults_to_true_when_key_absent() {
+        // 先确保 key 不存在（如果之前测试写过，可能残留）
+        let _ = std::process::Command::new("defaults")
+            .args(["delete", "com.anthropic.claudefordesktop", "disableAutoUpdates"])
+            .output();
+        let result = auto_updates_enabled();
+        assert_eq!(
+            result,
+            Some(true),
+            "未设置策略时 macOS 应返回 Some(true)（与 Windows 对齐），实际: {result:?}"
+        );
     }
 
     #[test]

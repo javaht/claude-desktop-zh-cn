@@ -1,3 +1,15 @@
+//! Windows 补丁恢复与卸载。
+//!
+//! 本模块包含从纯净备份恢复 Claude.exe 和 resources 的全部逻辑，
+//! 以及 `platform_restore_patch` 入口（含 dry-run 预演）。
+//!
+//! 与 backup.rs（~117 行）相比体量较大（~694 行），原因是恢复路径
+//! 涉及多项复杂逻辑：文件锁 retry（`copy_windows_file_with_retries`）、
+//! 恢复 artifact 清理（`cleanup_windows_restore_artifacts`）、
+//! legacy 包内备份兼容（`restore_windows_legacy_backup`）、
+//! dry-run 文件 diff/语言文件/JS 注册预演等。
+//! 这些逻辑均属于"恢复侧"，不适合移入 backup.rs。
+
 #![cfg(windows)]
 
 use claude_zh_core::{

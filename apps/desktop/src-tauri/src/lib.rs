@@ -14,6 +14,7 @@ use std::{
 use tauri::{async_runtime, AppHandle, Emitter, Manager};
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::Layer;
+use tracing_subscriber::util::{SubscriberExt, SubscriberInitExt};
 use tracing_appender::rolling;
 use std::sync::Once;
 
@@ -462,13 +463,13 @@ pub fn run() {
             install_resource_update,
             set_auto_updates
         ])
-        .setup(|app| {
+        .setup(|_app| {
             // Windows 平台启用原生窗口装饰（标题栏 + 控制按钮），
             // 回避 WebView2 无边框模式下自绘内容大面积不可见的渲染问题。
             // 失败时仅记录日志，不阻塞应用启动。
             #[cfg(target_os = "windows")]
             {
-                if let Some(window) = app.get_webview_window("main") {
+                if let Some(window) = _app.get_webview_window("main") {
                     if let Err(err) = window.set_decorations(true) {
                         eprintln!("[tauri setup] 启用 Windows 原生装饰失败: {err}");
                     }

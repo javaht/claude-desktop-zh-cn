@@ -15,7 +15,9 @@
     {
       "identifier": "opener:allow-open-url",
       "allow": [
-        { "url": "https://github.com/javaht/*" }
+        { "url": "https://github.com/javaht/*" },
+        { "url": "https://github.com/javaht/claude-desktop-zh-cn" },
+        { "url": "https://github.com/javaht/claude-desktop-zh-cn/issues" }
       ]
     }
   ]

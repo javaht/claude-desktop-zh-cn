@@ -305,6 +305,33 @@ jobs:
             sleep $((attempt * 15))
           done
 
+      - name: Add platform names to installer filenames
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r file; do
+            dir="$(dirname "$file")"
+            base="$(basename "$file")"
+            case "$base" in
+              *_macOS_*|*_Windows_*)
+                continue
+                ;;
+              *.dmg)
+                platform="macOS"
+                ;;
+              *-setup.exe|*.msi)
+                platform="Windows"
+                ;;
+              *)
+                continue
+                ;;
+            esac
+
+            if [[ "$base" =~ ^(.+_[0-9]+\.[0-9]+\.[0-9]+)_(.+)$ ]]; then
+              mv "$file" "$dir/${BASH_REMATCH[1]}_${platform}_${BASH_REMATCH[2]}"
+            fi
+          done < <(find target -path "*/release/bundle/*" -type f -print 2>/dev/null)
+
       - name: List bundle outputs
         shell: bash
         run: |

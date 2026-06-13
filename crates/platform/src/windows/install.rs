@@ -354,13 +354,14 @@ pub(crate) fn platform_install_patch(
     let pristine_backup = ensure_windows_pristine_backup(&app, &target_resources, logger)?;
     if req.dry_run {
         logger.info("dry-run：复制 resources 到临时目录验证，不会修改真实 Claude 安装。");
+        logger.info(format!("dry-run snapshot: {}", pristine_backup.display()));
         let tmp_root = env::temp_dir().join(format!(
             "claude-zh-cn-rs-win-{}",
             Local::now().format("%Y%m%d-%H%M%S")
         ));
         let temp_resources = tmp_root.join("resources");
         logger.info(format!(
-            "正在复制 resources 到临时目录: {}",
+            "dry-run staged resources: {}",
             temp_resources.display()
         ));
         copy_dir_recursive(&target_resources, &temp_resources)?;
@@ -376,6 +377,19 @@ pub(crate) fn platform_install_patch(
             None,
             logger,
         )?;
+        // dry-run：验证 exe marker 可在内存中 patch（不写真实 exe）
+        logger.info("dry-run：验证 Claude.exe app.asar 完整性标记。");
+        let app_dir = target_resources
+            .parent()
+            .ok_or_else(|| CoreError::Message("resources 路径无父目录。".to_string()))?;
+        let exe = [app_dir.join("Claude.exe"), app_dir.join("claude.exe")]
+            .into_iter()
+            .find(|path| path.is_file())
+            .ok_or_else(|| CoreError::Message("dry-run：未找到 Claude.exe。".to_string()))?;
+        let header_hash = asar_header_hash(&temp_resources.join("app.asar"))?;
+        let exe_bytes = fs::read(&exe)?;
+        let _patched = build_patched_exe_data(&exe_bytes, &header_hash)?;
+        logger.info("dry-run exe marker 验证通过。");
         logger.info(format!(
             "dry-run 完成，临时 resources 保留在: {}",
             temp_resources.display()
@@ -741,5 +755,64 @@ mod tests {
         assert!(!target.join("extra.txt").exists());
 
         let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn dryrun_exe_marker_validation_fails_without_marker() {
+        // 模拟 dry-run 的 exe marker 验证步骤：
+        // exe 不含 marker → build_patched_exe_data 应失败
+        let root = std::env::temp_dir().join(format!(
+            "claude-zh-platform-dryrun-marker-fail-{}",
+            now_millis()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        let app_dir = root.join("app");
+        let temp_resources = app_dir.join("resources");
+        fs::create_dir_all(&temp_resources).unwrap();
+        // 不含 marker 的 exe
+        fs::write(app_dir.join("Claude.exe"), b"no-marker-exe").unwrap();
+        // app.asar 任意内容（asar_header_hash 会失败，但这里测的是 exe marker）
+        fs::write(temp_resources.join("app.asar"), b"fake-asar").unwrap();
+
+        let exe_bytes = fs::read(app_dir.join("Claude.exe")).unwrap();
+        let fake_hash = "a".repeat(64);
+        let result = build_patched_exe_data(&exe_bytes, &fake_hash);
+        assert!(result.is_err(), "不含 marker 的 exe 应导致 patch 失败");
+
+        // 真实目录未被修改（dry-run 不写真实文件）
+        assert_eq!(
+            fs::read(app_dir.join("Claude.exe")).unwrap(),
+            b"no-marker-exe"
+        );
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn dryrun_exe_marker_validation_succeeds_with_valid_marker() {
+        // 模拟 dry-run 的 exe marker 验证步骤：
+        // exe 含合法 marker → build_patched_exe_data 应成功
+        let marker = br#"resources\\app.asar","alg":"SHA256","value":""#;
+        let original_hash = b"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+        let mut exe_data = Vec::new();
+        exe_data.extend_from_slice(b"MZ");
+        exe_data.extend_from_slice(marker);
+        exe_data.extend_from_slice(original_hash);
+        exe_data.extend_from_slice(b"padding");
+
+        let new_hash = "b".repeat(64);
+        let result = build_patched_exe_data(&exe_data, &new_hash);
+        assert!(result.is_ok(), "含合法 marker 的 exe 应 patch 成功: {:?}", result.err());
+
+        let patched = result.unwrap();
+        // 哈希已替换
+        let marker_pos = patched
+            .windows(marker.len())
+            .position(|w| w == marker)
+            .unwrap();
+        assert_eq!(
+            &patched[marker_pos + marker.len()..marker_pos + marker.len() + 64],
+            new_hash.as_bytes()
+        );
     }
 }

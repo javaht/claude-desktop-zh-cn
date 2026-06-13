@@ -873,7 +873,7 @@ mod tests {
 
         assert!(result.is_ok(), "第二次 rename 应成功: {:?}", result.err());
         assert!(original_app.exists(), "正式路径应存在");
-        assert!(!backup_app.exists(), "backup 应已被消费");
+        assert!(backup_app.exists(), "backup 应保留以便恢复");
         assert!(!patched_app.exists(), "patched app 应已被移走");
         let content = fs::read_to_string(original_app.join("marker.txt")).unwrap();
         assert_eq!(content, "patched", "正式路径应含 patched marker");

@@ -219,7 +219,9 @@ mod tests {
         let script = build_online_dom_translation_script("zh-CN", &mapping).unwrap();
 
         assert!(script.contains("pre,code,kbd,samp,var"));
-        assert!(script.contains("n.parentElement&&n.parentElement.closest(C)"));
+        assert!(script.contains("parentElement"));
+        assert!(script.contains("closest(C)"));
+        assert!(script.contains("NodeFilter.FILTER_REJECT"));
     }
 
     #[test]

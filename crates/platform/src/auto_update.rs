@@ -99,9 +99,9 @@ mod platform {
     pub(super) const SUBKEY: &str = r"Software\Policies\Claude";
     const VALUE_NAME: &str = "disableAutoUpdates";
 
-    /// `ERROR_FILE_NOT_FOUND`（Win32 error 2）转为 HRESULT 后的值。
-    /// `RegDeleteValueW` 在 value 本来就不存在时返回此错误，应视为成功。
-    pub(super) const HRESULT_ERROR_FILE_NOT_FOUND: i32 = 0x80070002u32 as i32;
+    /// `ERROR_FILE_NOT_FOUND` 的 Win32 error code。
+    /// windows crate 0.58 的注册表 API 返回 `WIN32_ERROR`，不是 `HRESULT`。
+    pub(super) const WIN32_ERROR_FILE_NOT_FOUND: u32 = 2;
 
     pub(super) fn set_auto_updates_impl(enabled: bool, logger: &dyn LogSink) -> Result<()> {
         let subkey_w = to_wide(SUBKEY);
@@ -132,7 +132,6 @@ mod platform {
             unsafe {
                 let _ = RegCloseKey(hkey);
             }
-            const WIN32_ERROR_FILE_NOT_FOUND: u32 = 2;
             if delete_result.is_ok() {
                 logger.info(format!(
                     "已删除 HKCU\\{SUBKEY}\\{VALUE_NAME}（启用自动更新）"
@@ -211,8 +210,13 @@ mod platform {
             )
         };
         if open.is_err() {
-            // 注册表项不存在 → 没有策略 → 默认启用
-            return Some(true);
+            // 注册表项不存在 → 没有策略 → 默认启用。
+            // 其他错误表示读取失败，交给上层显示“未知”。
+            return if open.0 == WIN32_ERROR_FILE_NOT_FOUND {
+                Some(true)
+            } else {
+                None
+            };
         }
         let mut data = [0u8; 4];
         let mut data_len: u32 = data.len() as u32;
@@ -231,8 +235,13 @@ mod platform {
             let _ = RegCloseKey(hkey);
         }
         if query.is_err() {
-            // value 不存在 → 没有禁用策略 → 默认启用
-            return Some(true);
+            // value 不存在 → 没有禁用策略 → 默认启用。
+            // 其他错误表示读取失败。
+            return if query.0 == WIN32_ERROR_FILE_NOT_FOUND {
+                Some(true)
+            } else {
+                None
+            };
         }
         // 严格校验：只接受 4 字节 REG_DWORD。类型不匹配说明外部把
         // 别的数据塞到这个 key 下，不视为有效的禁用策略。
@@ -495,18 +504,13 @@ mod tests {
         );
     }
 
-    /// 验证 HRESULT_ERROR_FILE_NOT_FOUND 常量值正确。
+    /// 验证 `ERROR_FILE_NOT_FOUND` 的 Win32 error code 正确。
     /// `RegDeleteValueW` 在 value 本来就不存在时返回此错误码，代码必须将其视为成功。
     #[cfg(windows)]
     #[test]
-    fn error_file_not_found_hresult_is_correct() {
-        use super::platform::HRESULT_ERROR_FILE_NOT_FOUND;
-        // ERROR_FILE_NOT_FOUND (Win32 error 2) → HRESULT 0x80070002
-        assert_eq!(
-            HRESULT_ERROR_FILE_NOT_FOUND,
-            0x80070002u32 as i32,
-            "HRESULT_ERROR_FILE_NOT_FOUND 应等于 0x80070002"
-        );
+    fn error_file_not_found_win32_code_is_correct() {
+        use super::platform::WIN32_ERROR_FILE_NOT_FOUND;
+        assert_eq!(WIN32_ERROR_FILE_NOT_FOUND, 2);
     }
 
     /// 集成测试：启用自动更新后，value 应被删除而非写 0。

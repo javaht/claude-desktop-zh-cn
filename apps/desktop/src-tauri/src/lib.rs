@@ -14,7 +14,8 @@ use std::{
 use tauri::{async_runtime, AppHandle, Emitter, Manager};
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::Layer;
-use tracing_subscriber::util::{SubscriberExt, SubscriberInitExt};
+use tracing_subscriber::prelude::*;
+use tracing_subscriber::util::SubscriberInitExt;
 use tracing_appender::rolling;
 use std::sync::Once;
 

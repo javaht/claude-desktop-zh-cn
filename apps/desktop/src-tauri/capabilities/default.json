@@ -4,7 +4,20 @@
   "description": "Claude-Zh 桌面应用默认权限",
   "windows": ["main"],
   "permissions": [
-    "core:default",
-    "opener:default"
+    "core:app:default",
+    "core:event:default",
+    "core:window:default",
+    "core:webview:default",
+    "core:path:default",
+    "core:process:default",
+    "core:resources:default",
+    "core:menu:default",
+    "core:image:default",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        { "url": "https://github.com/javaht/*" }
+      ]
+    }
   ]
 }

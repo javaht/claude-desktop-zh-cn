@@ -311,6 +311,96 @@ fn macos_temp_root() -> PathBuf {
     }
 }
 
+/// 将已备份的原始 app 还原回正式路径，用于第二次 rename 失败后的回滚。
+///
+/// 返回 `Ok(())` 表示回滚成功；回滚失败时返回 `Err` 并记录完整状态。
+fn restore_backup_on_rename_failure(
+    app: &Path,
+    backup: &Path,
+    patched_app: &Path,
+    rename_err: &std::io::Error,
+    logger: &dyn LogSink,
+) -> Result<()> {
+    logger.error(format!(
+        "第二次 rename 失败（补丁 app → 正式路径）: {rename_err}。\
+         当前状态：正式路径 {} 已不存在，备份在 {}，补丁临时 app 在 {}。\
+         尝试回滚：将备份还原到正式路径。",
+        app.display(),
+        backup.display(),
+        patched_app.display()
+    ));
+    match fs::rename(backup, app) {
+        Ok(()) => {
+            logger.info(format!(
+                "回滚成功：备份已还原到正式路径 {}。",
+                app.display()
+            ));
+            Ok(())
+        }
+        Err(rollback_err) => {
+            logger.error(format!(
+                "回滚失败：无法将备份 {} 还原到正式路径 {}: {rollback_err}。\
+                 当前状态：正式路径 {} 已不存在，备份仍在 {}，补丁临时 app 在 {}。\
+                 请手动将备份目录重命名回 Claude.app 以恢复 Claude Desktop。",
+                backup.display(),
+                app.display(),
+                app.display(),
+                backup.display(),
+                patched_app.display()
+            ));
+            Err(CoreError::Message(format!(
+                "替换 Claude.app 失败: {rename_err}；回滚也失败: {rollback_err}。\
+                 请手动将 {} 重命名为 {}。",
+                backup.display(),
+                app.display()
+            )))
+        }
+    }
+}
+
+/// 执行第二次 rename（补丁 app → 正式路径），失败时自动回滚。
+///
+/// - 成功：日志记录并返回 `Ok(())`。
+/// - 失败且回滚成功：返回 `Err` 并说明已自动回滚。
+/// - 失败且回滚失败：返回 `Err` 并说明需手动恢复。
+fn perform_second_rename_and_swap(
+    app: &Path,
+    backup: &Path,
+    patched_app: &Path,
+    logger: &dyn LogSink,
+) -> Result<()> {
+    match fs::rename(patched_app, app) {
+        Ok(()) => {
+            logger.info(format!(
+                "第二次 rename 成功：补丁版 Claude.app 已安装到: {}",
+                app.display()
+            ));
+            logger.info(format!("已备份原始 Claude.app: {}", backup.display()));
+            Ok(())
+        }
+        Err(rename_err) => {
+            let rollback_result = restore_backup_on_rename_failure(
+                app,
+                backup,
+                patched_app,
+                &rename_err,
+                logger,
+            );
+            match rollback_result {
+                Ok(()) => Err(CoreError::Message(format!(
+                    "安装失败：第二次 rename 失败（{rename_err}），已自动回滚到原始 Claude.app。",
+                ))),
+                Err(rollback_err) => Err(CoreError::Message(format!(
+                    "安装失败：第二次 rename 失败（{rename_err}），回滚也失败（{rollback_err}）。\
+                     请手动将 {} 重命名为 {}。",
+                    backup.display(),
+                    app.display(),
+                ))),
+            }
+        }
+    }
+}
+
 pub(crate) fn platform_install_patch(
     resources: &Path,
     req: &InstallRequest,
@@ -395,10 +485,11 @@ pub(crate) fn platform_install_patch(
         backup.display()
     ));
     fs::rename(&app, &backup)?;
-    logger.info("原始 Claude.app 已移入备份。");
-    fs::rename(&patched_app, &app)?;
-    logger.info(format!("补丁版 Claude.app 已安装到: {}", app.display()));
-    logger.info(format!("已备份原始 Claude.app: {}", backup.display()));
+    logger.info(format!(
+        "第一次 rename 成功：原始 Claude.app 已移入备份 {}",
+        backup.display()
+    ));
+    perform_second_rename_and_swap(&app, &backup, &patched_app, logger)?;
     if req.launch_after {
         launch_claude(&app, logger);
     }
@@ -544,4 +635,276 @@ pub(crate) fn platform_restore_patch(dry_run: bool, logger: &dyn LogSink) -> Res
     }
     logger.info("macOS 恢复完成。");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use claude_zh_core::NoopLogger;
+    use std::fs;
+
+    /// B-11 反测试：验证第二次 rename 失败时，备份被自动还原回原位。
+    ///
+    /// 场景构造：
+    /// 1. 创建临时目录模拟 /Applications 布局
+    /// 2. 创建原始 app 目录（带标记文件）和补丁 app 目录
+    /// 3. 模拟第一次 rename 成功（原始 → backup）
+    /// 4. 调用 restore_backup_on_rename_failure，传入合成的 io::Error
+    /// 5. 断言：原始 app 路径重新存在，且标记文件内容正确
+    #[test]
+    fn restore_backup_on_rename_failure_restores_original_app() {
+        let root = env::temp_dir().join(format!(
+            "claude-zh-macos-rollback-b11-{}",
+            Uuid::new_v4()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+
+        let original_app = root.join("Claude.app");
+        let backup_app = root.join("Claude.backup-before-zh-CN-test.app");
+        let patched_app = root.join("patched-Claude.app");
+
+        // 创建原始 app（带标记文件）
+        fs::create_dir_all(&original_app).unwrap();
+        fs::write(original_app.join("marker.txt"), "original").unwrap();
+
+        // 创建补丁 app
+        fs::create_dir_all(&patched_app).unwrap();
+        fs::write(patched_app.join("marker.txt"), "patched").unwrap();
+
+        // 模拟第一次 rename 成功：原始 → backup
+        fs::rename(&original_app, &backup_app).unwrap();
+        assert!(!original_app.exists(), "第一次 rename 后原始路径应不存在");
+        assert!(backup_app.exists(), "第一次 rename 后 backup 应存在");
+
+        // 第二次 rename 不执行（模拟失败），直接调用回滚
+        let synthetic_err =
+            std::io::Error::new(std::io::ErrorKind::PermissionDenied, "模拟第二次 rename 失败");
+        let logger = NoopLogger;
+        let result =
+            restore_backup_on_rename_failure(&original_app, &backup_app, &patched_app, &synthetic_err, &logger);
+
+        // 回滚应成功
+        assert!(result.is_ok(), "回滚应成功: {:?}", result.err());
+        assert!(original_app.exists(), "回滚后原始 app 路径应重新存在");
+        assert!(!backup_app.exists(), "回滚后 backup 路径应不再存在");
+
+        // 标记文件内容应为原始值
+        let content = fs::read_to_string(original_app.join("marker.txt")).unwrap();
+        assert_eq!(content, "original", "回滚后应保留原始 app 内容");
+
+        // 清理
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// B-11 补充：验证回滚也失败时，返回包含完整状态的错误。
+    ///
+    /// 场景构造：
+    /// 1. 创建临时目录，原始 app 路径预先放一个只读文件（阻止 rename 目标）
+    /// 2. 创建 backup 目录
+    /// 3. 调用 restore_backup_on_rename_failure
+    /// 4. 断言：返回 Err，且 backup 仍然存在（未被丢弃）
+    #[test]
+    fn restore_backup_on_rename_failure_reports_error_when_rollback_also_fails() {
+        let root = env::temp_dir().join(format!(
+            "claude-zh-macos-rollback-fail-b11-{}",
+            Uuid::new_v4()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+
+        let original_app = root.join("Claude.app");
+        let backup_app = root.join("Claude.backup-before-zh-CN-test.app");
+        let patched_app = root.join("patched-Claude.app");
+
+        // 创建 backup 目录（模拟第一次 rename 已完成）
+        fs::create_dir_all(&backup_app).unwrap();
+        fs::write(backup_app.join("marker.txt"), "original").unwrap();
+
+        // 在原始路径放一个文件（不是目录），阻止 rename backup → original
+        // rename 目标已存在且不是空目录时，在大多数文件系统上会失败
+        fs::write(&original_app, "block").unwrap();
+
+        // 创建补丁 app
+        fs::create_dir_all(&patched_app).unwrap();
+
+        let synthetic_err =
+            std::io::Error::new(std::io::ErrorKind::PermissionDenied, "模拟第二次 rename 失败");
+        let logger = NoopLogger;
+        let result =
+            restore_backup_on_rename_failure(&original_app, &backup_app, &patched_app, &synthetic_err, &logger);
+
+        // 回滚应失败，返回 Err
+        assert!(result.is_err(), "回滚应失败并返回错误");
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("模拟第二次 rename 失败"),
+            "错误应包含原始 rename 错误信息: {err_msg}"
+        );
+        assert!(
+            err_msg.contains("手动"),
+            "错误应提示用户手动恢复: {err_msg}"
+        );
+
+        // backup 仍应存在（未被丢弃）
+        assert!(backup_app.exists(), "回滚失败后 backup 应仍存在");
+
+        // 清理
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// B-11 调用点测试 1：perform_second_rename_and_swap 成功路径。
+    ///
+    /// 场景构造：
+    /// 1. 创建原始 app（带 marker）、patched app（带 marker）
+    /// 2. 模拟第一次 rename：原始 → backup
+    /// 3. 调用 perform_second_rename_and_swap 执行第二次 rename
+    /// 4. 断言：Ok(())，正式路径含 patched marker，backup 不存在
+    #[test]
+    fn perform_second_rename_and_swap_success() {
+        let root = env::temp_dir().join(format!(
+            "claude-zh-macos-swap-ok-{}",
+            Uuid::new_v4()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+
+        let original_app = root.join("Claude.app");
+        let backup_app = root.join("Claude.backup-before-zh-CN-test.app");
+        let patched_app = root.join("patched-Claude.app");
+
+        fs::create_dir_all(&original_app).unwrap();
+        fs::write(original_app.join("marker.txt"), "original").unwrap();
+
+        fs::create_dir_all(&patched_app).unwrap();
+        fs::write(patched_app.join("marker.txt"), "patched").unwrap();
+
+        // 模拟第一次 rename
+        fs::rename(&original_app, &backup_app).unwrap();
+        assert!(!original_app.exists());
+
+        let logger = NoopLogger;
+        let result = perform_second_rename_and_swap(
+            &original_app,
+            &backup_app,
+            &patched_app,
+            &logger,
+        );
+
+        assert!(result.is_ok(), "第二次 rename 应成功: {:?}", result.err());
+        assert!(original_app.exists(), "正式路径应存在");
+        assert!(!backup_app.exists(), "backup 应已被消费");
+        assert!(!patched_app.exists(), "patched app 应已被移走");
+        let content = fs::read_to_string(original_app.join("marker.txt")).unwrap();
+        assert_eq!(content, "patched", "正式路径应含 patched marker");
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// B-11 调用点测试 2：rename 失败 + 回滚成功（核心场景）。
+    ///
+    /// 场景构造：
+    /// 1. 创建原始 app（带 marker）和 patched app
+    /// 2. 模拟第一次 rename：原始 → backup
+    /// 3. 删除 patched app 使第二次 rename 失败（源不存在）
+    /// 4. 调用 perform_second_rename_and_swap
+    /// 5. 断言：Err，消息含"已自动回滚"，正式路径含原始 marker，backup 不存在
+    #[test]
+    fn perform_second_rename_and_swap_rename_fail_rollback_ok() {
+        let root = env::temp_dir().join(format!(
+            "claude-zh-macos-swap-fail-rollback-ok-{}",
+            Uuid::new_v4()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+
+        let original_app = root.join("Claude.app");
+        let backup_app = root.join("Claude.backup-before-zh-CN-test.app");
+        let patched_app = root.join("patched-Claude.app");
+
+        fs::create_dir_all(&original_app).unwrap();
+        fs::write(original_app.join("marker.txt"), "original").unwrap();
+
+        fs::create_dir_all(&patched_app).unwrap();
+        fs::write(patched_app.join("marker.txt"), "patched").unwrap();
+
+        // 模拟第一次 rename
+        fs::rename(&original_app, &backup_app).unwrap();
+        assert!(!original_app.exists());
+
+        // 删除 patched app 使第二次 rename 失败
+        fs::remove_dir_all(&patched_app).unwrap();
+
+        let logger = NoopLogger;
+        let result = perform_second_rename_and_swap(
+            &original_app,
+            &backup_app,
+            &patched_app,
+            &logger,
+        );
+
+        assert!(result.is_err(), "第二次 rename 应失败");
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("已自动回滚"),
+            "错误应说明已自动回滚: {err_msg}"
+        );
+        assert!(original_app.exists(), "回滚后正式路径应重新存在");
+        let content = fs::read_to_string(original_app.join("marker.txt")).unwrap();
+        assert_eq!(content, "original", "回滚后应保留原始 marker");
+        assert!(!backup_app.exists(), "回滚后 backup 应不再存在");
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// B-11 调用点测试 3：rename 失败 + 回滚也失败。
+    ///
+    /// 场景构造：
+    /// 1. 在正式路径放文件阻止任何 rename 目标
+    /// 2. 创建 backup 目录和 patched app 目录
+    /// 3. 跳过第一次 rename，直接调用 perform_second_rename_and_swap
+    /// 4. 断言：Err，消息含"手动"和 backup 路径，backup 仍存在
+    #[test]
+    fn perform_second_rename_and_swap_rename_fail_rollback_fail() {
+        let root = env::temp_dir().join(format!(
+            "claude-zh-macos-swap-fail-rollback-fail-{}",
+            Uuid::new_v4()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+
+        let original_app = root.join("Claude.app");
+        let backup_app = root.join("Claude.backup-before-zh-CN-test.app");
+        let patched_app = root.join("patched-Claude.app");
+
+        // 在正式路径放文件阻止 rename
+        fs::write(&original_app, "block").unwrap();
+
+        fs::create_dir_all(&backup_app).unwrap();
+        fs::write(backup_app.join("marker.txt"), "original").unwrap();
+
+        fs::create_dir_all(&patched_app).unwrap();
+
+        let logger = NoopLogger;
+        let result = perform_second_rename_and_swap(
+            &original_app,
+            &backup_app,
+            &patched_app,
+            &logger,
+        );
+
+        assert!(result.is_err(), "第二次 rename 和回滚都应失败");
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("手动"),
+            "错误应提示手动恢复: {err_msg}"
+        );
+        assert!(
+            err_msg.contains(&backup_app.display().to_string()),
+            "错误应包含 backup 路径: {err_msg}"
+        );
+        assert!(backup_app.exists(), "backup 应仍存在");
+
+        let _ = fs::remove_dir_all(&root);
+    }
 }

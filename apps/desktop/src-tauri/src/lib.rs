@@ -378,7 +378,10 @@ fn init_tracing() {
         }
 
         // dev 模式：同时输出到 stderr；release 模式：仅文件（无控制台输出）
-        let console_layer: Option<Box<dyn Layer<_>>> = if cfg!(debug_assertions) {
+        // 注意：不要给 console_layer 加 `Option<Box<dyn Layer<_>>>` 显式标注，
+        // 那个 `_` 会让编译器把 S 推断成与 file_layer 不同的类型，
+        // 链式 .with() 时报 `dyn Layer<...>` 不可知大小的错。
+        let console_layer = if cfg!(debug_assertions) {
             Some(
                 tracing_subscriber::fmt::layer()
                     .with_writer(std::io::stderr)

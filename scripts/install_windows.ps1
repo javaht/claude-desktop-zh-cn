@@ -5,7 +5,7 @@
     [string]$PatchMode = "safe",
 
     [Parameter(Position = 0)]
-    [ValidateSet("install", "uninstall", "disable-updates", "enable-updates", "sync-skills", "unsync-skills")]
+    [ValidateSet("install", "uninstall", "disable-updates", "enable-updates", "sync-skills", "unsync-skills", "doctor")]
     [string]$Action = "install",
 
     [Parameter(Position = 1)]
@@ -129,14 +129,16 @@ function Read-InteractiveSelection {
     Write-Host "[1] 安装中文补丁(第三方API登陆模式(例DeepSeek)：（Cowork 沙箱/工作区不可用(看群公告))"
     Write-Host "[2] 安装中文补丁(官方账号登录模式：Cowork 沙箱/工作区不可用(看群公告))"
     Write-Host "[3] 恢复原样 / 卸载补丁"
+    Write-Host "[4] 自动更新设置（y=禁止自动更新，n=允许自动更新）"
     Write-Host "[5] 同步 CC Switch skills（y=开启同步，n=删除同步）"
+    Write-Host "[6] 检查中文补丁状态"
     Write-Host "[Q] 退出"
     Write-Host ""
 
     $patchModeForInstall = "safe"
     $actionSelected = $false
     while (-not $actionSelected) {
-        $actionSelection = (Read-Host "请选择操作 [1/2/3/4/5/Q]").Trim()
+        $actionSelection = (Read-Host "请选择操作 [1/2/3/4/5/6/Q]").Trim()
         switch -Regex ($actionSelection) {
             '^[1]$' { $patchModeForInstall = "safe"; $actionSelected = $true }
             '^[2]$' { $patchModeForInstall = "official"; $actionSelected = $true }
@@ -163,8 +165,9 @@ function Read-InteractiveSelection {
                     }
                 }
             }
+            '^[6]$' { return @{ Action = "doctor"; Language = "zh-CN"; PatchMode = "safe" } }
             '^[Qq]$' { exit 0 }
-            default { Write-Host "请输入 1、2、3、4、5 或 Q。" -ForegroundColor Yellow }
+            default { Write-Host "请输入 1、2、3、4、5、6 或 Q。" -ForegroundColor Yellow }
         }
     }
 
@@ -229,6 +232,27 @@ function Format-ByteSize {
     return "$Bytes bytes"
 }
 
+function Get-UnpackagedClaudeVersion {
+    param([System.IO.DirectoryInfo]$Directory)
+
+    if ($Directory.Name -match '^app-(\d+(?:\.\d+)*)$') {
+        try {
+            return [version]$matches[1]
+        }
+        catch {
+        }
+    }
+
+    return [version]"0.0"
+}
+
+function Test-UnpackagedClaudeAppDirectory {
+    param([System.IO.DirectoryInfo]$Directory)
+
+    return (Test-Path -LiteralPath (Join-Path $Directory.FullName "Claude.exe")) -and
+        (Test-Path -LiteralPath (Join-Path $Directory.FullName "resources"))
+}
+
 function Get-UnpackagedClaudePaths {
     $localAppData = [Environment]::GetFolderPath('LocalApplicationData')
     if (-not $localAppData) {
@@ -241,7 +265,8 @@ function Get-UnpackagedClaudePaths {
     }
 
     return @(Get-ChildItem $unpackagedBase -Directory -Filter "app-*" -ErrorAction SilentlyContinue |
-        Sort-Object LastWriteTime -Descending |
+        Where-Object { Test-UnpackagedClaudeAppDirectory $_ } |
+        Sort-Object @{ Expression = { Get-UnpackagedClaudeVersion $_ }; Descending = $true }, @{ Expression = { $_.LastWriteTime }; Descending = $true } |
         ForEach-Object { $_.FullName })
 }
 
@@ -2253,6 +2278,119 @@ function Set-ClaudeLocale {
     }
 }
 
+function Test-LanguageRegistered {
+    param(
+        [string]$ResourcesPath,
+        [string]$Lang
+    )
+
+    $assetsDir = Join-Path $ResourcesPath "ion-dist\assets\v1"
+    $jsFiles = @(Get-ChildItem (Join-Path $assetsDir "*.js") -ErrorAction SilentlyContinue)
+    if ($jsFiles.Count -eq 0) {
+        return $false
+    }
+
+    $regex = [System.Text.RegularExpressions.Regex]::new($LanguageListPattern)
+    foreach ($file in $jsFiles) {
+        $text = [System.IO.File]::ReadAllText($file.FullName, [System.Text.Encoding]::UTF8)
+        foreach ($match in $regex.Matches($text)) {
+            if ($match.Value.Contains("`"$Lang`"")) {
+                return $true
+            }
+        }
+    }
+
+    return $false
+}
+
+function Invoke-WindowsLanguagePackDoctor {
+    param([string]$Lang)
+
+    $ok = $true
+
+    Write-Host "=== Claude Desktop Windows 中文补丁检查 ==="
+
+    Write-Step "[1/4] 查找 Claude Desktop"
+    $paths = Get-ClaudeResourcesPath
+    $resourcesPath = $paths["Resources"]
+    Write-Host "  app: $($paths["App"])" -ForegroundColor Green
+    Write-Host "  resources: $resourcesPath" -ForegroundColor Green
+
+    Write-Step "[2/4] 检查语言资源"
+    $resourceChecks = @(
+        @{ Label = "ion-dist/i18n/$Lang.json"; Path = Join-Path $resourcesPath "ion-dist\i18n\$Lang.json" },
+        @{ Label = "resources/$Lang.json"; Path = Join-Path $resourcesPath "$Lang.json" },
+        @{ Label = "ion-dist/i18n/statsig/$Lang.json"; Path = Join-Path $resourcesPath "ion-dist\i18n\statsig\$Lang.json" }
+    )
+
+    foreach ($check in $resourceChecks) {
+        if (Test-Path -LiteralPath $check.Path) {
+            Write-Host "  OK $($check.Label)" -ForegroundColor Green
+        }
+        else {
+            Write-Host "  MISSING $($check.Label)" -ForegroundColor Red
+            $ok = $false
+        }
+    }
+
+    $backupRoot = Get-BackupRoot $resourcesPath
+    if (Test-Path -LiteralPath $backupRoot) {
+        Write-Host "  backup: $backupRoot" -ForegroundColor DarkGray
+    }
+    else {
+        Write-Host "  backup not found: $backupRoot" -ForegroundColor DarkYellow
+    }
+
+    Write-Step "[3/4] 检查语言注册"
+    if (Test-LanguageRegistered $resourcesPath $Lang) {
+        Write-Host "  OK $Lang registered in frontend language whitelist" -ForegroundColor Green
+    }
+    else {
+        Write-Host "  MISSING $Lang in frontend language whitelist" -ForegroundColor Red
+        $ok = $false
+    }
+
+    Write-Step "[4/4] 检查用户语言配置"
+    $configPaths = @(Get-ClaudeConfigPaths | Select-Object -Unique)
+    if ($configPaths.Count -eq 0) {
+        Write-Host "  MISSING Claude config paths" -ForegroundColor Red
+        $ok = $false
+    }
+
+    foreach ($configPath in $configPaths) {
+        if (-not (Test-Path -LiteralPath $configPath)) {
+            Write-Host "  MISSING locale=${Lang}: $configPath" -ForegroundColor Red
+            $ok = $false
+            continue
+        }
+
+        try {
+            $config = Get-Content $configPath -Raw | ConvertFrom-Json
+            $locale = [string]$config.locale
+            if ($locale -eq $Lang) {
+                Write-Host "  OK locale=${Lang}: $configPath" -ForegroundColor Green
+            }
+            else {
+                Write-Host "  MISMATCH locale=${locale}: $configPath" -ForegroundColor Red
+                $ok = $false
+            }
+        }
+        catch {
+            Write-Host "  INVALID JSON: $configPath" -ForegroundColor Red
+            $ok = $false
+        }
+    }
+
+    Write-Host ""
+    if ($ok) {
+        Write-Host "检查完成：$Lang 补丁已安装到当前 Claude Desktop 版本。" -ForegroundColor Green
+        return $true
+    }
+
+    Write-Host "检查完成：当前 Claude Desktop 版本缺少中文补丁或用户语言配置异常，请重新运行安装。" -ForegroundColor Red
+    return $false
+}
+
 function Get-ThirdPartyConfigLibraryPaths {
     $paths = @()
     $appDataRoots = @()
@@ -3200,6 +3338,11 @@ try {
         "enable-updates" { Set-ClaudeAutoUpdates $true }
         "sync-skills" { Sync-CCSwitchSkills }
         "unsync-skills" { Unsync-CCSwitchSkills }
+        "doctor" {
+            if (-not (Invoke-WindowsLanguagePackDoctor $LanguageCode)) {
+                throw "中文补丁检查未通过。"
+            }
+        }
     }
 
     Stop-InstallLog
@@ -3213,7 +3356,7 @@ catch {
     }
     Stop-InstallLog
     if ($Interactive) {
-        [void](Read-Host "安装未完成，按 Enter 退出")
+        [void](Read-Host "操作未完成，按 Enter 退出")
     }
     exit 1
 }

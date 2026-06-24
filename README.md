@@ -69,13 +69,15 @@ macOS 可双击 `install-mac.command`，Windows 可右键管理员运行 `instal
    - `3` 恢复原样 / 卸载补丁
    - `4` 自动更新设置（`y` 禁止自动更新，`n` 允许自动更新）
    - `5` 同步 CC Switch skills（`y` 开启同步，`n` 删除同步）
-5. 选择安装中文补丁时，脚本会先尝试从旧备份恢复来清理已有汉化；如果没有旧备份，会提示跳过并继续。
-6. 安装时再选择语言：
+   - `6` 检查中文补丁状态
+5. 选择检查中文补丁状态时，脚本只会读取当前 Claude Desktop 版本、中文资源文件、语言白名单和用户语言配置，不会修改文件；也可以直接运行 `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\install_windows.ps1 doctor zh-CN`。
+6. 选择安装中文补丁时，脚本会先尝试从旧备份恢复来清理已有汉化；如果没有旧备份，会提示跳过并继续。
+7. 安装时再选择语言：
    - `1` 简体中文
    - `2` 繁体中文（中国台湾）
    - `3` 繁体中文（中国香港）
-7. 脚本会备份当前 Claude Desktop 资源，写入本仓库 `resources` 目录里的中文 JSON，补齐硬编码界面文本，并重启 Claude Desktop。选择模式 1 时会跳过 `app.asar` 补丁，更适合需要 Cowork/截图工作区的场景。选择模式 2 时会直接修改当前 Claude 的 `app.asar`，卸载时从备份恢复。
-8. 如果没有自动切换，打开左下角账号菜单，选择 `Language` -> 对应的中文选项。
+8. 脚本会备份当前 Claude Desktop 资源，写入本仓库 `resources` 目录里的中文 JSON，补齐硬编码界面文本，并重启 Claude Desktop。选择模式 1 时会跳过 `app.asar` 补丁，更适合需要 Cowork/截图工作区的场景。选择模式 2 时会直接修改当前 Claude 的 `app.asar`，卸载时从备份恢复。
+9. 如果没有自动切换，打开左下角账号菜单，选择 `Language` -> 对应的中文选项。
 
 
 ## 文件说明
@@ -125,6 +127,7 @@ macOS 可双击 `install-mac.command`，Windows 可右键管理员运行 `instal
 - 写入 Windows 用户配置，将语言设置为所选语言代码（`zh-CN`、`zh-TW` 或 `zh-HK`）。
 - 可选菜单项 `4` 用 `y/n` 控制 Claude Desktop 自动更新：`y` 禁止自动更新，`n` 允许自动更新。若当前存在有效的 Claude-3p `configLibrary`，脚本会写入当前 applied 配置；否则写入 `HKCU\SOFTWARE\Policies\Claude` policy。
 - 可选菜单项 `5` 用 `y/n` 控制 CC Switch skills 同步：`y` 会把 `%USERPROFILE%\.cc-switch\skills` 中缺失的 skill 以软链接加入 Claude Desktop 的本地 skills 目录，并把 `SKILL.md` frontmatter 里的 `name` 和 `description` 写入对应 `manifest.json`；`n` 只删除之前同步产生、且指向 CC Switch skills 目录内的软链接和对应 manifest 记录。脚本会从当前用户的 AppData 动态扫描 Claude-3p skills plugin，不写死 session UUID，不覆盖同名 skill，也不删除 CC Switch 源目录。
+- 可选菜单项 `6` 会检查当前 Claude Desktop 版本是否已经安装对应中文资源、前端语言白名单是否包含所选中文变体，以及用户配置中的 `locale` 是否匹配；该检查只读，不会修改文件。
 - 重启 Claude Desktop。
 
 ## 卸载 / 恢复

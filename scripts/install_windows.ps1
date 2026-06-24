@@ -229,6 +229,27 @@ function Format-ByteSize {
     return "$Bytes bytes"
 }
 
+function Get-UnpackagedClaudeVersion {
+    param([System.IO.DirectoryInfo]$Directory)
+
+    if ($Directory.Name -match '^app-(\d+(?:\.\d+)*)$') {
+        try {
+            return [version]$matches[1]
+        }
+        catch {
+        }
+    }
+
+    return [version]"0.0"
+}
+
+function Test-UnpackagedClaudeAppDirectory {
+    param([System.IO.DirectoryInfo]$Directory)
+
+    return (Test-Path -LiteralPath (Join-Path $Directory.FullName "Claude.exe")) -and
+        (Test-Path -LiteralPath (Join-Path $Directory.FullName "resources"))
+}
+
 function Get-UnpackagedClaudePaths {
     $localAppData = [Environment]::GetFolderPath('LocalApplicationData')
     if (-not $localAppData) {
@@ -241,7 +262,8 @@ function Get-UnpackagedClaudePaths {
     }
 
     return @(Get-ChildItem $unpackagedBase -Directory -Filter "app-*" -ErrorAction SilentlyContinue |
-        Sort-Object LastWriteTime -Descending |
+        Where-Object { Test-UnpackagedClaudeAppDirectory $_ } |
+        Sort-Object @{ Expression = { Get-UnpackagedClaudeVersion $_ }; Descending = $true }, @{ Expression = { $_.LastWriteTime }; Descending = $true } |
         ForEach-Object { $_.FullName })
 }
 

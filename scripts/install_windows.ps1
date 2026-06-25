@@ -170,8 +170,6 @@ function Read-InteractiveSelection {
     }
 
     Write-Host ""
-    Invoke-PreInstallCleanup
-    Write-Host ""
     Write-Host "请选择要安装的语言："
     Write-Host "[1] 简体中文"
     Write-Host "[2] 繁体中文（中国台湾）"
@@ -182,9 +180,9 @@ function Read-InteractiveSelection {
     while ($true) {
         $languageSelection = (Read-Host "请选择语言 [1/2/3/Q]").Trim()
         switch -Regex ($languageSelection) {
-            '^[1]$' { return @{ Action = "install"; Language = "zh-CN"; PatchMode = $patchModeForInstall } }
-            '^[2]$' { return @{ Action = "install"; Language = "zh-TW"; PatchMode = $patchModeForInstall } }
-            '^[3]$' { return @{ Action = "install"; Language = "zh-HK"; PatchMode = $patchModeForInstall } }
+            '^[1]$' { Invoke-PreInstallCleanup; return @{ Action = "install"; Language = "zh-CN"; PatchMode = $patchModeForInstall } }
+            '^[2]$' { Invoke-PreInstallCleanup; return @{ Action = "install"; Language = "zh-TW"; PatchMode = $patchModeForInstall } }
+            '^[3]$' { Invoke-PreInstallCleanup; return @{ Action = "install"; Language = "zh-HK"; PatchMode = $patchModeForInstall } }
             '^[Qq]$' { exit 0 }
             default { Write-Host "请输入 1、2、3 或 Q。" -ForegroundColor Yellow }
         }
@@ -1325,46 +1323,116 @@ function Get-OnlineDomTranslationScript {
     if ($Language -eq "zh-CN") {
         $selectedText = "已选择 `$1 项"
         $deleteSelectedText = "删除 `$1 个所选项目"
+        $morningGreeting = "早上好，`$1"
+        $afternoonGreeting = "下午好，`$1"
+        $eveningGreeting = "晚上好，`$1"
+        $lateNightGreeting = "夜深了，`$1"
+        $goodNightGreeting = "晚安，`$1"
+        $deleteChatText = "删除 `$1 个聊天"
+        $moveChatText = "将 `$1 个聊天移至项目"
+        $connNeedsFieldText = "连接还需要填写 `$1 个字段"
+        $needsFieldText = "还需要填写 `$1 个字段"
+        $deleteChatConfirmText = "你确定要删除 `$1 个聊天吗？此操作无法撤消。"
+        $deleteThisChatConfirmText = "你确定要永久删除此聊天吗？此操作无法撤消。"
+        $deleteTheseChatsConfirmText = "你确定要永久删除这些聊天吗？此操作无法撤消。"
+        $archiveTaskText = "要归档 `$1 个任务吗？你可以在"已归档"标签页中找到它。"
+        $archiveTasksText = "要归档 `$1 个任务吗？你可以在"已归档"标签页中找到它们。"
+    } elseif ($Language -eq "zh-TW") {
+        $selectedText = "已選擇 `$1 項"
+        $deleteSelectedText = "刪除 `$1 個所選項目"
+        $morningGreeting = "早安，`$1"
+        $afternoonGreeting = "午安，`$1"
+        $eveningGreeting = "晚安，`$1"
+        $lateNightGreeting = "夜深了，`$1"
+        $goodNightGreeting = "晚安，`$1"
+        $deleteChatText = "刪除 `$1 個聊天"
+        $moveChatText = "將 `$1 個聊天移至專案"
+        $connNeedsFieldText = "連線還需要填寫 `$1 個欄位"
+        $needsFieldText = "還需要填寫 `$1 個欄位"
+        $deleteChatConfirmText = "你確定要刪除 `$1 個聊天嗎？此操作無法復原。"
+        $deleteThisChatConfirmText = "你確定要永久刪除此聊天嗎？此操作無法復原。"
+        $deleteTheseChatsConfirmText = "你確定要永久刪除這些聊天嗎？此操作無法復原。"
+        $archiveTaskText = "要歸檔 `$1 個任務嗎？你可以在「已歸檔」分頁中找到它。"
+        $archiveTasksText = "要歸檔 `$1 個任務嗎？你可以在「已歸檔」分頁中找到它們。"
     } else {
         $selectedText = "已選擇 `$1 項"
         $deleteSelectedText = "刪除 `$1 個所選項目"
+        $morningGreeting = "早晨，`$1"
+        $afternoonGreeting = "午安，`$1"
+        $eveningGreeting = "晚安，`$1"
+        $lateNightGreeting = "夜深了，`$1"
+        $goodNightGreeting = "晚安，`$1"
+        $deleteChatText = "刪除 `$1 個聊天"
+        $moveChatText = "將 `$1 個聊天移至項目"
+        $connNeedsFieldText = "連線還需要填寫 `$1 個欄位"
+        $needsFieldText = "還需要填寫 `$1 個欄位"
+        $deleteChatConfirmText = "你確定要刪除 `$1 個聊天嗎？此操作無法復原。"
+        $deleteThisChatConfirmText = "你確定要永久刪除此聊天嗎？此操作無法復原。"
+        $deleteTheseChatsConfirmText = "你確定要永久刪除這些聊天嗎？此操作無法復原。"
+        $archiveTaskText = "要歸檔 `$1 個任務嗎？你可以在「已封存」分頁中找到它。"
+        $archiveTasksText = "要歸檔 `$1 個任務嗎？你可以在「已封存」分頁中找到它們。"
     }
     $selectedTextJson = $selectedText | ConvertTo-Json -Compress
     $deleteSelectedTextJson = $deleteSelectedText | ConvertTo-Json -Compress
+    $morningGreetingJson = $morningGreeting | ConvertTo-Json -Compress
+    $afternoonGreetingJson = $afternoonGreeting | ConvertTo-Json -Compress
+    $eveningGreetingJson = $eveningGreeting | ConvertTo-Json -Compress
+    $lateNightGreetingJson = $lateNightGreeting | ConvertTo-Json -Compress
+    $goodNightGreetingJson = $goodNightGreeting | ConvertTo-Json -Compress
+    $deleteChatTextJson = $deleteChatText | ConvertTo-Json -Compress
+    $moveChatTextJson = $moveChatText | ConvertTo-Json -Compress
+    $connNeedsFieldTextJson = $connNeedsFieldText | ConvertTo-Json -Compress
+    $needsFieldTextJson = $needsFieldText | ConvertTo-Json -Compress
+    $deleteChatConfirmTextJson = $deleteChatConfirmText | ConvertTo-Json -Compress
+    $deleteThisChatConfirmTextJson = $deleteThisChatConfirmText | ConvertTo-Json -Compress
+    $deleteTheseChatsConfirmTextJson = $deleteTheseChatsConfirmText | ConvertTo-Json -Compress
+    $archiveTaskTextJson = $archiveTaskText | ConvertTo-Json -Compress
+    $archiveTasksTextJson = $archiveTasksText | ConvertTo-Json -Compress
     $template = @'
 (()=>{try{
 const L=__LANGUAGE__,M=__MAPPING__,ST=__SELECTED_TEXT__,DST=__DELETE_SELECTED_TEXT__;
-localStorage.setItem("spa:locale",L);
-document.documentElement&&document.documentElement.setAttribute("lang",L);
-const N=s=>(s||"").replace(/\s+/g," ").trim();
+localStorage.setItem(“spa:locale”,L);
+document.documentElement&&document.documentElement.setAttribute(“lang”,L);
+const N=s=>(s||””).replace(/\s+/g,” “).trim();
 const G=[
-[/^Morning, (.+)$/,"早上好，$1"],[/^Good morning, (.+)$/,"早上好，$1"],
-[/^Afternoon, (.+)$/,"下午好，$1"],[/^Good afternoon, (.+)$/,"下午好，$1"],
-[/^Evening, (.+)$/,"晚上好，$1"],[/^Good evening, (.+)$/,"晚上好，$1"],
-[/^It's late-night (.+)$/,"夜深了，$1"],[/^Good night, (.+)$/,"晚安，$1"],
-[/^Delete (\d+) chat$/,"删除 $1 个聊天"],[/^Delete (\d+) chats$/,"删除 $1 个聊天"],
-[/^Move (\d+) chat to a project$/,"将 $1 个聊天移至项目"],[/^Move (\d+) chats to a project$/,"将 $1 个聊天移至项目"],
-[/^Connection needs (\d+) field$/,"连接还需要填写 $1 个字段"],[/^Connection needs (\d+) fields$/,"连接还需要填写 $1 个字段"],
-[/^needs (\d+) field$/,"还需要填写 $1 个字段"],[/^needs (\d+) fields$/,"还需要填写 $1 个字段"],
-[/^Are you sure you want to delete (\d+) chat\? This cannot be undone\.$/,"你确定要删除 $1 个聊天吗？此操作无法撤消。"],
-[/^Are you sure you want to delete (\d+) chats\? This cannot be undone\.$/,"你确定要删除 $1 个聊天吗？此操作无法撤消。"],
-[/^Are you sure you want to permanently delete this chat\? This cannot be undone\.$/,"你确定要永久删除此聊天吗？此操作无法撤消。"],
-[/^Are you sure you want to permanently delete these chats\? This cannot be undone\.$/,"你确定要永久删除这些聊天吗？此操作无法撤消。"],
-[/^Archive (\d+) task\? You can find it in the Archived tab\.$/,"要归档 $1 个任务吗？你可以在“已归档”标签页中找到它。"],
-[/^Archive (\d+) tasks\? You can find them in the Archived tab\.$/,"要归档 $1 个任务吗？你可以在“已归档”标签页中找到它们。"],
+[/^Morning, (.+)$/,__MORNING__],[/^Good morning, (.+)$/,__MORNING__],
+[/^Afternoon, (.+)$/,__AFTERNOON__],[/^Good afternoon, (.+)$/,__AFTERNOON__],
+[/^Evening, (.+)$/,__EVENING__],[/^Good evening, (.+)$/,__EVENING__],
+[/^It's late-night (.+)$/,__LATENIGHT__],[/^Good night, (.+)$/,__GOODNIGHT__],
+[/^Delete (\d+) chat$/,__DELETE_CHAT__],[/^Delete (\d+) chats$/,__DELETE_CHAT__],
+[/^Move (\d+) chat to a project$/,__MOVE_CHAT__],[/^Move (\d+) chats to a project$/,__MOVE_CHAT__],
+[/^Connection needs (\d+) field$/,__CONN_NEEDS_FIELD__],[/^Connection needs (\d+) fields$/,__CONN_NEEDS_FIELD__],
+[/^needs (\d+) field$/,__NEEDS_FIELD__],[/^needs (\d+) fields$/,__NEEDS_FIELD__],
+[/^Are you sure you want to delete (\d+) chat\? This cannot be undone\.$/,__DELETE_CHAT_CONFIRM__],
+[/^Are you sure you want to delete (\d+) chats\? This cannot be undone\.$/,__DELETE_CHAT_CONFIRM__],
+[/^Are you sure you want to permanently delete this chat\? This cannot be undone\.$/,__DELETE_THIS_CHAT_CONFIRM__],
+[/^Are you sure you want to permanently delete these chats\? This cannot be undone\.$/,__DELETE_THESE_CHAT_CONFIRM__],
+[/^Archive (\d+) task\? You can find it in the Archived tab\.$/,__ARCHIVE_TASK__],
+[/^Archive (\d+) tasks\? You can find them in the Archived tab\.$/,__ARCHIVE_TASKS__],
 [/^(\d+) selected$/,ST],
 [/^Delete (\d+) selected item$/,DST],
 [/^Delete (\d+) selected items$/,DST],
-[/^Mon$/,"周一"],[/^Tue$/,"周二"],[/^Wed$/,"周三"],[/^Thu$/,"周四"],[/^Fri$/,"周五"],[/^Sat$/,"周六"],[/^Sun$/,"周日"]
+[/^Mon$/,__MON__],[/^Tue$/,__TUE__],[/^Wed$/,__WED__],[/^Thu$/,__THU__],[/^Fri$/,__FRI__],[/^Sat$/,__SAT__],[/^Sun$/,__SUN__]
 ];
-const R=s=>{const n=N(s);if(M[n])return M[n];for(const [r,t] of G){const m=n.match(r);if(m)return t.replace("$1",m[1])}};
-const X=new Set(["SCRIPT","STYLE","NOSCRIPT"]);
-function T(){try{const b=document.body||document.documentElement;if(!b)return;const w=document.createTreeWalker(b,NodeFilter.SHOW_TEXT,{acceptNode(n){const p=n.parentElement;if(!p||X.has(p.tagName)||!R(n.nodeValue))return NodeFilter.FILTER_REJECT;return NodeFilter.FILTER_ACCEPT}});let n;while(n=w.nextNode()){const v=R(n.nodeValue);if(v)n.nodeValue=v}document.querySelectorAll("[role=dialog] p,[role=dialog] div,[role=dialog] span").forEach(e=>{try{if(e.closest("button,[contenteditable]"))return;const t=R(e.textContent);if(t&&N(e.textContent)!==N(t))e.textContent=t}catch{}});document.querySelectorAll("[aria-label],[title],[placeholder],input,textarea").forEach(e=>{["aria-label","title","placeholder","value"].forEach(a=>{try{if(a==="value"&&!(e.matches("input[type=button],input[type=submit]")))return;let v=e.getAttribute?e.getAttribute(a):void 0;if(v==null&&a in e)v=e[a];const t=R(v);if(t){if(e.setAttribute)e.setAttribute(a,t);try{if(a in e)e[a]=t}catch{}}}catch{}})});document.querySelectorAll("a").forEach(e=>{try{const r=e.getBoundingClientRect(),txt=N(e.textContent);if(txt==="Claude"&&r.left<100&&r.top<100)e.style.visibility="hidden"}catch{}})}catch{}}
+const R=s=>{const n=N(s);if(M[n])return M[n];for(const [r,t] of G){const m=n.match(r);if(m)return t.replace(“$1”,m[1])}};
+const X=new Set([“SCRIPT”,”STYLE”,”NOSCRIPT”]);
+function T(){try{const b=document.body||document.documentElement;if(!b)return;const w=document.createTreeWalker(b,NodeFilter.SHOW_TEXT,{acceptNode(n){const p=n.parentElement;if(!p||X.has(p.tagName)||!R(n.nodeValue))return NodeFilter.FILTER_REJECT;return NodeFilter.FILTER_ACCEPT}});let n;while(n=w.nextNode()){const v=R(n.nodeValue);if(v)n.nodeValue=v}document.querySelectorAll(“[role=dialog] p,[role=dialog] div,[role=dialog] span”).forEach(e=>{try{if(e.closest(“button,[contenteditable]”))return;const t=R(e.textContent);if(t&&N(e.textContent)!==N(t))e.textContent=t}catch{}});document.querySelectorAll(“[aria-label],[title],[placeholder],input,textarea”).forEach(e=>{[“aria-label”,”title”,”placeholder”,”value”].forEach(a=>{try{if(a===”value”&&!(e.matches(“input[type=button],input[type=submit]”)))return;let v=e.getAttribute?e.getAttribute(a):void 0;if(v==null&&a in e)v=e[a];const t=R(v);if(t){if(e.setAttribute)e.setAttribute(a,t);try{if(a in e)e[a]=t}catch{}}}catch{}})});document.querySelectorAll(“a”).forEach(e=>{try{const r=e.getBoundingClientRect(),txt=N(e.textContent);if(txt===”Claude”&&r.left<100&&r.top<100)e.style.visibility=”hidden”}catch{}})}catch{}}
 T();
 new MutationObserver(()=>{clearTimeout(window.__claudeZhDomTimer);window.__claudeZhDomTimer=setTimeout(T,30)}).observe(document.documentElement,{subtree:true,childList:true,characterData:true,attributes:true});
 }catch(e){}})()
 '@
-    return $template.Replace("__LANGUAGE__", $languageJson).Replace("__MAPPING__", $mappingJson).Replace("__SELECTED_TEXT__", $selectedTextJson).Replace("__DELETE_SELECTED_TEXT__", $deleteSelectedTextJson)
+    # weekday labels
+    if ($Language -eq "zh-CN") {
+        $weekdayJson = @{
+            Mon = "周一"; Tue = "周二"; Wed = "周三"; Thu = "周四"; Fri = "周五"; Sat = "周六"; Sun = "周日"
+        }
+    } else {
+        $weekdayJson = @{
+            Mon = "週一"; Tue = "週二"; Wed = "週三"; Thu = "週四"; Fri = "週五"; Sat = "週六"; Sun = "週日"
+        }
+    }
+
+    return $template.Replace("__LANGUAGE__", $languageJson).Replace("__MAPPING__", $mappingJson).Replace("__SELECTED_TEXT__", $selectedTextJson).Replace("__DELETE_SELECTED_TEXT__", $deleteSelectedTextJson).Replace("__MORNING__", $morningGreetingJson).Replace("__AFTERNOON__", $afternoonGreetingJson).Replace("__EVENING__", $eveningGreetingJson).Replace("__LATENIGHT__", $lateNightGreetingJson).Replace("__GOODNIGHT__", $goodNightGreetingJson).Replace("__DELETE_CHAT__", $deleteChatTextJson).Replace("__MOVE_CHAT__", $moveChatTextJson).Replace("__CONN_NEEDS_FIELD__", $connNeedsFieldTextJson).Replace("__NEEDS_FIELD__", $needsFieldTextJson).Replace("__DELETE_CHAT_CONFIRM__", $deleteChatConfirmTextJson).Replace("__DELETE_THIS_CHAT_CONFIRM__", $deleteThisChatConfirmTextJson).Replace("__DELETE_THESE_CHAT_CONFIRM__", $deleteTheseChatsConfirmTextJson).Replace("__ARCHIVE_TASK__", $archiveTaskTextJson).Replace("__ARCHIVE_TASKS__", $archiveTasksTextJson).Replace("__MON__", ($weekdayJson.Mon | ConvertTo-Json -Compress)).Replace("__TUE__", ($weekdayJson.Tue | ConvertTo-Json -Compress)).Replace("__WED__", ($weekdayJson.Wed | ConvertTo-Json -Compress)).Replace("__THU__", ($weekdayJson.Thu | ConvertTo-Json -Compress)).Replace("__FRI__", ($weekdayJson.Fri | ConvertTo-Json -Compress)).Replace("__SAT__", ($weekdayJson.Sat | ConvertTo-Json -Compress)).Replace("__SUN__", ($weekdayJson.Sun | ConvertTo-Json -Compress))
 }
 
 function Remove-ExistingOnlineDomTranslationPatch {

@@ -229,7 +229,7 @@
   ],
   [
     "Archived",
-    "已歸檔"
+    "已封存"
   ],
   [
     "All",
@@ -297,7 +297,7 @@
   ],
   [
     "[\"none\",\"None\"]",
-    "[\"none\",\"无\"]"
+    "[\"none\",\"無\"]"
   ],
   [
     "[\"project\",\"Project\"]",
@@ -305,7 +305,7 @@
   ],
   [
     "[\"state\",\"State\"]",
-    "[\"state\",\"状态\"]"
+    "[\"state\",\"状態\"]"
   ],
   [
     "]:t.title??\"Local task\"]",
@@ -369,7 +369,7 @@
   ],
   [
     "s>0&&C(`${s} ${1===s?b.noun:b.nouns} ${F?\"archived\":\"deleted\"}`)",
-    "s>0&&C(F?`${s} 個${1===s?b.noun:b.nouns}已歸檔`:`${s} ${1===s?b.noun:b.nouns} deleted`)"
+    "s>0&&C(F?`${s} 個${1===s?b.noun:b.nouns}已封存`:`${s} ${1===s?b.noun:b.nouns} deleted`)"
   ],
   [
     "n>0?g(`${n} ${1===n?b.noun:b.nouns} could not be ${F?\"archived\":\"deleted\"}. You can try again.`,{messageForLogging:\"ChatsSurface bulk delete partial failure\"})",
@@ -465,7 +465,7 @@
   ],
   [
     "hint:\"How the gateway credential is sent. Choose Bearer or x-api-key for a static key or credential-helper output; choose SSO to have each user sign in via your identity provider.\"",
-    "hint:\"閘道憑證的傳送方式。靜態密鑰或憑證輔助腳本輸出請選擇 Bearer 或 x-api-key；如需每位用户透過你的身份提供者登入，請選擇 SSO。\""
+    "hint:\"閘道憑證的傳送方式。靜態密鑰或憑證輔助腳本輸出請選擇 Bearer 或 x-api-key；如需每位用戶透過你的身份提供者登入，請選擇 SSO。\""
   ],
   [
     "hint:\"Org-pushed MCP servers — remote (HTTP/SSE) or local (stdio command). May embed bearer tokens.\"",
@@ -1001,7 +1001,7 @@
   ],
   [
     "Allow Claude to remember relevant context from your chats. This setting controls memory for both chats and projects.",
-    "允許 Claude 記住你聊天中的相關脈絡。此設定會同時控制聊天和專案的記憶。"
+    "允許 Claude 記住你聊天中的相關脈絡。此設定會同時控制聊天和項目的記憶。"
   ],
   [
     "Import memory from other AI providers",
@@ -1057,7 +1057,7 @@
   ],
   [
     "HTTPS endpoint that returns a per-user JSON config overlay. Values from the response override local settings and become read-only.",
-    "傳回每位用户 JSON 設定覆寫層的 HTTPS 端點。回應中的值會覆寫本機設定並變為唯讀。"
+    "傳回每位用戶 JSON 設定覆寫層的 HTTPS 端點。回應中的值會覆寫本機設定並變為唯讀。"
   ],
   [
     "Tasks",
@@ -1121,11 +1121,11 @@
   ],
   [
     "When enabled, users can select Auto mode (Code tab) / Act without asking (Cowork tab). Claude runs a safety classifier on each action and only prompts for approval on actions it judges risky.",
-    "啟用後，用户可以選擇自動模式（Code 分頁）/ 無需詢問即可操作（Cowork 分頁）。Claude 會對每個操作執行安全分類器，並且只在判定為有風險的操作上要求核准。"
+    "啟用後，用戶可以選擇自動模式（Code 分頁）/ 無需詢問即可操作（Cowork 分頁）。Claude 會對每個操作執行安全分類器，並且只在判定為有風險的操作上要求核准。"
   ],
   [
     "When enabled, users can select **Auto mode** (Code tab) / **Act without asking** (Cowork tab). Claude runs a safety classifier on each action and only prompts for approval on actions it judges risky.\\n\\nRequires a model that supports the classifier (Claude 4.6+). Older models show the option greyed out.\\n\\nThis is the permissive opposite of the per-tool `ask` policy above; both may be set.",
-    "啟用後，用户可以選擇 **自動模式**（Code 分頁）/ **無需詢問即可操作**（Cowork 分頁）。Claude 會對每個操作執行安全分類器，並且只在判定為有風險的操作上要求核准。\\n\\n需要支援該分類器的模型（Claude 4.6+）。較舊模型會將此選項顯示為灰色。\\n\\n這是上方按工具設定的 `ask` 策略的寬鬆反向選項；兩者可以同時設定。"
+    "啟用後，用戶可以選擇 **自動模式**（Code 分頁）/ **無需詢問即可操作**（Cowork 分頁）。Claude 會對每個操作執行安全分類器，並且只在判定為有風險的操作上要求核准。\\n\\n需要支援該分類器的模型（Claude 4.6+）。較舊模型會將此選項顯示為灰色。\\n\\n這是上方按工具設定的 `ask` 策略的寬鬆反向選項；兩者可以同時設定。"
   ],
   [
     "Requires a model that supports the classifier (Claude 4.6+). Older models show the option greyed out.",
@@ -1217,11 +1217,11 @@
   ],
   [
     "Show details",
-    "顯示詳細資訊"
+    "顯示詳細資料"
   ],
   [
     "Hide details",
-    "隱藏詳細資訊"
+    "隱藏詳細資料"
   ],
   [
     "Read docs",
@@ -1250,5 +1250,493 @@
   [
     "Speed",
     "速度"
+  ],
+  [
+    "Add header",
+    "新增請求標頭"
+  ],
+  [
+    "Application",
+    "應用程式"
+  ],
+  [
+    "Allow Claude to automatically classify sessions as blocked, ready for review, or done. Classifying sessions counts towards your plan usage. Applies to new sessions.",
+    "允許 Claude 自動將工作階段分類為已阻止、待審核或已完成。分類工作階段會計入你的計劃用量。適用於新工作階段。"
+  ],
+  [
+    "Are you sure you want to delete 1 chat? This cannot be undone.",
+    "你確定要刪除 1 個聊天嗎？此操作無法復原。"
+  ],
+  [
+    "Are you sure you want to delete {count} chat? This cannot be undone.",
+    "你確定要刪除 {count} 個聊天嗎？此操作無法復原。"
+  ],
+  [
+    "Are you sure you want to delete {count} chats? This cannot be undone.",
+    "你確定要刪除 {count} 個聊天嗎？此操作無法復原。"
+  ],
+  [
+    "Authorization tokens",
+    "授權權杖"
+  ],
+  [
+    "Auto-archive after PR merge or close",
+    "PR 合併或關閉後自動歸檔"
+  ],
+  [
+    "Automatically archive desktop sessions when the associated pull request is merged or closed.",
+    "關聯的拉取請求合併或關閉後，自動歸檔桌面工作階段。"
+  ],
+  [
+    "Autofix pull requests",
+    "自動修復拉取請求"
+  ],
+  [
+    "Auto-populate the model picker from /v1/models at launch.",
+    "啟動時從 /v1/models 自動填入模型選擇器。"
+  ],
+  [
+    "Auto-populate the model picker from {url} at launch.",
+    "啟動時從 {url} 自動填入模型選擇器。"
+  ],
+  [
+    "Claude understands your codebase and helps you build, debug, and ship faster. Upgrade your plan to get started.",
+    "Claude 了解你的代碼庫，能幫助你更快地構建、調試和發布。升級你的計劃即可開始使用。"
+  ],
+  [
+    "Claude understands your codebase and helps you build, debug, and ship faster. Get started in the desktop app.",
+    "Claude 了解你的代碼庫，能幫助你更快地構建、調試和發布。請在桌面應用程式中開始使用。"
+  ],
+  [
+    "Claude Code (CLI, Desktop, IDE)",
+    "Claude Code（CLI、桌面版、IDE）"
+  ],
+  [
+    "Claude Light",
+    "Claude 淺色"
+  ],
+  [
+    "Claude Dark",
+    "Claude 深色"
+  ],
+  [
+    "Classify session states",
+    "分類工作階段狀態"
+  ],
+  [
+    "Created when you sign in to Claude Code. Revoke a token to sign out from that device.",
+    "登入 Claude Code 時創建。撤銷權杖即可讓該裝置退出登入。"
+  ],
+  [
+    "Choose where Claude Desktop sends inference requests.",
+    "選擇 Claude Desktop 將推理請求傳送到哪裡。"
+  ],
+  [
+    "Connection",
+    "連線"
+  ],
+  [
+    "Connectors & extensions",
+    "連接器與擴充功能"
+  ],
+  [
+    "Credential kind",
+    "憑證類型"
+  ],
+  [
+    "Custom inference headers",
+    "自訂推理請求標頭"
+  ],
+  [
+    "Default",
+    "預設"
+  ],
+  [
+    "Egress Requirements",
+    "輸出要求"
+  ],
+  [
+    "Extensions",
+    "擴充功能"
+  ],
+  [
+    "Extra HTTP headers sent on every inference request to the configured provider. For tenant routing, org IDs, Bedrock Guardrails, etc.",
+    "每次向所配置提供者傳送推理請求時附加的 HTTP 請求標頭。可用於租戶路由、組織 ID、Bedrock Guardrails 等場景。"
+  ],
+  [
+    "High-contrast dark theme",
+    "高對比度深色主題"
+  ],
+  [
+    "Use a darker, near-black background when dark mode is on.",
+    "開啟深色模式時使用更暗、接近黑色的背景。"
+  ],
+  [
+    "When you create a pull request, Claude automatically monitors it for CI failures and review comments, then responds proactively. Claude may post comments on your behalf.",
+    "創建拉取請求後，Claude 會自動監控 CI 失敗和評審評論，並主動響應。Claude 可能會代表你發表評論。"
+  ],
+  [
+    "Browse extensions",
+    "瀏覽擴充功能"
+  ],
+  [
+    "Full URL of the inference gateway endpoint.",
+    "推理閘道端點的完整 URL。"
+  ],
+  [
+    "Gateway",
+    "閘道"
+  ],
+  [
+    "Gateway base URL",
+    "閘道基礎 URL"
+  ],
+  [
+    "GATEWAY CREDENTIALS",
+    "閘道憑證"
+  ],
+  [
+    "网关 credentials",
+    "閘道憑證"
+  ],
+  [
+    "{provider} credentials",
+    "{provider} 憑證"
+  ],
+  [
+    "Learn more",
+    "了解更多"
+  ],
+  [
+    "Model list",
+    "模型清單"
+  ],
+  [
+    "Models",
+    "模型"
+  ],
+  [
+    "Models to show in the picker. First entry is the default.",
+    "顯示在模型選擇器中的模型。第一項為預設模型。"
+  ],
+  [
+    "MODELS",
+    "模型"
+  ],
+  [
+    "Override the auto-discovered model list. First entry is the default.",
+    "覆蓋自動探索的模型清單。第一項為預設模型。"
+  ],
+  [
+    "Plugins & skills",
+    "插件與技能"
+  ],
+  [
+    "Search settings",
+    "搜尋設定"
+  ],
+  [
+    "Selects the credential source. When set, only that source is used (no fallback).",
+    "選擇憑證來源。設定後只會使用該來源，不會回退。"
+  ],
+  [
+    "Telemetry & updates",
+    "診斷與更新"
+  ],
+  [
+    "Usage limits",
+    "使用限制"
+  ],
+  [
+    "Workspace restrictions",
+    "工作區限制"
+  ],
+  [
+    "Allow all",
+    "全部允許"
+  ],
+  [
+    "Allow Claude Code tab",
+    "允許 Claude Code 分頁"
+  ],
+  [
+    "Allow desktop extensions",
+    "允許桌面擴充功能"
+  ],
+  [
+    "Allow user-added MCP servers",
+    "允許使用者新增 MCP 伺服器"
+  ],
+  [
+    "Allowed egress hosts",
+    "允許的輸出主機"
+  ],
+  [
+    "Allowed workspace folders",
+    "允許的工作區資料夾"
+  ],
+  [
+    "AUTO-UPDATES",
+    "自動更新"
+  ],
+  [
+    "ANTHROPIC TELEMETRY",
+    "Anthropic 診斷資料"
+  ],
+  [
+    "Block essential telemetry",
+    "阻止必要診斷資料"
+  ],
+  [
+    "Block nonessential services",
+    "阻止非必要服務"
+  ],
+  [
+    "Block nonessential telemetry",
+    "阻止非必要診斷資料"
+  ],
+  [
+    "Built-in tool policy",
+    "內建工具政策"
+  ],
+  [
+    "Built-in tools removed from Cowork.",
+    "從 Cowork 中移除的內建工具。"
+  ],
+  [
+    "Choose from disk",
+    "從磁碟選擇"
+  ],
+  [
+    "Choose...",
+    "選擇..."
+  ],
+  [
+    ".dxt and .mcpb installs.",
+    ".dxt 和 .mcpb 安裝包。"
+  ],
+  [
+    "Copy",
+    "複製"
+  ],
+  [
+    "CORE (VM BUNDLE + CLAUDE CLI BINARY)",
+    "核心（VM 包 + Claude CLI 二進位檔案）"
+  ],
+  [
+    "DESKTOP EXTENSIONS (PYTHON RUNTIME)",
+    "桌面擴充功能（Python 執行階段）"
+  ],
+  [
+    "Disable Claude.ai sign-in",
+    "停用 Claude.ai 登入"
+  ],
+  [
+    "Disable claude:// deep-link handling",
+    "停用 claude:// 深層連結處理"
+  ],
+  [
+    "Disabled built-in tools",
+    "停用內建工具"
+  ],
+  [
+    "Domains Cowork's tools may reach during a turn. Also surfaced under Egress Requirements.",
+    "Cowork 的工具在一次任務中可以訪問的網域。也會顯示在輸出要求中。"
+  ],
+  [
+    "Domains Cowork's tools may reach during a turn. Also surfaced under 出站要求.",
+    "Cowork 的工具在一次任務中可以訪問的網域。也會顯示在輸出要求中。"
+  ],
+  [
+    "ESSENTIAL TELEMETRY",
+    "必要診斷資料"
+  ],
+  [
+    "EXTENSIONS",
+    "擴充功能"
+  ],
+  [
+    "Favicon fetch and the artifact-preview iframe origin. Artifacts will not render.",
+    "獲取網站圖示和 Artifact 預覽 iframe 來源。Artifacts 將無法渲染。"
+  ],
+  [
+    "Folders users may attach as a workspace. Leave unset for unrestricted access.",
+    "使用者可作為工作區附加的資料夾。留空則不限制。"
+  ],
+  [
+    "Hosts your network firewall must allow, derived from your current settings. This list is read-only and updates as you make changes. Traffic is HTTPS on port 443 unless a custom port is specified (OTLP, gateway, or MCP server URLs).",
+    "根據當前設定生成的網絡防火牆允許清單。此清單為唯讀，並會隨配置變更自動更新。除非指定了自訂端口（OTLP、閘道或 MCP 伺服器 URL），否則流量均為 443 端口上的 HTTPS。"
+  ],
+  [
+    "Local stdio servers added via the Developer settings. Remote servers come from the managed list above, or plugins mounted to a user's computer by an organization admin.",
+    "通過開發者設定新增的本地 stdio 伺服器。遠端伺服器來自上方託管清單，或來自組織管理員掛載到使用者電腦上的插件。"
+  ],
+  [
+    "Managed MCP servers",
+    "託管的 MCP 伺服器"
+  ],
+  [
+    "Max tokens per window",
+    "每個視窗最大權杖數"
+  ],
+  [
+    "MCP SERVERS",
+    "MCP 伺服器"
+  ],
+  [
+    "Mount plugin bundles to this folder using your device-management tool and Cowork will load them at launch. The folder is read-only; tool policies you set below are saved in this configuration.",
+    "使用裝置管理工具將插件包掛載到此資料夾，Cowork 會在啟動時載入。該資料夾為唯讀；下面設定的工具政策會保存在此配置中。"
+  ],
+  [
+    "NONESSENTIAL SERVICES",
+    "非必要服務"
+  ],
+  [
+    "NONESSENTIAL TELEMETRY",
+    "非必要診斷資料"
+  ],
+  [
+    "ORGANIZATION PLUGINS",
+    "組織插件"
+  ],
+  [
+    "Organization UUID",
+    "組織 UUID"
+  ],
+  [
+    "Org-pushed MCP servers: remote (HTTP/SSE) or local (stdio command). May embed bearer tokens.",
+    "組織推送的 MCP 伺服器：遠端（HTTP/SSE）或本地（stdio 命令）。可能嵌入 Bearer 權杖。"
+  ],
+  [
+    "Per-tool approval policy. \"ask\" requires user approval before each call; \"allow\" is the default. Use Disabled built-in tools to remove a tool entirely.",
+    "按工具設定的核准政策。\"ask\" 表示每次調用前都需要使用者核准；\"allow\" 為預設值。如需完全移除某個工具，請使用“停用內建工具”。"
+  ],
+  [
+    "Per-user soft cap, counted client-side over the duration below. Not a server-enforced quota.",
+    "按使用者設定的軟上限，會在下方時長內由客戶端統計。不是伺服器強制執行的配額。"
+  ],
+  [
+    "Product-usage analytics and diagnostic-report uploads. No message content.",
+    "產品使用分析和診斷報告上傳。不包含訊息內容。"
+  ],
+  [
+    "Prompts, completions, and your data are never sent to Anthropic. Telemetry covers crash and usage signals only.",
+    "提示、補全和你的資料絕不會傳送給 Anthropic。診斷資料只包含崩潰和使用信號。"
+  ],
+  [
+    "Reject desktop extensions that are not signed by a trusted publisher.",
+    "拒絕未由受信任發行者簽署的桌面擴充功能。"
+  ],
+  [
+    "Require signed extensions",
+    "要求擴充功能已簽署"
+  ],
+  [
+    "Show the Code tab (terminal-based coding sessions). Sessions run on the host, not inside the VM.",
+    "顯示 Code 分頁（基於終端的編碼工作階段）。工作階段在主機上執行，不在 VM 內執行。"
+  ],
+  [
+    "Tags telemetry events with your organization's UUID so Anthropic support can find them. Not used for auth.",
+    "使用你組織的 UUID 標記診斷資料事件，方便 Anthropic 支援人員定位。不會用於認證。"
+  ],
+  [
+    "tokens",
+    "權杖"
+  ],
+  [
+    "Users see only this provider at the login screen. The option to sign in to Claude.ai is hidden.",
+    "使用者在登入頁只會看到此提供者。Claude.ai 登入選項會被隱藏。"
+  ],
+  [
+    "Crash and performance reports to Anthropic.",
+    "傳送給 Anthropic 的崩潰和效能報告。"
+  ],
+  [
+    "Add server policy",
+    "新增伺服器政策"
+  ],
+  [
+    "+ Add server policy",
+    "+ 新增伺服器政策"
+  ],
+  [
+    "Add policy",
+    "新增政策"
+  ],
+  [
+    "Anthropic telemetry",
+    "Anthropic 診斷資料"
+  ],
+  [
+    "OpenTelemetry",
+    "OpenTelemetry 診斷資料"
+  ],
+  [
+    "OpenTelemetry collector endpoint",
+    "OpenTelemetry 收集器端點"
+  ],
+  [
+    "Where Cowork sends OpenTelemetry logs and metrics. Leave blank to disable.",
+    "Cowork 傳送 OpenTelemetry 日誌和指標的位置。留空則停用。"
+  ],
+  [
+    "Updates",
+    "更新"
+  ],
+  [
+    "Block auto-updates",
+    "阻止自動更新"
+  ],
+  [
+    "Stop Cowork from fetching updates. You'll need to push new versions yourself.",
+    "阻止 Cowork 獲取更新。你需要自行推送新版本。"
+  ],
+  [
+    "Auto-update enforcement window",
+    "自動更新強制時窗"
+  ],
+  [
+    "Hours before a downloaded update force-installs. Blank = 72-hour default.",
+    "已下載更新在強制安裝前等待的小時數。留空則預設為 72 小時。"
+  ],
+  [
+    "<b>{category}</b> needs {count, plural, one {{label}} other {# fields}}",
+    "<b>{category}</b> 需要 {count, plural, one {{label}} other {# 個欄位}}"
+  ],
+  [
+    "Per-tool approval policy. \"ask\" requires user approval before each call; \"allow\" is the default. Use 禁用内置工具 to remove a tool entirely.",
+    "按工具設定的核准政策。“ask” 表示每次調用前都需要使用者核准；“allow” 為預設值。如需完全移除某個工具，請使用“停用內建工具”。"
+  ],
+  [
+    "Hi! How can I help you today?",
+    "你好！今天我能為你提供什麼幫助？"
+  ],
+  [
+    "Write a message...",
+    "輸入訊息..."
+  ],
+  [
+    "Write a message…",
+    "輸入訊息..."
+  ],
+  [
+    "message:F?`归档 ${j.items.length} ${1===j.items.length?b.noun:b.nouns}？你可以在“已归档”标签页中找到${1===j.items.length?\"它\":\"它们\"}。`",
+    "message:F?`歸檔 ${j.items.length} 個${1===j.items.length?b.noun:b.nouns}？你可以在“已封存”分頁中找到${1===j.items.length?\"它\":\"它們\"}。`"
+  ],
+  [
+    "CR={local:\"Local\",remote:\"Cloud\",bridge:\"Remote Control\",slack:\"Slack\"}",
+    "CR={local:\"本地\",remote:\"雲端\",bridge:\"遙距控制\",slack:\"Slack\"}"
+  ],
+  [
+    "\"Run tasks on a schedule or whenever you need them.\"",
+    "\"按排程或在需要時執行任務。\""
+  ],
+  [
+    "\"Run tasks on a schedule or whenever you need them. Type /schedule in any existing task to set one up.\"",
+    "\"按排程執行任務，或在需要時執行任務。在任意現有任務中輸入 /schedule 即可設定。\""
+  ],
+  [
+    "defaultMessage:\"All environments\",id:\"SBWkijOQlK\"",
+    "defaultMessage:\"所有環境\",id:\"SBWkijOQlK\""
   ]
 ]

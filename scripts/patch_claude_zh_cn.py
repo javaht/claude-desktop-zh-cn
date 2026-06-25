@@ -537,46 +537,103 @@ def build_online_dom_translation_script(lang_code: str, mapping: dict[str, str])
         delete_named_session_text = "“$1”将被永久删除。此操作无法撤消。"
         archive_selected_tasks_text = "归档所选任务？"
         archive_tasks_moved_text = "$1 个任务将被移至“已归档”。"
-    else:
+        morning_greeting = "早上好，$1"
+        afternoon_greeting = "下午好，$1"
+        evening_greeting = "晚上好，$1"
+        late_night_greeting = "夜深了，$1"
+        good_night_greeting = "晚安，$1"
+        delete_chat_text = "删除 $1 个聊天"
+        move_chat_text = "将 $1 个聊天移至项目"
+        conn_needs_field_text = "连接还需要填写 $1 个字段"
+        needs_field_text = "还需要填写 $1 个字段"
+        delete_chat_confirm_text = "你确定要删除 $1 个聊天吗？此操作无法撤消。"
+        delete_this_chat_confirm_text = "你确定要永久删除此聊天吗？此操作无法撤消。"
+        delete_these_chats_confirm_text = "你确定要永久删除这些聊天吗？此操作无法撤消。"
+        archive_task_text = "要归档 $1 个任务吗？你可以在“已归档”标签页中找到它。"
+        archive_tasks_text = "要归档 $1 个任务吗？你可以在“已归档”标签页中找到它们。"
+        weekday_labels = '["周一","周二","周三","周四","周五","周六","周日"]'
+    elif lang_code == "zh-TW":
         selected_text = "已選擇 $1 項"
         delete_selected_text = "刪除 $1 個所選項目"
         delete_sessions_text = "刪除 $1 個工作階段？"
         delete_named_session_text = "「$1」將被永久刪除。此操作無法復原。"
         archive_selected_tasks_text = "歸檔所選任務？"
         archive_tasks_moved_text = "$1 個任務將被移至「已歸檔」。"
+        morning_greeting = "早安，$1"
+        afternoon_greeting = "午安，$1"
+        evening_greeting = "晚安，$1"
+        late_night_greeting = "夜深了，$1"
+        good_night_greeting = "晚安，$1"
+        delete_chat_text = "刪除 $1 個聊天"
+        move_chat_text = "將 $1 個聊天移至專案"
+        conn_needs_field_text = "連線還需要填寫 $1 個欄位"
+        needs_field_text = "還需要填寫 $1 個欄位"
+        delete_chat_confirm_text = "你確定要刪除 $1 個聊天嗎？此操作無法復原。"
+        delete_this_chat_confirm_text = "你確定要永久刪除此聊天嗎？此操作無法復原。"
+        delete_these_chats_confirm_text = "你確定要永久刪除這些聊天嗎？此操作無法復原。"
+        archive_task_text = "要歸檔 $1 個任務嗎？你可以在「已歸檔」分頁中找到它。"
+        archive_tasks_text = "要歸檔 $1 個任務嗎？你可以在「已歸檔」分頁中找到它們。"
+        weekday_labels = '["週一","週二","週三","週四","週五","週六","週日"]'
+    else:  # zh-HK
+        selected_text = "已選擇 $1 項"
+        delete_selected_text = "刪除 $1 個所選項目"
+        delete_sessions_text = "刪除 $1 個工作階段？"
+        delete_named_session_text = "「$1」將被永久刪除。此操作無法復原。"
+        archive_selected_tasks_text = "歸檔所選任務？"
+        archive_tasks_moved_text = "$1 個任務將被移至「已封存」。"
+        morning_greeting = "早晨，$1"
+        afternoon_greeting = "午安，$1"
+        evening_greeting = "晚安，$1"
+        late_night_greeting = "夜深了，$1"
+        good_night_greeting = "晚安，$1"
+        delete_chat_text = "刪除 $1 個聊天"
+        move_chat_text = "將 $1 個聊天移至項目"
+        conn_needs_field_text = "連線還需要填寫 $1 個欄位"
+        needs_field_text = "還需要填寫 $1 個欄位"
+        delete_chat_confirm_text = "你確定要刪除 $1 個聊天嗎？此操作無法復原。"
+        delete_this_chat_confirm_text = "你確定要永久刪除此聊天嗎？此操作無法復原。"
+        delete_these_chats_confirm_text = "你確定要永久刪除這些聊天嗎？此操作無法復原。"
+        archive_task_text = "要歸檔 $1 個任務嗎？你可以在「已封存」分頁中找到它。"
+        archive_tasks_text = "要歸檔 $1 個任務嗎？你可以在「已封存」分頁中找到它們。"
+        weekday_labels = '["週一","週二","週三","週四","週五","週六","週日"]'
     dynamic_rules = "".join((
         f'[/^(\\d+) selected$/,"{selected_text}"],'
         f'[/^Delete (\\d+) selected item$/,"{delete_selected_text}"],'
         f'[/^Delete (\\d+) selected items$/,"{delete_selected_text}"],'
         f'[/^Delete (\\d+) sessions?\\?$/,"{delete_sessions_text}"],'
-        f'[/^[“\\"](.+?)[”\\"] will be permanently deleted\\. This can[’\\\']t be undone\\.$/,"{delete_named_session_text}"],'
+        f'[/^[\\u201c\\"](.+?)[\\u201d\\"] will be permanently deleted\\. This can[\\u2019\\\']t be undone\\.$/,"{delete_named_session_text}"],'
         f'[/^Archive selected task\\?$/,"{archive_selected_tasks_text}"],'
         f'[/^Archive selected tasks\\?$/,"{archive_selected_tasks_text}"],'
         f'[/^(\\d+) tasks? will be moved to Archived\\.$/,"{archive_tasks_moved_text}"],'
-        '[/^Mon$/,"周一"],[/^Tue$/,"周二"],[/^Wed$/,"周三"],[/^Thu$/,"周四"],'
-        '[/^Fri$/,"周五"],[/^Sat$/,"周六"],[/^Sun$/,"周日"]'
     ))
+    greeting_rules = "".join((
+        f'[/^Morning, (.+)$/,"{morning_greeting}"],[/^Good morning, (.+)$/,"{morning_greeting}"],'
+        f'[/^Afternoon, (.+)$/,"{afternoon_greeting}"],[/^Good afternoon, (.+)$/,"{afternoon_greeting}"],'
+        f'[/^Evening, (.+)$/,"{evening_greeting}"],[/^Good evening, (.+)$/,"{evening_greeting}"],'
+        f"[/^It\\'s late-night (.+)$/,\"{late_night_greeting}\"],[/^Good night, (.+)$/,\"{good_night_greeting}\"],"
+        f'[/^Delete (\\d+) chat$/,"{delete_chat_text}"],[/^Delete (\\d+) chats$/,"{delete_chat_text}"],'
+        f'[/^Move (\\d+) chat to a project$/,"{move_chat_text}"],[/^Move (\\d+) chats to a project$/,"{move_chat_text}"],'
+        f'[/^Connection needs (\\d+) field$/,"{conn_needs_field_text}"],[/^Connection needs (\\d+) fields$/,"{conn_needs_field_text}"],'
+        f'[/^needs (\\d+) field$/,"{needs_field_text}"],[/^needs (\\d+) fields$/,"{needs_field_text}"],'
+        f'[/^Are you sure you want to delete (\\d+) chat\\? This cannot be undone\\.$/,"{delete_chat_confirm_text}"],'
+        f'[/^Are you sure you want to delete (\\d+) chats\\? This cannot be undone\\.$/,"{delete_chat_confirm_text}"],'
+        f'[/^Are you sure you want to permanently delete this chat\\? This cannot be undone\\.$/,"{delete_this_chat_confirm_text}"],'
+        f'[/^Are you sure you want to permanently delete these chats\\? This cannot be undone\\.$/,"{delete_these_chats_confirm_text}"],'
+        f'[/^Archive (\\d+) task\\? You can find it in the Archived tab\\.$/,"{archive_task_text}"],'
+        f'[/^Archive (\\d+) tasks\\? You can find them in the Archived tab\\.$/,"{archive_tasks_text}"],'
+    ))
+    wd = json.loads(weekday_labels)
+    weekday_rules = (
+        f'[/^Mon$/,"{wd[0]}"],[/^Tue$/,"{wd[1]}"],[/^Wed$/,"{wd[2]}"],[/^Thu$/,"{wd[3]}"],'
+        f'[/^Fri$/,"{wd[4]}"],[/^Sat$/,"{wd[5]}"],[/^Sun$/,"{wd[6]}"]'
+    )
     return (
         "(()=>{try{"
         f'const L="{lang_code}",M={mapping_json};'
         'localStorage.setItem("spa:locale",L);'
         'document.documentElement&&document.documentElement.setAttribute("lang",L);'
         'const N=s=>(s||"").replace(/\\s+/g," ").trim();'
-        'const G=[[/^Morning, (.+)$/,"早上好，$1"],[/^Good morning, (.+)$/,"早上好，$1"],'
-        '[/^Afternoon, (.+)$/,"下午好，$1"],[/^Good afternoon, (.+)$/,"下午好，$1"],'
-        '[/^Evening, (.+)$/,"晚上好，$1"],[/^Good evening, (.+)$/,"晚上好，$1"],'
-        '[/^It\\\'s late-night (.+)$/,"夜深了，$1"],[/^Good night, (.+)$/,"晚安，$1"],'
-        '[/^Delete (\\d+) chat$/,"删除 $1 个聊天"],[/^Delete (\\d+) chats$/,"删除 $1 个聊天"],'
-        '[/^Move (\\d+) chat to a project$/,"将 $1 个聊天移至项目"],[/^Move (\\d+) chats to a project$/,"将 $1 个聊天移至项目"],'
-        '[/^Connection needs (\\d+) field$/,"连接还需要填写 $1 个字段"],[/^Connection needs (\\d+) fields$/,"连接还需要填写 $1 个字段"],'
-        '[/^needs (\\d+) field$/,"还需要填写 $1 个字段"],[/^needs (\\d+) fields$/,"还需要填写 $1 个字段"],'
-        '[/^Are you sure you want to delete (\\d+) chat\\? This cannot be undone\\.$/,"你确定要删除 $1 个聊天吗？此操作无法撤消。"],'
-        '[/^Are you sure you want to delete (\\d+) chats\\? This cannot be undone\\.$/,"你确定要删除 $1 个聊天吗？此操作无法撤消。"],'
-        '[/^Are you sure you want to permanently delete this chat\\? This cannot be undone\\.$/,"你确定要永久删除此聊天吗？此操作无法撤消。"],'
-        '[/^Are you sure you want to permanently delete these chats\\? This cannot be undone\\.$/,"你确定要永久删除这些聊天吗？此操作无法撤消。"],'
-        '[/^Archive (\\d+) task\\? You can find it in the Archived tab\\.$/,"要归档 $1 个任务吗？你可以在“已归档”标签页中找到它。"],'
-        '[/^Archive (\\d+) tasks\\? You can find them in the Archived tab\\.$/,"要归档 $1 个任务吗？你可以在“已归档”标签页中找到它们。"],'
-        f'{dynamic_rules}];'
+        f'const G=[{greeting_rules}{dynamic_rules}{weekday_rules}];'
         'const R=s=>{const n=N(s);if(M[n])return M[n];for(const [r,t] of G){const m=n.match(r);'
         'if(m)return t.replace("$1",m[1])}};'
         'const X=new Set(["SCRIPT","STYLE","NOSCRIPT"]);'

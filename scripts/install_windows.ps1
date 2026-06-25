@@ -126,10 +126,10 @@ Test-GitHubReleaseUpdate
 function Read-InteractiveSelection {
     Write-Host "=== Claude Desktop Windows 中文补丁 ==="
     Write-Host ""
-    Write-Host "[1] 安装中文补丁(第三方API登陆模式(例DeepSeek)：Cowork 兼容（跳过 app.asar 补丁，第三方模型请用网关或 ccswitch 别名映射）)"
+    Write-Host "[1] 安装中文补丁(第三方API登陆模式(例DeepSeek)：(Cowork 兼容Cowork 沙箱/工作区不可用(看群公告))"
     Write-Host "[2] 安装中文补丁(官方账号登录模式：Cowork 沙箱/工作区不可用(看群公告))"
     Write-Host "[3] 恢复原样 / 卸载补丁"
-    Write-Host "[4] 自动更新设置（y=禁止自动更新，n=允许自动更新）"
+    # Write-Host "[4] 自动更新设置（y=禁止自动更新，n=允许自动更新）"
     Write-Host "[5] 同步 CC Switch skills（y=开启同步，n=删除同步）"
     Write-Host "[Q] 退出"
     Write-Host ""
@@ -1335,8 +1335,8 @@ function Get-OnlineDomTranslationScript {
         $deleteChatConfirmText = "你确定要删除 `$1 个聊天吗？此操作无法撤消。"
         $deleteThisChatConfirmText = "你确定要永久删除此聊天吗？此操作无法撤消。"
         $deleteTheseChatsConfirmText = "你确定要永久删除这些聊天吗？此操作无法撤消。"
-        $archiveTaskText = "要归档 `$1 个任务吗？你可以在"已归档"标签页中找到它。"
-        $archiveTasksText = "要归档 `$1 个任务吗？你可以在"已归档"标签页中找到它们。"
+        $archiveTaskText = '要归档 $1 个任务吗？你可以在"已归档"标签页中找到它。'
+        $archiveTasksText = '要归档 $1 个任务吗？你可以在"已归档"标签页中找到它们。'
     } elseif ($Language -eq "zh-TW") {
         $selectedText = "已選擇 `$1 項"
         $deleteSelectedText = "刪除 `$1 個所選項目"

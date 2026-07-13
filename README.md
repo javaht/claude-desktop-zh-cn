@@ -69,6 +69,7 @@ macOS 可双击 `install-mac.command`，Windows 可右键管理员运行 `instal
    - `3` 恢复原样 / 卸载补丁
    - `4` 自动更新设置（`y` 禁止自动更新，`n` 允许自动更新）
    - `5` 同步 CC Switch skills（`y` 开启同步，`n` 删除同步）
+   - `6` 更新后自动汉化（`y` 启用并安装，`n` 关闭；仅 Windows）
 5. 选择安装中文补丁时，脚本会先尝试从旧备份恢复来清理已有汉化；如果没有旧备份，会提示跳过并继续。
 6. 安装时再选择语言：
    - `1` 简体中文
@@ -77,12 +78,15 @@ macOS 可双击 `install-mac.command`，Windows 可右键管理员运行 `instal
 7. 脚本会备份当前 Claude Desktop 资源，写入本仓库 `resources` 目录里的中文 JSON，补齐硬编码界面文本，并重启 Claude Desktop。选择模式 1 时会跳过 `app.asar` 补丁，更适合需要 Cowork/截图工作区的场景。选择模式 2 时会直接修改当前 Claude 的 `app.asar`，卸载时从备份恢复。
 8. 如果没有自动切换，打开左下角账号菜单，选择 `Language` -> 对应的中文选项。
 
+如果希望保留 Claude Desktop 自动更新，同时避免每次更新后手动重装中文补丁，请选择 `6`，再选择补丁模式和语言。启用后会创建 SYSTEM 计划任务，每 15 分钟检查一次 Claude 版本；检测到新版本后会等待一轮确认更新完成，并在 Claude Desktop/Cowork 未运行时静默重新应用补丁。选择 `6` 后输入 `n` 可关闭该功能，恢复/卸载补丁时也会自动清理计划任务和持久化文件。
+
 
 ## 文件说明
 
 - `install-mac.command`：macOS 双击运行入口。
 - `install-windows.bat`：Windows 安装 / 恢复菜单入口。
 - `scripts/install_windows.ps1`：Windows 汉化安装和卸载脚本。
+- `scripts/watch_claude_update.ps1`：Windows 更新后自动汉化检查脚本。
 - `scripts/patch_claude_zh_cn.py`：真正执行补丁的 Python 脚本。
 - `resources/manifest.json` / `manifest-zh-TW.json` / `manifest-zh-HK.json`：语言包信息。
 - `resources/frontend-zh-CN.json` / `frontend-zh-TW.json` / `frontend-zh-HK.json`：Claude 前端界面中文翻译。
@@ -125,6 +129,7 @@ macOS 可双击 `install-mac.command`，Windows 可右键管理员运行 `instal
 - 写入 Windows 用户配置，将语言设置为所选语言代码（`zh-CN`、`zh-TW` 或 `zh-HK`）。
 - 可选菜单项 `4` 用 `y/n` 控制 Claude Desktop 自动更新：`y` 禁止自动更新，`n` 允许自动更新。若当前存在有效的 Claude-3p `configLibrary`，脚本会写入当前 applied 配置；否则写入 `HKCU\SOFTWARE\Policies\Claude` policy。
 - 可选菜单项 `5` 用 `y/n` 控制 CC Switch skills 同步：`y` 会把 `%USERPROFILE%\.cc-switch\skills` 中缺失的 skill 以软链接加入 Claude Desktop 的本地 skills 目录，并把 `SKILL.md` frontmatter 里的 `name` 和 `description` 写入对应 `manifest.json`；`n` 只删除之前同步产生、且指向 CC Switch skills 目录内的软链接和对应 manifest 记录。脚本会从当前用户的 AppData 动态扫描 Claude-3p skills plugin，不写死 session UUID，不覆盖同名 skill，也不删除 CC Switch 源目录。
+- 可选菜单项 `6` 用 `y/n` 控制更新后自动汉化：`y` 会按所选模式和语言立即安装补丁，将最小安装负载保存到 `%ProgramData%\ClaudeDesktopZhCn`，并注册 SYSTEM 计划任务；`n` 只移除计划任务和持久化负载，不改变当前中文界面。守护脚本不会关闭正在运行的 Claude，而是延后到应用退出后处理；新版本自动补丁失败时不会对同一版本无限重试，日志位于持久化目录。
 - 重启 Claude Desktop。
 
 ## 卸载 / 恢复
@@ -137,4 +142,4 @@ macOS 可双击 `install-mac.command`，Windows 可右键管理员运行 `instal
 
 ## 免责声明
 
-本项目为非官方中文补丁，仅修改本机 Claude Desktop 的本地资源文件。Claude Desktop 更新后资源结构可能变化，若补丁失败，请先更新本项目或重新运行安装脚本。
+本项目为非官方中文补丁，仅修改本机 Claude Desktop 的本地资源文件。Claude Desktop 更新后资源结构可能变化；即使启用了 Windows 更新后自动汉化，结构不兼容时仍可能失败。此时请先更新本项目，再重新启用更新后自动汉化。

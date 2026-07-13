@@ -1,11 +1,12 @@
 ﻿param(
     [switch]$Interactive,
     [switch]$SkipAsarPatch,
+    [switch]$AutoReapply,
     [ValidateSet("safe", "official")]
     [string]$PatchMode = "safe",
 
     [Parameter(Position = 0)]
-    [ValidateSet("install", "uninstall", "disable-updates", "enable-updates", "sync-skills", "unsync-skills")]
+    [ValidateSet("install", "uninstall", "disable-updates", "enable-updates", "sync-skills", "unsync-skills", "enable-auto-reapply", "disable-auto-reapply")]
     [string]$Action = "install",
 
     [Parameter(Position = 1)]
@@ -39,6 +40,8 @@ if ($OriginalUserSid) { $env:CLAUDE_ZH_ORIGINAL_USER_SID = $OriginalUserSid }
 if ($OriginalUserProfile) { $env:CLAUDE_ZH_ORIGINAL_USER_PROFILE = $OriginalUserProfile }
 if ($OriginalAppData) { $env:CLAUDE_ZH_ORIGINAL_APPDATA = $OriginalAppData }
 if ($OriginalLocalAppData) { $env:CLAUDE_ZH_ORIGINAL_LOCALAPPDATA = $OriginalLocalAppData }
+
+. (Join-Path $PSScriptRoot "auto_reapply_windows.ps1")
 
 function Start-InstallLog {
     try {
@@ -90,7 +93,7 @@ function Test-SkipReleaseUpdateCheck {
 }
 
 function Test-GitHubReleaseUpdate {
-    if (Test-SkipReleaseUpdateCheck) {
+    if ($AutoReapply -or (Test-SkipReleaseUpdateCheck)) {
         return
     }
 
@@ -129,14 +132,17 @@ function Read-InteractiveSelection {
     Write-Host "[1] 安装中文补丁(第三方API登陆模式(例DeepSeek)：（Cowork 沙箱/工作区不可用(看群公告))"
     Write-Host "[2] 安装中文补丁(官方账号登录模式：Cowork 沙箱/工作区不可用(看群公告))"
     Write-Host "[3] 恢复原样 / 卸载补丁"
+    Write-Host "[4] Claude Desktop 自动更新设置"
     Write-Host "[5] 同步 CC Switch skills（y=开启同步，n=删除同步）"
+    Write-Host "[6] 更新后自动汉化（y=启用并安装，n=关闭）"
     Write-Host "[Q] 退出"
     Write-Host ""
 
     $patchModeForInstall = "safe"
+    $installAction = "install"
     $actionSelected = $false
     while (-not $actionSelected) {
-        $actionSelection = (Read-Host "请选择操作 [1/2/3/4/5/Q]").Trim()
+        $actionSelection = (Read-Host "请选择操作 [1/2/3/4/5/6/Q]").Trim()
         switch -Regex ($actionSelection) {
             '^[1]$' { $patchModeForInstall = "safe"; $actionSelected = $true }
             '^[2]$' { $patchModeForInstall = "official"; $actionSelected = $true }
@@ -163,8 +169,31 @@ function Read-InteractiveSelection {
                     }
                 }
             }
+            '^[6]$' {
+                $autoChoice = (Read-Host "是否启用更新后自动汉化？[y=启用并安装 / n=关闭]").Trim()
+                switch -Regex ($autoChoice) {
+                    '^[Nn]$' { return @{ Action = "disable-auto-reapply"; Language = "zh-CN"; PatchMode = "safe" } }
+                    '^[Yy]$' {
+                        $modeChoice = (Read-Host "请选择自动汉化模式 [1=Cowork 兼容 / 2=官方账号，默认 1]").Trim()
+                        switch -Regex ($modeChoice) {
+                            '^$|^[1]$' { $patchModeForInstall = "safe" }
+                            '^[2]$' { $patchModeForInstall = "official" }
+                            default {
+                                Write-Host "无效输入，请输入 1 或 2。" -ForegroundColor Yellow
+                                continue
+                            }
+                        }
+                        $installAction = "enable-auto-reapply"
+                        $actionSelected = $true
+                    }
+                    default {
+                        Write-Host "无效输入，请输入 y 启用，或输入 n 关闭。" -ForegroundColor Yellow
+                        continue
+                    }
+                }
+            }
             '^[Qq]$' { exit 0 }
-            default { Write-Host "请输入 1、2、3、4、5 或 Q。" -ForegroundColor Yellow }
+            default { Write-Host "请输入 1、2、3、4、5、6 或 Q。" -ForegroundColor Yellow }
         }
     }
 
@@ -181,9 +210,9 @@ function Read-InteractiveSelection {
     while ($true) {
         $languageSelection = (Read-Host "请选择语言 [1/2/3/Q]").Trim()
         switch -Regex ($languageSelection) {
-            '^[1]$' { return @{ Action = "install"; Language = "zh-CN"; PatchMode = $patchModeForInstall } }
-            '^[2]$' { return @{ Action = "install"; Language = "zh-TW"; PatchMode = $patchModeForInstall } }
-            '^[3]$' { return @{ Action = "install"; Language = "zh-HK"; PatchMode = $patchModeForInstall } }
+            '^[1]$' { return @{ Action = $installAction; Language = "zh-CN"; PatchMode = $patchModeForInstall } }
+            '^[2]$' { return @{ Action = $installAction; Language = "zh-TW"; PatchMode = $patchModeForInstall } }
+            '^[3]$' { return @{ Action = $installAction; Language = "zh-HK"; PatchMode = $patchModeForInstall } }
             '^[Qq]$' { exit 0 }
             default { Write-Host "请输入 1、2、3 或 Q。" -ForegroundColor Yellow }
         }
@@ -230,7 +259,10 @@ function Format-ByteSize {
 }
 
 function Get-UnpackagedClaudePaths {
-    $localAppData = [Environment]::GetFolderPath('LocalApplicationData')
+    $localAppData = [string]$env:CLAUDE_ZH_ORIGINAL_LOCALAPPDATA
+    if (-not $localAppData) {
+        $localAppData = [Environment]::GetFolderPath('LocalApplicationData')
+    }
     if (-not $localAppData) {
         return @()
     }
@@ -3294,18 +3326,28 @@ function Install-WindowsLanguagePack {
 
     # 单实例互斥锁：防止多个安装进程并发写入 app.asar
     $mutex = New-Object System.Threading.Mutex($false, "Global\ClaudeDesktopZhCn-Installer")
+    $mutexAcquired = $false
     try {
         if (-not $mutex.WaitOne(0)) {
-            Write-Host "  [错误] 另一个安装进程正在运行，请等待其完成后再试。" -ForegroundColor Red
-            return
+            throw "另一个安装进程正在运行，请等待其完成后再试。"
         }
+        $mutexAcquired = $true
     } catch [System.Threading.AbandonedMutexException] {
         # 上一个进程异常退出，锁已释放，继续执行
+        $mutexAcquired = $true
     }
 
     Write-Host "=== Claude Desktop Windows $label 补丁 ===" -ForegroundColor Cyan
 
     try {
+        if ($AutoReapply) {
+            $running = @((Get-ClaudeDesktopProcesses) + (Get-ClaudeCoworkProcesses))
+            if ($running.Count -gt 0) {
+                throw "Claude Desktop 或 Cowork 正在运行，自动汉化已延后。"
+            }
+            Reset-AutoReapplyBackups
+        }
+
         Write-Step "[1/8] 检查安装模式"
         if ($PatchMode -eq "safe") {
             Write-Host "  Cowork 兼容模式。" -ForegroundColor Green
@@ -3316,8 +3358,10 @@ function Install-WindowsLanguagePack {
         Write-Step "[2/8] 检查语言资源"
         $pack = Get-LanguageResources $LanguageCode
 
-        Write-Step "关闭 Claude Desktop"
-        Stop-ClaudeProcesses
+        if (-not $AutoReapply) {
+            Write-Step "关闭 Claude Desktop"
+            Stop-ClaudeProcesses
+        }
 
         Write-Step "[3/8] 查找 Claude Desktop"
         $paths = Get-ClaudeResourcesPath
@@ -3357,11 +3401,13 @@ function Install-WindowsLanguagePack {
         Write-Step "[8/8] 写入用户语言配置"
         Set-ClaudeLocale $LanguageCode
 
-        Write-Step "重启 Claude Desktop"
-        Restart-Claude $claudePath
+        if (-not $AutoReapply) {
+            Write-Step "重启 Claude Desktop"
+            Restart-Claude $claudePath
 
-        Write-Step "启动 CoworkVMService"
-        Start-CoworkVMService
+            Write-Step "启动 CoworkVMService"
+            Start-CoworkVMService
+        }
 
         Write-Host ""
         Write-Host "安装完成。如果界面未立即切换，请在 Language 中选择 $label。" -ForegroundColor Green
@@ -3377,7 +3423,9 @@ function Install-WindowsLanguagePack {
         throw
     }
     finally {
-        $mutex.ReleaseMutex()
+        if ($mutexAcquired) {
+            $mutex.ReleaseMutex()
+        }
         $mutex.Dispose()
     }
 }
@@ -3466,14 +3514,25 @@ $LanguageCode = $Language
 try {
     switch ($Action) {
         "install" {
-            Invoke-PreInstallCleanup
+            if (-not $AutoReapply) {
+                Invoke-PreInstallCleanup
+            }
             Install-WindowsLanguagePack
         }
-        "uninstall" { Uninstall-WindowsLanguagePack }
+        "uninstall" {
+            Disable-AutoReapply
+            Uninstall-WindowsLanguagePack
+        }
         "disable-updates" { Set-ClaudeAutoUpdates $false }
         "enable-updates" { Set-ClaudeAutoUpdates $true }
         "sync-skills" { Sync-CCSwitchSkills }
         "unsync-skills" { Unsync-CCSwitchSkills }
+        "enable-auto-reapply" {
+            Invoke-PreInstallCleanup
+            Install-WindowsLanguagePack
+            Enable-AutoReapply
+        }
+        "disable-auto-reapply" { Disable-AutoReapply }
     }
 
     Stop-InstallLog

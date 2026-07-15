@@ -665,7 +665,10 @@ def build_online_locale_main_process_script(
     mapping: dict[str, str],
     web_contents_expr: str,
     existing_dom_ready_body: str,
+    handler_terminator: str,
 ) -> str:
+    if handler_terminator not in {";", ","}:
+        raise ValueError(f"Unsupported dom-ready handler terminator: {handler_terminator!r}")
     script = (
         f'(()=>{{try{{const l="{lang_code}";'
         'if(localStorage.getItem("spa:locale")!==l){localStorage.setItem("spa:locale",l)}}catch(e){}})();'
@@ -674,7 +677,7 @@ def build_online_locale_main_process_script(
     return (
         f'{web_contents_expr}.on("dom-ready",()=>{{{existing_dom_ready_body};'
         f"{web_contents_expr}.executeJavaScript({json.dumps(script)}).catch(()=>{{}})"
-        f"}});/*{ONLINE_LOCALE_MAIN_MARKER}*/"
+        f"}}){handler_terminator}/*{ONLINE_LOCALE_MAIN_MARKER}*/"
     )
 
 
@@ -684,13 +687,14 @@ def strip_online_locale_main_process_patch(text: str) -> tuple[str, bool]:
         r'\.on\("dom-ready",\(\)=>\{'
         r'(?P<body>.*?);'
         r'(?P=web_contents)\.executeJavaScript\("(?:\\.|[^"])*"\)\.catch\(\(\)=>\{\}\)'
-        rf'\}}\);/\*{ONLINE_LOCALE_MAIN_MARKER}\*/'
+        rf'\}}\)(?P<terminator>[;,])/\*{ONLINE_LOCALE_MAIN_MARKER}\*/'
     )
 
     def restore(match: re.Match[str]) -> str:
         web_contents = match.group("web_contents")
         body = match.group("body")
-        return f'{web_contents}.on("dom-ready",()=>{{{body}}});'
+        terminator = match.group("terminator")
+        return f'{web_contents}.on("dom-ready",()=>{{{body}}}){terminator}'
 
     patched, count = pattern.subn(restore, text)
     return patched, count > 0
@@ -745,7 +749,7 @@ def patch_online_locale_lock(text: str, lang_code: str) -> tuple[str, bool]:
 def find_main_view_dom_ready_handler(text: str) -> re.Match[str] | None:
     pattern = re.compile(
         r'(?P<web_contents>[A-Za-z_$][A-Za-z0-9_$]*\.webContents)'
-        r'\.on\("dom-ready",\(\)=>\{(?P<body>[^{}]*)\}\);'
+        r'\.on\("dom-ready",\(\)=>\{(?P<body>[^{}]*)\}\)(?P<terminator>[;,])'
     )
     matches = [
         match
@@ -845,6 +849,7 @@ def patch_online_locale_main_process(app: Path, lang_code: str) -> None:
         mapping,
         handler.group("web_contents"),
         handler.group("body"),
+        handler.group("terminator"),
     )
     patched_text = text[: handler.start()] + injection + text[handler.end() :]
     patched_text, locale_lock_patched = patch_online_locale_lock(patched_text, lang_code)

@@ -1480,13 +1480,15 @@ function Remove-ExistingOnlineDomTranslationPatch {
     $bodyStart = $anchorIndex + $eventAnchor.Length
     $executeNeedle = ";" + $receiver + ".webContents.executeJavaScript("
     $executeIndex = $Text.LastIndexOf($executeNeedle, $markerIndex, [System.StringComparison]::Ordinal)
-    if (($executeIndex -lt $bodyStart) -or (-not $Text.Substring($markerIndex - 3, 3).Equals("});", [System.StringComparison]::Ordinal))) {
+    $handlerEnding = if ($markerIndex -ge 3) { $Text.Substring($markerIndex - 3, 3) } else { "" }
+    if (($executeIndex -lt $bodyStart) -or (($handlerEnding -ne "});") -and ($handlerEnding -ne "}),"))) {
         Write-Host "  [警告] 找到旧补丁标记，但旧注入结构不符合预期；将保留原内容继续。" -ForegroundColor DarkYellow
         return @{ Text = $Text; Removed = $false }
     }
 
     $body = $Text.Substring($bodyStart, $executeIndex - $bodyStart)
-    $replacement = $receiver + '.webContents.on("dom-ready",()=>{' + $body + '});'
+    $terminator = $handlerEnding.Substring(2, 1)
+    $replacement = $receiver + '.webContents.on("dom-ready",()=>{' + $body + '})' + $terminator
     $patchedEnd = $markerIndex + $markerComment.Length
     $patchedText = $Text.Substring(0, $receiverStart) + $replacement + $Text.Substring($patchedEnd)
     return @{ Text = $patchedText; Removed = $true }
@@ -1500,7 +1502,7 @@ function Find-OnlineDomTranslationHook {
 
     $readyNeedle = "main_view_dom_ready"
     $eventAnchor = '.webContents.on("dom-ready",()=>{'
-    $handlerEndNeedle = "});"
+    $handlerCloseNeedle = "})"
 
     if (-not $Quiet) {
         Write-Host "  [进度] 正在快速扫描 dom-ready handler..." -ForegroundColor DarkGray
@@ -1518,8 +1520,8 @@ function Find-OnlineDomTranslationHook {
         $checked += 1
 
         $bodyStart = $anchorIndex + $eventAnchor.Length
-        $handlerEnd = $Text.IndexOf($handlerEndNeedle, $bodyStart, [System.StringComparison]::Ordinal)
-        if ($handlerEnd -lt $bodyStart) {
+        $handlerClose = $Text.IndexOf($handlerCloseNeedle, $bodyStart, [System.StringComparison]::Ordinal)
+        if ($handlerClose -lt $bodyStart) {
             if (-not $Quiet) {
                 Write-Host "  [进度] 第 $checked 个 dom-ready handler 结束位置异常，继续查找下一个..." -ForegroundColor DarkGray
             }
@@ -1527,9 +1529,25 @@ function Find-OnlineDomTranslationHook {
             continue
         }
 
-        $body = $Text.Substring($bodyStart, $handlerEnd - $bodyStart).TrimEnd(";")
+        $body = $Text.Substring($bodyStart, $handlerClose - $bodyStart).TrimEnd(";")
+        $terminatorIndex = $handlerClose + $handlerCloseNeedle.Length
+        if (($body.Contains("{")) -or ($body.Contains("}")) -or ($terminatorIndex -ge $Text.Length)) {
+            if (-not $Quiet) {
+                Write-Host "  [进度] 第 $checked 个 dom-ready handler 含嵌套代码或缺少结束分隔符，继续查找下一个..." -ForegroundColor DarkGray
+            }
+            $searchIndex = $bodyStart
+            continue
+        }
+        $terminator = [string]$Text[$terminatorIndex]
+        if (($terminator -ne ";") -and ($terminator -ne ",")) {
+            if (-not $Quiet) {
+                Write-Host "  [进度] 第 $checked 个 dom-ready handler 使用未知结束分隔符，继续查找下一个..." -ForegroundColor DarkGray
+            }
+            $searchIndex = $bodyStart
+            continue
+        }
         if (-not $body.Contains($readyNeedle)) {
-            $searchIndex = $handlerEnd + $handlerEndNeedle.Length
+            $searchIndex = $terminatorIndex + 1
             continue
         }
 
@@ -1550,12 +1568,12 @@ function Find-OnlineDomTranslationHook {
             if (-not $Quiet) {
                 Write-Host "  [进度] 无法识别 webContents 变量名，继续查找下一个 handler..." -ForegroundColor DarkGray
             }
-            $searchIndex = $handlerEnd + $handlerEndNeedle.Length
+            $searchIndex = $terminatorIndex + 1
             continue
         }
 
         $receiver = $Text.Substring($receiverStart, $anchorIndex - $receiverStart)
-        $hookLength = ($handlerEnd + $handlerEndNeedle.Length) - $receiverStart
+        $hookLength = ($terminatorIndex + 1) - $receiverStart
         if (-not $Quiet) {
             Write-Host "  [进度] 在线 DOM 注入点定位完成：handler=$checked, receiver=$receiver。" -ForegroundColor DarkGray
         }
@@ -1565,6 +1583,7 @@ function Find-OnlineDomTranslationHook {
             Length = $hookLength
             Receiver = $receiver
             Body = $body
+            Terminator = $terminator
         }
     }
 }
@@ -1696,8 +1715,9 @@ function Patch-OnlineDomTranslation {
     if ($hookMatch["Success"]) {
         $receiver = $hookMatch["Receiver"]
         $body = $hookMatch["Body"]
+        $terminator = $hookMatch["Terminator"]
         $injectedBody = $body + ";" + $receiver + ".webContents.executeJavaScript(" + $scriptLiteral + ").catch(()=>{})"
-        $injection = $receiver + '.webContents.on("dom-ready",()=>{' + $injectedBody + '});/*' + $OnlineLocaleMainMarker + '*/'
+        $injection = $receiver + '.webContents.on("dom-ready",()=>{' + $injectedBody + '})' + $terminator + '/*' + $OnlineLocaleMainMarker + '*/'
         if ($text.Contains($injection)) {
             Write-Host "  online claude.ai DOM translation already patched" -ForegroundColor Green
             return

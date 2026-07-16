@@ -1682,5 +1682,45 @@
   [
     "defaultMessage:\"Off\",id:\"PLBs+fqK6A\"",
     "defaultMessage:\"關閉\",id:\"PLBs+fqK6A\""
+  ],
+  [
+    "Reflect",
+    "回顧"
+  ],
+  [
+    "Based on your conversations in Claude chat.",
+    "根據你在 Claude 聊天中的對話。"
+  ],
+  [
+    "Looking at your month ...",
+    "正在回顧你這個月的對話……"
+  ],
+  [
+    "Looking at your month …",
+    "正在回顧你這個月的對話……"
+  ],
+  [
+    "This should only take a minute or so.",
+    "這大約只需一分鐘。"
+  ],
+  [
+    "Time and focus",
+    "時間與專注"
+  ],
+  [
+    "Break reminders",
+    "休息提醒"
+  ],
+  [
+    "Get a nudge to take a break from Claude. You can snooze or adjust anytime.",
+    "接收 Claude 發出的休息提醒。你可以隨時延後提醒或調整。"
+  ],
+  [
+    "Quiet hours",
+    "勿擾時段"
+  ],
+  [
+    "Set time limits for Claude. You can dismiss or adjust anytime.",
+    "設定 Claude 的使用時限。你可以隨時略過或調整。"
   ]
 ]

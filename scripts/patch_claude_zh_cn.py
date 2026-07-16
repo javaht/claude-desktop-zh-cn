@@ -564,6 +564,11 @@ def build_online_translation_map(app: Path, lang_code: str) -> dict[str, str]:
 
 def build_online_dom_translation_script(lang_code: str, mapping: dict[str, str]) -> str:
     mapping_json = json.dumps(mapping, ensure_ascii=False, separators=(",", ":"))
+    weekday_initials_json = json.dumps(
+        ["日", "一", "二", "三", "四", "五", "六"],
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
     if lang_code == "zh-CN":
         selected_text = "已选择 $1 项"
         delete_selected_text = "删除 $1 个所选项目"
@@ -610,7 +615,7 @@ def build_online_dom_translation_script(lang_code: str, mapping: dict[str, str])
     ))
     return (
         "(()=>{try{"
-        f'const L="{lang_code}",M={mapping_json};'
+        f'const L="{lang_code}",M={mapping_json},D={weekday_initials_json};'
         'localStorage.setItem("spa:locale",L);'
         'document.documentElement&&document.documentElement.setAttribute("lang",L);'
         'const N=s=>(s||"").replace(/\\s+/g," ").trim();'
@@ -649,6 +654,11 @@ def build_online_dom_translation_script(lang_code: str, mapping: dict[str, str])
         'try{if(e.closest(C))return;if(a==="value"&&!(e.matches("input[type=button],input[type=submit]")))return;'
         "let v=e.getAttribute?e.getAttribute(a):void 0;if(v==null&&a in e)v=e[a];const t=R(v);"
         "if(t){if(e.setAttribute)e.setAttribute(a,t);try{if(a in e)e[a]=t}catch{}}}catch{}})});"
+        'document.querySelectorAll("div,fieldset").forEach(e=>{try{'
+        'const c=Array.from(e.children);if(c.length!==7||c.map(x=>N(x.textContent)).join("")!=="SMTWTFS")return;'
+        'c.forEach((x,i)=>{const w=document.createTreeWalker(x,NodeFilter.SHOW_TEXT);let n;while(n=w.nextNode()){'
+        'if(/^[SMTWF]$/.test(N(n.nodeValue))){n.nodeValue=D[i];break}}})'
+        '}catch{}});'
         'document.querySelectorAll("a").forEach(e=>{try{'
         'const r=e.getBoundingClientRect(),txt=N(e.textContent);'
         'if(txt==="Claude"&&r.left<100&&r.top<100)e.style.visibility="hidden"}catch{}});'

@@ -129,6 +129,7 @@ function Read-InteractiveSelection {
     Write-Host "[1] 安装中文补丁(第三方API登陆模式(例DeepSeek)：（Cowork 沙箱/工作区不可用(看群公告))"
     Write-Host "[2] 安装中文补丁(官方账号登录模式：Cowork 沙箱/工作区不可用(看群公告))"
     Write-Host "[3] 恢复原样 / 卸载补丁"
+    Write-Host "[4] 自动更新设置（y=禁止自动更新，n=允许自动更新）"
     Write-Host "[5] 同步 CC Switch skills（y=开启同步，n=删除同步）"
     Write-Host "[Q] 退出"
     Write-Host ""

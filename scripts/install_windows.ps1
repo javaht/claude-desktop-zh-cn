@@ -1288,6 +1288,20 @@ function Test-StructuralJsReplacement {
     return ($structuralStrings -contains $Source) -or ($structuralLiterals -contains $Source)
 }
 
+function Test-StructuralJsLiteralContext {
+    param(
+        [string]$Text,
+        [int]$LiteralStart
+    )
+
+    $prefixStart = [Math]::Max(0, $LiteralStart - 96)
+    $prefix = $Text.Substring($prefixStart, $LiteralStart - $prefixStart)
+    return [System.Text.RegularExpressions.Regex]::IsMatch(
+        $prefix,
+        '(?<![A-Za-z0-9_$-])(?:as|component|displayName|glyph|icon|iconName|leadingIcon|name|role|trailingIcon|type)\s*[:=]\s*$'
+    )
+}
+
 function Replace-FrontendHardcodedText {
     param(
         [string]$Text,
@@ -1323,6 +1337,9 @@ function Replace-FrontendHardcodedText {
         $pattern,
         {
             param($match)
+            if (Test-StructuralJsLiteralContext $Text $match.Index) {
+                return $match.Value
+            }
             $script:__frontendReplacementCount += 1
             $quote = $match.Groups["quote"].Value
             return "$quote$Target$quote"

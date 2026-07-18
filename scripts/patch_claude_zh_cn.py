@@ -72,6 +72,11 @@ STRUCTURAL_JS_STRING_REPLACEMENTS = {
 STRUCTURAL_JS_LITERAL_REPLACEMENTS = {
     '"Search"',
 }
+STRUCTURAL_JS_LITERAL_CONTEXT_RE = re.compile(
+    r"(?<![A-Za-z0-9_$-])"
+    r"(?:as|component|displayName|glyph|icon|iconName|leadingIcon|name|role|trailingIcon|type)"
+    r"\s*[:=]\s*$"
+)
 
 
 def log(message: str) -> None:
@@ -237,6 +242,11 @@ def is_plain_ui_text_replacement(source: str) -> bool:
     return "\n" not in source and not any(marker in source for marker in code_markers)
 
 
+def is_structural_js_literal_context(text: str, literal_start: int) -> bool:
+    prefix = text[max(0, literal_start - 96) : literal_start]
+    return STRUCTURAL_JS_LITERAL_CONTEXT_RE.search(prefix) is not None
+
+
 def replace_frontend_hardcoded_text(text: str, source: str, target: str) -> tuple[str, int]:
     if source in STRUCTURAL_JS_STRING_REPLACEMENTS or source in STRUCTURAL_JS_LITERAL_REPLACEMENTS:
         return text, 0
@@ -248,12 +258,17 @@ def replace_frontend_hardcoded_text(text: str, source: str, target: str) -> tupl
         return text, count
 
     pattern = re.compile(r'(?P<quote>["\'`])' + re.escape(source) + r"(?P=quote)")
+    replacement_count = 0
 
     def replace_match(match: re.Match[str]) -> str:
+        nonlocal replacement_count
+        if is_structural_js_literal_context(text, match.start()):
+            return match.group(0)
+        replacement_count += 1
         quote = match.group("quote")
         return f"{quote}{target}{quote}"
 
-    return pattern.subn(replace_match, text)
+    return pattern.sub(replace_match, text), replacement_count
 
 
 def patch_hardcoded_frontend_strings(app: Path, lang_code: str) -> None:

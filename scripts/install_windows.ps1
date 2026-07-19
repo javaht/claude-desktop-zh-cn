@@ -1,11 +1,12 @@
 ﻿param(
     [switch]$Interactive,
+    [switch]$LibraryMode,
     [switch]$SkipAsarPatch,
     [ValidateSet("safe", "official")]
     [string]$PatchMode = "safe",
 
     [Parameter(Position = 0)]
-    [ValidateSet("install", "uninstall", "disable-updates", "enable-updates", "sync-skills", "unsync-skills")]
+    [ValidateSet("install", "maintain", "uninstall", "disable-updates", "enable-updates", "sync-skills", "unsync-skills")]
     [string]$Action = "install",
 
     [Parameter(Position = 1)]
@@ -21,14 +22,20 @@
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
 $Utf8NoBom = [System.Text.UTF8Encoding]::new($false)
-$BaseLanguageList = '["en-US","de-DE","fr-FR","ko-KR","ja-JP","es-419","es-ES","it-IT","hi-IN","pt-BR","id-ID"'
-$LanguageListPattern = [System.Text.RegularExpressions.Regex]::Escape($BaseLanguageList) + '(?:(?:,"zh-CN")|(?:,"zh-TW")|(?:,"zh-HK"))*\]'
 $AsarPatchTargetFallback = ".vite/build/index.js"
 $AsarIntegrityBlockSize = 4 * 1024 * 1024
 $OnlineLocaleMainMarker = "__claudeZhOnlineLocaleMain"
 $MenuRuntimeMarker = "__claudeZhMenuRuntimePatch"
 $OnlineTranslationMaxSourceLength = 1000
+$WindowsMaintenanceSettleSeconds = 90
+$WindowsMaintenanceFailureRetrySeconds = 6 * 60 * 60
 $script:CurrentBackupSetPath = $null
+$script:InstallTransactionActive = $false
+$script:InstallTransactionResourcesPath = $null
+$script:InstallTransactionCreatedFiles = [System.Collections.Generic.List[string]]::new()
+$script:LastInstallRollbackSucceeded = $true
+$script:IsMaintenanceRun = $false
+$script:RemoveMaintenancePayloadAfterLog = $false
 $script:DetectedUnpackagedClaudePaths = @()
 $script:DetectedMultipleClaudeInstalls = $false
 $script:InstallLogPath = $null
@@ -90,6 +97,9 @@ function Test-SkipReleaseUpdateCheck {
 }
 
 function Test-GitHubReleaseUpdate {
+    if ($LibraryMode -or $Action -eq "maintain") {
+        return
+    }
     if (Test-SkipReleaseUpdateCheck) {
         return
     }
@@ -169,8 +179,6 @@ function Read-InteractiveSelection {
         }
     }
 
-    Write-Host ""
-    Invoke-PreInstallCleanup
     Write-Host ""
     Write-Host "请选择要安装的语言："
     Write-Host "[1] 简体中文"
@@ -255,18 +263,18 @@ function Test-UnpackagedClaudeAppDirectory {
 }
 
 function Get-UnpackagedClaudePaths {
-    $localAppData = [Environment]::GetFolderPath('LocalApplicationData')
-    if (-not $localAppData) {
-        return @()
+    $directories = @()
+    foreach ($localAppData in @(Get-OriginalLocalAppDataRoots)) {
+        $unpackagedBase = Join-Path $localAppData "AnthropicClaude"
+        if (-not (Test-Path -LiteralPath $unpackagedBase -PathType Container)) {
+            continue
+        }
+        $directories += Get-ChildItem -LiteralPath $unpackagedBase -Directory -Filter "app-*" -ErrorAction SilentlyContinue |
+            Where-Object { Test-UnpackagedClaudeAppDirectory $_ }
     }
 
-    $unpackagedBase = Join-Path $localAppData "AnthropicClaude"
-    if (-not (Test-Path $unpackagedBase)) {
-        return @()
-    }
-
-    return @(Get-ChildItem $unpackagedBase -Directory -Filter "app-*" -ErrorAction SilentlyContinue |
-        Where-Object { Test-UnpackagedClaudeAppDirectory $_ } |
+    return @($directories |
+        Sort-Object FullName -Unique |
         Sort-Object `
             @{ Expression = { Get-UnpackagedClaudeVersion $_ }; Descending = $true },
             @{ Expression = { $_.LastWriteTime }; Descending = $true } |
@@ -287,8 +295,183 @@ function Write-AsarCoworkSignatureWarning {
     Write-Host ""
 }
 
+function Get-OriginalLocalAppDataRoots {
+    $roots = @()
+    $hasOriginalContext = $false
+    if ($env:CLAUDE_ZH_ORIGINAL_LOCALAPPDATA) {
+        $roots += $env:CLAUDE_ZH_ORIGINAL_LOCALAPPDATA
+        $hasOriginalContext = $true
+    }
+    if ($env:CLAUDE_ZH_ORIGINAL_USER_PROFILE) {
+        $roots += Join-Path $env:CLAUDE_ZH_ORIGINAL_USER_PROFILE "AppData\Local"
+        $hasOriginalContext = $true
+    }
+    if (-not $hasOriginalContext) {
+        if ($env:LOCALAPPDATA) {
+            $roots += $env:LOCALAPPDATA
+        }
+        $systemValue = [Environment]::GetFolderPath('LocalApplicationData')
+        if ($systemValue) {
+            $roots += $systemValue
+        }
+    }
+    return @($roots | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -Unique)
+}
+
+function Get-OriginalAppDataRoots {
+    $roots = @()
+    $hasOriginalContext = $false
+    if ($env:CLAUDE_ZH_ORIGINAL_APPDATA) {
+        $roots += $env:CLAUDE_ZH_ORIGINAL_APPDATA
+        $hasOriginalContext = $true
+    }
+    if ($env:CLAUDE_ZH_ORIGINAL_USER_PROFILE) {
+        $roots += Join-Path $env:CLAUDE_ZH_ORIGINAL_USER_PROFILE "AppData\Roaming"
+        $hasOriginalContext = $true
+    }
+    if (-not $hasOriginalContext) {
+        if ($env:APPDATA) {
+            $roots += $env:APPDATA
+        }
+        $systemValue = [Environment]::GetFolderPath('ApplicationData')
+        if ($systemValue) {
+            $roots += $systemValue
+        }
+    }
+    return @($roots | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -Unique)
+}
+
+function Get-FrontendJavaScriptFiles {
+    param([string]$ResourcesPath)
+
+    $assetsRoot = Join-Path $ResourcesPath "ion-dist\assets"
+    if (-not (Test-Path -LiteralPath $assetsRoot -PathType Container)) {
+        throw "未找到前端 assets 目录: $assetsRoot"
+    }
+
+    $files = @(Get-ChildItem -LiteralPath $assetsRoot -Recurse -File -Filter "*.js" -ErrorAction SilentlyContinue |
+        Sort-Object FullName)
+    if ($files.Count -eq 0) {
+        throw "未找到前端 JS bundle: $assetsRoot"
+    }
+    return $files
+}
+
+function Get-FrontendI18nDirectory {
+    param([string]$ResourcesPath)
+
+    $preferred = Join-Path $ResourcesPath "ion-dist\i18n"
+    if (Test-Path -LiteralPath (Join-Path $preferred "en-US.json") -PathType Leaf) {
+        return $preferred
+    }
+
+    $ionDist = Join-Path $ResourcesPath "ion-dist"
+    if (-not (Test-Path -LiteralPath $ionDist -PathType Container)) {
+        throw "未找到前端 ion-dist 目录: $ionDist"
+    }
+    $candidates = @()
+    foreach ($englishFile in @(Get-ChildItem -LiteralPath $ionDist -Recurse -File -Filter "en-US.json" -ErrorAction SilentlyContinue)) {
+        $lowerPath = $englishFile.FullName.ToLowerInvariant()
+        if ($lowerPath.Contains("\statsig\") -or $lowerPath.Contains("\node_modules\")) {
+            continue
+        }
+        $score = [int64]$englishFile.Length
+        if ($englishFile.Directory.Name -in @("i18n", "locales")) {
+            $score += 1000000000
+        }
+        $candidates += [pscustomobject]@{ Score = $score; Path = $englishFile.Directory.FullName }
+    }
+    $selected = $candidates |
+        Sort-Object -Property `
+            @{ Expression = { $_.Score }; Descending = $true },
+            @{ Expression = { $_.Path }; Descending = $false } |
+        Select-Object -First 1
+    if (-not $selected) {
+        throw "无法动态定位前端 en-US.json；Claude 资源布局可能已变化。"
+    }
+    return [string]$selected.Path
+}
+
+function Update-LanguageArraysInText {
+    param(
+        [string]$Text,
+        [string]$Lang
+    )
+
+    # Match arrays made only of locale-like string literals. Requiring en-US and
+    # several long-standing Claude locales avoids changing unrelated JS arrays,
+    # while preserving every locale and ordering shipped by upstream.
+    $arrayPattern = [System.Text.RegularExpressions.Regex]::new(
+        '\[(?<items>\s*["''][A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})+["''](?:\s*,\s*["''][A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})+["'']){3,}\s*)\]',
+        [System.Text.RegularExpressions.RegexOptions]::Singleline
+    )
+    $localePattern = [System.Text.RegularExpressions.Regex]::new('(?<quote>["''])(?<locale>[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})+)\k<quote>')
+    $knownLocales = @("de-DE", "fr-FR", "ko-KR", "ja-JP", "es-ES", "it-IT", "pt-BR")
+    $candidateCount = 0
+    $alreadyCount = 0
+    $changedCount = 0
+    $replacements = [System.Collections.Generic.List[object]]::new()
+
+    foreach ($match in $arrayPattern.Matches($Text)) {
+        $localeMatches = @($localePattern.Matches($match.Groups["items"].Value))
+        $locales = @($localeMatches | ForEach-Object { $_.Groups["locale"].Value })
+        if ($locales -notcontains "en-US") {
+            continue
+        }
+        $knownCount = @($knownLocales | Where-Object { $locales -contains $_ }).Count
+        if ($knownCount -lt 3) {
+            continue
+        }
+
+        $candidateCount += 1
+        if ($locales -contains $Lang) {
+            $alreadyCount += 1
+            continue
+        }
+
+        $items = $match.Groups["items"].Value
+        $trailingWhitespace = [System.Text.RegularExpressions.Regex]::Match($items, '\s*$').Value
+        $core = $items.Substring(0, $items.Length - $trailingWhitespace.Length)
+        $quote = $localeMatches[0].Groups["quote"].Value
+        $separatorMatches = [System.Text.RegularExpressions.Regex]::Matches(
+            $items,
+            '(?<separator>\s*,\s*)["''][A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})+["'']'
+        )
+        $separator = if ($separatorMatches.Count -gt 0) {
+            $separatorMatches[$separatorMatches.Count - 1].Groups["separator"].Value
+        } else {
+            ","
+        }
+        $replacement = "[$core$separator$quote$Lang$quote$trailingWhitespace]"
+        $replacements.Add([pscustomobject]@{
+            Index = $match.Index
+            Length = $match.Length
+            Value = $replacement
+        })
+        $changedCount += 1
+    }
+
+    $updated = $Text
+    foreach ($replacement in @($replacements | Sort-Object Index -Descending)) {
+        $updated = $updated.Substring(0, $replacement.Index) +
+            $replacement.Value +
+            $updated.Substring($replacement.Index + $replacement.Length)
+    }
+
+    return @{
+        Text = $updated
+        CandidateCount = $candidateCount
+        AlreadyCount = $alreadyCount
+        ChangedCount = $changedCount
+    }
+}
+
 function Find-ClaudePath {
-    $packages = @(Get-AppxPackage -Name "Claude" -ErrorAction SilentlyContinue)
+    $packages = @()
+    if ($env:CLAUDE_ZH_ORIGINAL_USER_SID) {
+        $packages += @(Get-AppxPackage -User $env:CLAUDE_ZH_ORIGINAL_USER_SID -Name "Claude" -ErrorAction SilentlyContinue)
+    }
+    $packages += @(Get-AppxPackage -Name "Claude" -ErrorAction SilentlyContinue)
     foreach ($package in $packages) {
         if ($package.InstallLocation -and (Test-Path $package.InstallLocation)) {
             return $package.InstallLocation
@@ -380,17 +563,21 @@ function Get-ClaudeResourcesPath {
 }
 
 function Get-ClaudeConfigPaths {
-    if (-not $env:LOCALAPPDATA) {
-        return @()
-    }
-
     $configPaths = @()
-    if ($env:APPDATA) {
-        $configPaths += Join-Path $env:APPDATA "Claude\config.json"
-        $configPaths += Join-Path $env:APPDATA "Claude-3p\config.json"
+    foreach ($appData in @(Get-OriginalAppDataRoots)) {
+        $configPaths += Join-Path $appData "Claude\config.json"
+        $configPaths += Join-Path $appData "Claude-3p\config.json"
     }
 
     $packageNames = @()
+    if ($env:CLAUDE_ZH_ORIGINAL_USER_SID) {
+        $userPackages = @(Get-AppxPackage -User $env:CLAUDE_ZH_ORIGINAL_USER_SID -Name "Claude" -ErrorAction SilentlyContinue)
+        foreach ($package in $userPackages) {
+            if ($package.PackageFamilyName) {
+                $packageNames += $package.PackageFamilyName
+            }
+        }
+    }
     $packages = @(Get-AppxPackage -Name "Claude" -ErrorAction SilentlyContinue)
     foreach ($package in $packages) {
         if ($package.PackageFamilyName) {
@@ -398,19 +585,24 @@ function Get-ClaudeConfigPaths {
         }
     }
 
-    if ($packageNames.Count -eq 0) {
-        $packageRoot = Join-Path $env:LOCALAPPDATA "Packages"
+    foreach ($localAppData in @(Get-OriginalLocalAppDataRoots)) {
+        $packageRoot = Join-Path $localAppData "Packages"
         $packageDirs = @(Get-ChildItem (Join-Path $packageRoot "Claude_*") -Directory -ErrorAction SilentlyContinue |
             Sort-Object LastWriteTime -Descending)
         foreach ($packageDir in $packageDirs) {
-            $packageNames += $packageDir.Name
+            $configPaths += Join-Path $packageDir.FullName "LocalCache\Roaming\Claude\config.json"
+            $configPaths += Join-Path $packageDir.FullName "LocalCache\Roaming\Claude-3p\config.json"
         }
     }
 
-    foreach ($packageName in @($packageNames | Select-Object -Unique)) {
-        $packagePath = Join-Path (Join-Path $env:LOCALAPPDATA "Packages") $packageName
-        $configPaths += Join-Path $packagePath "LocalCache\Roaming\Claude\config.json"
-        $configPaths += Join-Path $packagePath "LocalCache\Roaming\Claude-3p\config.json"
+    foreach ($localAppData in @(Get-OriginalLocalAppDataRoots)) {
+        foreach ($packageName in @($packageNames | Select-Object -Unique)) {
+            $packagePath = Join-Path (Join-Path $localAppData "Packages") $packageName
+            if (Test-Path -LiteralPath $packagePath -PathType Container) {
+                $configPaths += Join-Path $packagePath "LocalCache\Roaming\Claude\config.json"
+                $configPaths += Join-Path $packagePath "LocalCache\Roaming\Claude-3p\config.json"
+            }
+        }
     }
 
     return @($configPaths | Select-Object -Unique)
@@ -458,6 +650,280 @@ function Get-ClaudeAppPathFromResources {
     return Split-Path -Parent $ResourcesPath
 }
 
+function Get-PatchMarkerPath {
+    param([string]$ResourcesPath)
+    return Join-Path $ResourcesPath ".claude-zh-cn.json"
+}
+
+function Get-WindowsPendingRestorePath {
+    param([string]$ResourcesPath)
+    return Join-Path $ResourcesPath ".claude-zh-cn.pending-restore.json"
+}
+
+function Get-PatchReleaseVersion {
+    try {
+        $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
+        $releasePath = Join-Path (Split-Path -Parent $scriptDir) "resources\release.json"
+        $release = Get-Content -LiteralPath $releasePath -Raw -Encoding UTF8 | ConvertFrom-Json
+        return [string]$release.release
+    }
+    catch {
+        return "unknown"
+    }
+}
+
+function Get-ClaudeAppIdentity {
+    param([hashtable]$Paths)
+
+    $appPath = [System.IO.Path]::GetFullPath([string]$Paths["App"]).TrimEnd('\', '/')
+    $exePath = Get-ClaudeExePath $appPath
+    $fileVersion = ""
+    $productVersion = ""
+    $exeLength = [int64]0
+    if ($exePath) {
+        try {
+            $exeItem = Get-Item -LiteralPath $exePath
+            $versionInfo = $exeItem.VersionInfo
+            $fileVersion = [string]$versionInfo.FileVersion
+            $productVersion = [string]$versionInfo.ProductVersion
+            $exeLength = [int64]$exeItem.Length
+        }
+        catch {
+        }
+    }
+    $asarLength = [int64]0
+    $asarPath = Join-Path ([string]$Paths["Resources"]) "app.asar"
+    if (Test-Path -LiteralPath $asarPath -PathType Leaf) {
+        $asarLength = [int64](Get-Item -LiteralPath $asarPath).Length
+    }
+    return [ordered]@{
+        installKind = [string]$Paths["InstallKind"]
+        appPath = $appPath
+        directoryName = Split-Path -Leaf $appPath
+        fileVersion = $fileVersion
+        productVersion = $productVersion
+        exeLength = $exeLength
+        asarLength = $asarLength
+    }
+}
+
+function Get-FileSha256HexFromPath {
+    param([string]$Path)
+
+    $stream = [System.IO.File]::Open($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $hash = $sha.ComputeHash($stream)
+        return ([System.BitConverter]::ToString($hash) -replace "-", "").ToLowerInvariant()
+    }
+    finally {
+        $sha.Dispose()
+        $stream.Dispose()
+    }
+}
+
+function Get-FilePrefixSha256Hex {
+    param(
+        [string]$Path,
+        [int]$MaximumBytes = 262144
+    )
+
+    $stream = [System.IO.File]::Open($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+    try {
+        $count = [int][Math]::Min([int64]$MaximumBytes, $stream.Length)
+        $bytes = [byte[]]::new($count)
+        $offset = 0
+        while ($offset -lt $count) {
+            $read = $stream.Read($bytes, $offset, $count - $offset)
+            if ($read -le 0) {
+                break
+            }
+            $offset += $read
+        }
+        if ($offset -ne $count) {
+            throw "无法读取文件指纹: $Path"
+        }
+        $sha = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            $hash = $sha.ComputeHash($bytes)
+            return ([System.BitConverter]::ToString($hash) -replace "-", "").ToLowerInvariant()
+        }
+        finally {
+            $sha.Dispose()
+        }
+    }
+    finally {
+        $stream.Dispose()
+    }
+}
+
+function Read-PatchMarker {
+    param([string]$ResourcesPath)
+
+    $path = Get-PatchMarkerPath $ResourcesPath
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+        return $null
+    }
+    try {
+        $marker = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json
+        if (-not $marker -or -not $marker.appIdentity -or -not ([string]$marker.backupSet).Trim()) {
+            throw "marker 缺少 appIdentity 或 backupSet"
+        }
+        return $marker
+    }
+    catch {
+        Write-Host "  [警告] 汉化 marker 无效，不会恢复任何旧备份: $path" -ForegroundColor DarkYellow
+        return $null
+    }
+}
+
+function Test-PatchMarkerMatchesIdentity {
+    param(
+        [object]$Marker,
+        [hashtable]$Paths
+    )
+
+    if (-not $Marker -or -not $Marker.appIdentity) {
+        return $false
+    }
+    $current = Get-ClaudeAppIdentity $Paths
+    $recordedPath = [string]$Marker.appIdentity.appPath
+    if (-not $recordedPath -or -not $current.appPath.Equals($recordedPath, [System.StringComparison]::OrdinalIgnoreCase)) {
+        return $false
+    }
+    if ([string]$Marker.appIdentity.installKind -ne [string]$current.installKind) {
+        return $false
+    }
+    foreach ($propertyName in @("fileVersion", "productVersion", "exeLength", "asarLength")) {
+        $recorded = [string]$Marker.appIdentity.$propertyName
+        $actual = [string]$current.$propertyName
+        if ($recorded -and $actual -and $recorded -ne $actual) {
+            return $false
+        }
+    }
+    return $true
+}
+
+function Get-PatchedFrontendBundleRelativePaths {
+    param(
+        [string]$ResourcesPath,
+        [string]$Lang
+    )
+
+    $relativePaths = @()
+    foreach ($file in @(Get-FrontendJavaScriptFiles $ResourcesPath)) {
+        $text = [System.IO.File]::ReadAllText($file.FullName, [System.Text.Encoding]::UTF8)
+        if (-not $text.Contains("__claudeZhLabelPatch")) {
+            continue
+        }
+        $languageArrays = Update-LanguageArraysInText $text $Lang
+        if ([int]$languageArrays["AlreadyCount"] -gt 0) {
+            $relativePaths += Get-RelativeResourcePath $ResourcesPath $file.FullName
+        }
+    }
+    return @($relativePaths | Sort-Object -Unique)
+}
+
+function Get-RelativeFileFingerprints {
+    param(
+        [string]$ResourcesPath,
+        [object[]]$RelativePaths
+    )
+
+    $resourceRoot = [System.IO.Path]::GetFullPath($ResourcesPath).TrimEnd('\', '/')
+    $fingerprints = @()
+    foreach ($relativeValue in @($RelativePaths)) {
+        $relativePath = [string]$relativeValue
+        $bundlePath = [System.IO.Path]::GetFullPath((Join-Path $ResourcesPath $relativePath))
+        if (-not $bundlePath.StartsWith($resourceRoot + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {
+            throw "marker 资源路径越界: $relativePath"
+        }
+        Require-File $bundlePath
+        $item = Get-Item -LiteralPath $bundlePath
+        $fingerprints += [ordered]@{
+            path = $relativePath
+            length = [int64]$item.Length
+            sha256 = Get-FileSha256HexFromPath $bundlePath
+        }
+    }
+    return $fingerprints
+}
+
+function Get-BackedUpResourceRelativePaths {
+    param([string]$BackupSetPath)
+
+    if (-not (Test-Path -LiteralPath $BackupSetPath -PathType Container)) {
+        throw "marker 写入前备份集已丢失: $BackupSetPath"
+    }
+    $backupRoot = [System.IO.Path]::GetFullPath($BackupSetPath).TrimEnd('\', '/')
+    $relativePaths = @()
+    foreach ($file in @(Get-ChildItem -LiteralPath $BackupSetPath -File -Recurse -ErrorAction Stop)) {
+        $relativePath = $file.FullName.Substring($backupRoot.Length).TrimStart('\', '/')
+        if ($relativePath.StartsWith("_app\", [System.StringComparison]::OrdinalIgnoreCase)) {
+            continue
+        }
+        $relativePaths += $relativePath
+    }
+    return @($relativePaths | Sort-Object -Unique)
+}
+
+function Write-PatchMarker {
+    param(
+        [string]$ResourcesPath,
+        [hashtable]$Paths,
+        [string]$Lang,
+        [string]$Mode
+    )
+
+    if (-not $script:CurrentBackupSetPath) {
+        throw "无法写入 marker：本次安装没有备份集。"
+    }
+    $frontendBundleFiles = @(Get-PatchedFrontendBundleRelativePaths $ResourcesPath $Lang)
+    if ($frontendBundleFiles.Count -eq 0) {
+        throw "无法写入 marker：没有找到已注册中文且带显示名补丁的前端 bundle。"
+    }
+    $i18nDir = Get-FrontendI18nDirectory $ResourcesPath
+    $localeResourceFiles = @(
+        (Get-RelativeResourcePath $ResourcesPath (Join-Path $i18nDir "$Lang.json")),
+        (Get-RelativeResourcePath $ResourcesPath (Join-Path $i18nDir "statsig\$Lang.json")),
+        (Get-RelativeResourcePath $ResourcesPath (Join-Path $ResourcesPath "$Lang.json"))
+    )
+    $localeResourceLookup = @{}
+    foreach ($localeResourceFile in $localeResourceFiles) {
+        $localeResourceLookup[[string]$localeResourceFile] = $true
+    }
+    $modifiedResourceFiles = @(Get-BackedUpResourceRelativePaths $script:CurrentBackupSetPath |
+        Where-Object { -not $localeResourceLookup.ContainsKey([string]$_) })
+    if ($modifiedResourceFiles.Count -eq 0) {
+        throw "无法写入 marker：备份集中没有任何被修改的资源。"
+    }
+    $marker = [ordered]@{
+        schemaVersion = 2
+        patchVersion = Get-PatchReleaseVersion
+        installedAt = [DateTimeOffset]::UtcNow.ToString("o")
+        language = $Lang
+        mode = $Mode
+        backupSet = Split-Path -Leaf $script:CurrentBackupSetPath
+        createdFiles = @($script:InstallTransactionCreatedFiles)
+        frontendBundleFiles = $frontendBundleFiles
+        frontendBundleFingerprints = @(Get-RelativeFileFingerprints $ResourcesPath $frontendBundleFiles)
+        localeResourceFingerprints = @(Get-RelativeFileFingerprints $ResourcesPath $localeResourceFiles)
+        modifiedResourceFingerprints = @(Get-RelativeFileFingerprints $ResourcesPath $modifiedResourceFiles)
+        appIdentity = Get-ClaudeAppIdentity $Paths
+        patchedFingerprint = Get-WindowsMaintenanceFingerprint $Paths
+    }
+    $path = Get-PatchMarkerPath $ResourcesPath
+    $temporaryPath = "$path.tmp-$PID"
+    try {
+        Save-JsonNoBom $temporaryPath $marker 20
+        Move-Item -LiteralPath $temporaryPath -Destination $path -Force
+    }
+    finally {
+        Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
+    }
+    Write-Host "  wrote patch marker: $path" -ForegroundColor DarkGray
+}
+
 function New-BackupSet {
     param([string]$ResourcesPath)
 
@@ -466,15 +932,6 @@ function New-BackupSet {
     }
 
     $root = Get-BackupRoot $ResourcesPath
-    $existing = Get-ChildItem $root -Directory -ErrorAction SilentlyContinue |
-        Sort-Object Name |
-        Select-Object -First 1
-    if ($existing) {
-        $script:CurrentBackupSetPath = $existing.FullName
-        Write-Host "  backup set already exists, reusing oldest: $($existing.FullName)" -ForegroundColor DarkGray
-        return $script:CurrentBackupSetPath
-    }
-
     $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
     $path = Join-Path $root $stamp
     $suffix = 0
@@ -487,6 +944,32 @@ function New-BackupSet {
     $script:CurrentBackupSetPath = $path
     Write-Host "  backup set: $path" -ForegroundColor DarkGray
     return $path
+}
+
+function Register-InstallCreatedFile {
+    param(
+        [string]$ResourcesPath,
+        [string]$FilePath
+    )
+
+    $relative = Get-RelativeResourcePath $ResourcesPath $FilePath
+    if (-not $script:InstallTransactionCreatedFiles.Contains($relative)) {
+        $script:InstallTransactionCreatedFiles.Add($relative)
+    }
+}
+
+function Prepare-ManagedResourceFile {
+    param(
+        [string]$ResourcesPath,
+        [string]$FilePath
+    )
+
+    if (Test-Path -LiteralPath $FilePath) {
+        Backup-ModifiedFile $ResourcesPath $FilePath
+    }
+    else {
+        Register-InstallCreatedFile $ResourcesPath $FilePath
+    }
 }
 
 function Get-RelativeResourcePath {
@@ -557,26 +1040,32 @@ function Backup-AppFile {
     Write-Host "  backed up: app\$relative" -ForegroundColor DarkGray
 }
 
-function Restore-LatestBackup {
-    param([string]$ResourcesPath)
+function Resolve-MarkerBackupSetPath {
+    param(
+        [string]$ResourcesPath,
+        [object]$Marker
+    )
 
-    $root = Get-BackupRoot $ResourcesPath
-    if (-not (Test-Path $root)) {
-        Write-Host "  no zh-CN backup found; skipping bundle restore" -ForegroundColor DarkYellow
-        return
+    $name = ([string]$Marker.backupSet).Trim()
+    if (-not $name -or [System.IO.Path]::GetFileName($name) -ne $name) {
+        throw "marker 中的备份集名称无效。"
+    }
+    return Join-Path (Get-BackupRoot $ResourcesPath) $name
+}
+
+function Restore-BackupSet {
+    param(
+        [string]$ResourcesPath,
+        [string]$BackupSetPath
+    )
+
+    if (-not (Test-Path -LiteralPath $BackupSetPath -PathType Container)) {
+        throw "marker 指向的备份集不存在: $BackupSetPath"
     }
 
-    $backup = Get-ChildItem $root -Directory -ErrorAction SilentlyContinue |
-        Sort-Object Name |
-        Select-Object -First 1
-    if (-not $backup) {
-        Write-Host "  no zh-CN backup found; skipping bundle restore" -ForegroundColor DarkYellow
-        return
-    }
-
-    Write-Host "  restoring oldest backup set: $($backup.FullName)" -ForegroundColor DarkGray
-    $backupRoot = $backup.FullName.TrimEnd('\', '/')
-    $files = @(Get-ChildItem $backup.FullName -File -Recurse -ErrorAction SilentlyContinue)
+    Write-Host "  restoring marker backup set: $BackupSetPath" -ForegroundColor DarkGray
+    $backupRoot = [System.IO.Path]::GetFullPath($BackupSetPath).TrimEnd('\', '/')
+    $files = @(Get-ChildItem -LiteralPath $BackupSetPath -File -Recurse -ErrorAction Stop)
     foreach ($file in $files) {
         $relative = $file.FullName.Substring($backupRoot.Length).TrimStart('\', '/')
         if ($relative.StartsWith("_app\", [System.StringComparison]::OrdinalIgnoreCase)) {
@@ -591,6 +1080,117 @@ function Restore-LatestBackup {
         Copy-Item $file.FullName $target -Force
         Write-Host "  restored: $relative" -ForegroundColor Green
     }
+    return $true
+}
+
+function Remove-CreatedResourceFiles {
+    param(
+        [string]$ResourcesPath,
+        [object[]]$RelativePaths
+    )
+
+    $resourceRoot = [System.IO.Path]::GetFullPath($ResourcesPath).TrimEnd('\', '/')
+    foreach ($relativeValue in @($RelativePaths)) {
+        $relative = [string]$relativeValue
+        if (-not $relative) {
+            continue
+        }
+        $target = [System.IO.Path]::GetFullPath((Join-Path $ResourcesPath $relative))
+        if (-not $target.StartsWith($resourceRoot + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {
+            Write-Host "  [警告] 跳过 marker 中越界的新增文件路径: $relative" -ForegroundColor DarkYellow
+            continue
+        }
+        if (Test-Path -LiteralPath $target) {
+            Remove-Item -LiteralPath $target -Force -ErrorAction Stop
+            Write-Host "  removed patch-created file: $relative" -ForegroundColor Green
+        }
+    }
+}
+
+function Remove-BackupSetAfterRestore {
+    param(
+        [string]$ResourcesPath,
+        [string]$BackupSetPath
+    )
+
+    if (Test-Path -LiteralPath $BackupSetPath) {
+        Remove-Item -LiteralPath $BackupSetPath -Recurse -Force
+    }
+    $root = Get-BackupRoot $ResourcesPath
+    if ((Test-Path -LiteralPath $root) -and -not (Get-ChildItem -LiteralPath $root -Force -ErrorAction SilentlyContinue | Select-Object -First 1)) {
+        Remove-Item -LiteralPath $root -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Start-InstallTransaction {
+    param([string]$ResourcesPath)
+
+    $pendingPath = Get-WindowsPendingRestorePath $ResourcesPath
+    if (Test-Path -LiteralPath $pendingPath -PathType Leaf) {
+        throw "发现未完成的精确备份恢复状态，拒绝新建安装事务。请先完成卸载/维护续作: $pendingPath"
+    }
+    $markerPath = Get-PatchMarkerPath $ResourcesPath
+    if (Test-Path -LiteralPath $markerPath) {
+        throw "安装前仍存在 patch marker，拒绝创建可能跨版本的备份。"
+    }
+    $orphanedRoot = Get-BackupRoot $ResourcesPath
+    if (Test-Path -LiteralPath $orphanedRoot) {
+        $orphanedItem = Get-ChildItem -LiteralPath $orphanedRoot -Force -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($orphanedItem) {
+            throw "发现没有 marker 的未决备份，可能来自一次未完整回滚；为避免删除唯一恢复源，已停止安装: $orphanedRoot"
+        }
+        Remove-Item -LiteralPath $orphanedRoot -Force -ErrorAction SilentlyContinue
+    }
+
+    $script:CurrentBackupSetPath = $null
+    $script:InstallTransactionCreatedFiles = [System.Collections.Generic.List[string]]::new()
+    $script:InstallTransactionResourcesPath = $ResourcesPath
+    $script:InstallTransactionActive = $true
+    $script:LastInstallRollbackSucceeded = $false
+    [void](New-BackupSet $ResourcesPath)
+}
+
+function Complete-InstallTransaction {
+    $script:InstallTransactionActive = $false
+    $script:InstallTransactionResourcesPath = $null
+    $script:LastInstallRollbackSucceeded = $true
+}
+
+function Rollback-InstallTransaction {
+    param([string]$ResourcesPath)
+
+    if (-not $script:InstallTransactionActive) {
+        $script:LastInstallRollbackSucceeded = $true
+        return $true
+    }
+    Write-Host "  正在自动回滚本次安装..." -ForegroundColor Yellow
+    $rollbackSucceeded = $false
+    try {
+        if (-not $script:CurrentBackupSetPath -or -not (Test-Path -LiteralPath $script:CurrentBackupSetPath -PathType Container)) {
+            throw "本次事务的备份集已丢失，无法确认回滚完成。"
+        }
+        [void](Restore-BackupSet $ResourcesPath $script:CurrentBackupSetPath)
+        Remove-CreatedResourceFiles $ResourcesPath @($script:InstallTransactionCreatedFiles)
+        Remove-Item -LiteralPath (Get-PatchMarkerPath $ResourcesPath) -Force -ErrorAction SilentlyContinue
+        if ($script:CurrentBackupSetPath) {
+            Remove-BackupSetAfterRestore $ResourcesPath $script:CurrentBackupSetPath
+        }
+        $rollbackSucceeded = $true
+        Write-Host "  本次文件改动已回滚。" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "  [警告] 自动回滚未完全成功: $($_.Exception.Message)" -ForegroundColor Red
+    }
+    finally {
+        $script:InstallTransactionActive = $false
+        $script:InstallTransactionResourcesPath = $null
+        if ($rollbackSucceeded) {
+            $script:CurrentBackupSetPath = $null
+        }
+        $script:InstallTransactionCreatedFiles = [System.Collections.Generic.List[string]]::new()
+        $script:LastInstallRollbackSucceeded = $rollbackSucceeded
+    }
+    return $rollbackSucceeded
 }
 
 function Get-LanguageResources {
@@ -616,15 +1216,21 @@ function Get-LanguageResources {
 function Enable-WriteAccess {
     param([string]$ResourcesPath)
 
+    $i18nDir = Get-FrontendI18nDirectory $ResourcesPath
     $paths = @(
         (Get-ClaudeAppPathFromResources $ResourcesPath),
         $ResourcesPath,
         (Join-Path $ResourcesPath "ion-dist"),
-        (Join-Path $ResourcesPath "ion-dist\i18n"),
-        (Join-Path $ResourcesPath "ion-dist\i18n\statsig"),
-        (Join-Path $ResourcesPath "ion-dist\assets"),
-        (Join-Path $ResourcesPath "ion-dist\assets\v1")
+        $i18nDir,
+        (Join-Path $i18nDir "statsig"),
+        (Join-Path $ResourcesPath "ion-dist\assets")
     )
+
+    $assetsRoot = Join-Path $ResourcesPath "ion-dist\assets"
+    if (Test-Path -LiteralPath $assetsRoot -PathType Container) {
+        $paths += @(Get-ChildItem -LiteralPath $assetsRoot -Directory -Recurse -ErrorAction SilentlyContinue |
+            ForEach-Object { $_.FullName })
+    }
 
     foreach ($path in $paths) {
         Grant-WriteAccess $path
@@ -638,19 +1244,48 @@ function Install-LanguageFiles {
         [string]$Lang
     )
 
-    $i18nDir = Join-Path $ResourcesPath "ion-dist\i18n"
+    $i18nDir = Get-FrontendI18nDirectory $ResourcesPath
     $statsigDir = Join-Path $i18nDir "statsig"
     New-Item -ItemType Directory -Path $i18nDir -Force | Out-Null
     New-Item -ItemType Directory -Path $statsigDir -Force | Out-Null
 
-    Copy-Item $Pack["Frontend"] (Join-Path $i18nDir "$Lang.json") -Force
-    Write-Host "  installed ion-dist/i18n/$Lang.json" -ForegroundColor Green
+    $englishPath = Join-Path $i18nDir "en-US.json"
+    Require-File $englishPath
+    $english = Get-Content -LiteralPath $englishPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    $translations = Get-Content -LiteralPath $Pack["Frontend"] -Raw -Encoding UTF8 | ConvertFrom-Json
+    if (-not $english -or -not $translations) {
+        throw "Unsupported frontend i18n JSON shape."
+    }
 
-    Copy-Item $Pack["Desktop"] (Join-Path $ResourcesPath "$Lang.json") -Force
+    $merged = [ordered]@{}
+    $translatedCount = 0
+    $fallbackCount = 0
+    foreach ($property in $english.PSObject.Properties) {
+        $translationProperty = $translations.PSObject.Properties[$property.Name]
+        if ($null -ne $translationProperty) {
+            $merged[$property.Name] = $translationProperty.Value
+            $translatedCount += 1
+        }
+        else {
+            $merged[$property.Name] = $property.Value
+            $fallbackCount += 1
+        }
+    }
+
+    $frontendTarget = Join-Path $i18nDir "$Lang.json"
+    Prepare-ManagedResourceFile $ResourcesPath $frontendTarget
+    Save-JsonNoBom $frontendTarget $merged 100
+    Write-Host "  installed frontend locale $Lang.json ($translatedCount translated, $fallbackCount English fallback): $i18nDir" -ForegroundColor Green
+
+    $desktopTarget = Join-Path $ResourcesPath "$Lang.json"
+    Prepare-ManagedResourceFile $ResourcesPath $desktopTarget
+    Copy-Item -LiteralPath $Pack["Desktop"] -Destination $desktopTarget -Force
     Write-Host "  installed resources/$Lang.json" -ForegroundColor Green
 
-    Copy-Item $Pack["Statsig"] (Join-Path $statsigDir "$Lang.json") -Force
-    Write-Host "  installed ion-dist/i18n/statsig/$Lang.json" -ForegroundColor Green
+    $statsigTarget = Join-Path $statsigDir "$Lang.json"
+    Prepare-ManagedResourceFile $ResourcesPath $statsigTarget
+    Copy-Item -LiteralPath $Pack["Statsig"] -Destination $statsigTarget -Force
+    Write-Host "  installed statsig locale $Lang.json" -ForegroundColor Green
 }
 
 function Align-4 {
@@ -962,8 +1597,22 @@ function Replace-AsarFileContent {
     $entry.size = $PatchedContent.Length
     $entry.integrity = Get-AsarFileIntegrity $PatchedContent
     if ($delta -ne 0) {
-        foreach ($other in Get-AsarFileEntries $header) {
-            if ((-not [object]::ReferenceEquals($other, $entry)) -and ([int64]$other.offset -gt $targetOffset)) {
+        $orderedEntries = @(Get-AsarFileEntries $header)
+        $targetIndex = -1
+        for ($index = 0; $index -lt $orderedEntries.Count; $index++) {
+            if ([object]::ReferenceEquals($orderedEntries[$index], $entry)) {
+                $targetIndex = $index
+                break
+            }
+        }
+        if ($targetIndex -lt 0) {
+            throw "Internal patch error: lost ASAR entry for $FilePath."
+        }
+        for ($index = $targetIndex + 1; $index -lt $orderedEntries.Count; $index++) {
+            $other = $orderedEntries[$index]
+            if ([int64]$other.offset -ge $targetOffset) {
+                # Empty ASAR entries can share the following file's offset;
+                # header order determines which later entries must move.
                 Set-AsarEntryOffset $other ([int64]$other.offset + $delta)
             }
         }
@@ -1155,52 +1804,45 @@ function Register-Language {
         [string]$Lang
     )
 
-    $assetsDir = Join-Path $ResourcesPath "ion-dist\assets\v1"
-    $jsFiles = @(Get-ChildItem (Join-Path $assetsDir "*.js") -ErrorAction SilentlyContinue)
-    if ($jsFiles.Count -eq 0) {
-        throw "未找到前端 JS bundle: $assetsDir"
-    }
-
-    $regex = [System.Text.RegularExpressions.Regex]::new($LanguageListPattern)
-    $replacement = "$BaseLanguageList,`"$Lang`"]"
+    $jsFiles = @(Get-FrontendJavaScriptFiles $ResourcesPath)
     $changed = 0
     $already = 0
+    $candidates = 0
     foreach ($file in $jsFiles) {
         $text = [System.IO.File]::ReadAllText($file.FullName, [System.Text.Encoding]::UTF8)
-        if ($text.Contains($replacement)) {
-            Write-Host "  $Lang already registered: $($file.Name)" -ForegroundColor Green
-            $already += 1
-            continue
-        }
-
-        if ($regex.IsMatch($text)) {
-            $updated = $regex.Replace($text, $replacement, 1)
+        $result = Update-LanguageArraysInText $text $Lang
+        $candidates += [int]$result["CandidateCount"]
+        $already += [int]$result["AlreadyCount"]
+        if ([int]$result["ChangedCount"] -gt 0) {
             Backup-ModifiedFile $ResourcesPath $file.FullName
-            [System.IO.File]::WriteAllText($file.FullName, $updated, $Utf8NoBom)
+            [System.IO.File]::WriteAllText($file.FullName, [string]$result["Text"], $Utf8NoBom)
             Write-Host "  patched language whitelist for ${Lang}: $($file.Name)" -ForegroundColor Green
-            $changed += 1
+            $changed += [int]$result["ChangedCount"]
         }
     }
 
-    if (($changed + $already) -eq 0) {
+    if ($candidates -eq 0) {
         throw "未能注册中文语言，Claude 前端 bundle 格式可能已经变化。"
+    }
+    if ($changed -eq 0 -and $already -gt 0) {
+        Write-Host "  $Lang already registered in upstream language list" -ForegroundColor Green
     }
 }
 
 function Patch-LanguageDisplayNames {
     param([string]$ResourcesPath)
 
-    $assetsDir = Join-Path $ResourcesPath "ion-dist\assets\v1"
-    $jsFiles = @(Get-ChildItem (Join-Path $assetsDir "*.js") -ErrorAction SilentlyContinue)
-    if ($jsFiles.Count -eq 0) {
-        throw "未找到前端 JS bundle: $assetsDir"
-    }
+    $jsFiles = @(Get-FrontendJavaScriptFiles $ResourcesPath)
 
     $marker = "__claudeZhLabelPatch"
     $patch = ';(()=>{const e=Intl.DisplayNames&&Intl.DisplayNames.prototype;if(!e||e.__claudeZhLabelPatch)return;const n=e.of;e.of=function(e){const t=String(e);return t==="zh-CN"?"简体中文":t==="zh-HK"?"繁体中文（中国香港）":t==="zh-TW"?"繁体中文（中国台湾）":n.call(this,e)},Object.defineProperty(e,"__claudeZhLabelPatch",{value:!0})})();'
     $patchedFiles = 0
     foreach ($file in $jsFiles) {
         $text = [System.IO.File]::ReadAllText($file.FullName, [System.Text.Encoding]::UTF8)
+        $languageArrays = Update-LanguageArraysInText $text $LanguageCode
+        if ([int]$languageArrays["CandidateCount"] -eq 0) {
+            continue
+        }
         if ($text.Contains($marker)) {
             Write-Host "  language display names already patched: $($file.Name)" -ForegroundColor Green
             continue
@@ -1220,15 +1862,16 @@ function Patch-LanguageDisplayNames {
 function Unregister-Language {
     param([string]$ResourcesPath)
 
-    $assetsDir = Join-Path $ResourcesPath "ion-dist\assets\v1"
-    $jsFiles = @(Get-ChildItem (Join-Path $assetsDir "*.js") -ErrorAction SilentlyContinue)
+    $jsFiles = @(Get-FrontendJavaScriptFiles $ResourcesPath)
     foreach ($file in $jsFiles) {
         $text = [System.IO.File]::ReadAllText($file.FullName, [System.Text.Encoding]::UTF8)
         $updated = $text
         $changed = $false
-        foreach ($lang in @(',"zh-CN"', ',"zh-TW"', ',"zh-HK"')) {
-            if ($updated.Contains($lang)) {
-                $updated = $updated.Replace($lang, '')
+        foreach ($lang in @("zh-CN", "zh-TW", "zh-HK")) {
+            $pattern = '(?<separator>\s*,\s*)["'']' + [System.Text.RegularExpressions.Regex]::Escape($lang) + '["'']'
+            $next = [System.Text.RegularExpressions.Regex]::Replace($updated, $pattern, '')
+            if ($next -ne $updated) {
+                $updated = $next
                 $changed = $true
             }
         }
@@ -1377,7 +2020,7 @@ function Get-OnlineTranslationMap {
         [string]$Language
     )
 
-    $enPath = Join-Path $ResourcesPath "ion-dist\i18n\en-US.json"
+    $enPath = Join-Path (Get-FrontendI18nDirectory $ResourcesPath) "en-US.json"
     Require-File $enPath
     Require-File $Pack["Frontend"]
 
@@ -1806,11 +2449,7 @@ function Patch-HardcodedFrontendStrings {
         [string]$Language
     )
 
-    $assetsDir = Join-Path $ResourcesPath "ion-dist\assets\v1"
-    $jsFiles = @(Get-ChildItem (Join-Path $assetsDir "*.js") -ErrorAction SilentlyContinue)
-    if ($jsFiles.Count -eq 0) {
-        throw "未找到前端 JS bundle: $assetsDir"
-    }
+    $jsFiles = @(Get-FrontendJavaScriptFiles $ResourcesPath)
 
     $replacements = @(Get-FrontendHardcodedReplacements $Language)
     $patchedFiles = 0
@@ -2536,11 +3175,6 @@ function Patch-ModelPickerStrings {
 function Set-ClaudeLocale {
     param([string]$Locale)
 
-    if (-not $env:LOCALAPPDATA) {
-        Write-Host "  [警告] LOCALAPPDATA 未设置，跳过用户配置。" -ForegroundColor DarkYellow
-        return
-    }
-
     $configPaths = Get-ClaudeConfigPaths
     if ($configPaths.Count -eq 0) {
         Write-Host "  [警告] 未找到 Claude 用户配置目录，跳过用户配置。" -ForegroundColor DarkYellow
@@ -2799,6 +3433,733 @@ function Set-ClaudeAutoUpdates {
         Write-Host "允许更新成功" -ForegroundColor Green
     } else {
         Write-Host "禁止更新成功" -ForegroundColor Green
+    }
+}
+
+function Get-WindowsMaintenanceRoot {
+    $programData = [Environment]::GetFolderPath('CommonApplicationData')
+    if (-not $programData) {
+        throw "无法定位 ProgramData，不能安装自动维护任务。"
+    }
+    return Join-Path $programData "ClaudeDesktopZhCn"
+}
+
+function Get-WindowsMaintenanceTaskName {
+    return "ClaudeDesktopZhCnMaintain"
+}
+
+function Test-PathIsReparsePoint {
+    param([string]$Path)
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return $false
+    }
+    $item = Get-Item -LiteralPath $Path -Force
+    return (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0)
+}
+
+function Set-WindowsMaintenanceAcl {
+    param([string]$Root)
+
+    if (Test-PathIsReparsePoint $Root) {
+        throw "拒绝使用 reparse point 作为维护目录: $Root"
+    }
+    $acl = [System.Security.AccessControl.DirectorySecurity]::new()
+    $acl.SetAccessRuleProtection($true, $false)
+    $inheritance = [System.Security.AccessControl.InheritanceFlags]::ContainerInherit -bor
+        [System.Security.AccessControl.InheritanceFlags]::ObjectInherit
+    $propagation = [System.Security.AccessControl.PropagationFlags]::None
+    $allow = [System.Security.AccessControl.AccessControlType]::Allow
+    foreach ($sidValue in @("S-1-5-18", "S-1-5-32-544")) {
+        $sid = [System.Security.Principal.SecurityIdentifier]::new($sidValue)
+        $rule = [System.Security.AccessControl.FileSystemAccessRule]::new(
+            $sid,
+            [System.Security.AccessControl.FileSystemRights]::FullControl,
+            $inheritance,
+            $propagation,
+            $allow
+        )
+        [void]$acl.AddAccessRule($rule)
+    }
+    Set-Acl -LiteralPath $Root -AclObject $acl
+}
+
+function Disable-WindowsMaintenanceTask {
+    try {
+        $taskName = Get-WindowsMaintenanceTaskName
+        $task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+        if ($task) {
+            Disable-ScheduledTask -TaskName $taskName -ErrorAction Stop | Out-Null
+        }
+    }
+    catch {
+        Write-Host "  [警告] 无法禁用自动维护任务: $($_.Exception.Message)" -ForegroundColor DarkYellow
+    }
+}
+
+function Test-WindowsMaintenanceTaskEnabled {
+    try {
+        $task = Get-ScheduledTask -TaskName (Get-WindowsMaintenanceTaskName) -ErrorAction SilentlyContinue
+        return [bool]($task -and [string]$task.State -ne "Disabled")
+    }
+    catch {
+        return $false
+    }
+}
+
+function Enable-WindowsMaintenanceTask {
+    try {
+        $taskName = Get-WindowsMaintenanceTaskName
+        $task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+        if ($task) {
+            Enable-ScheduledTask -TaskName $taskName -ErrorAction Stop | Out-Null
+        }
+    }
+    catch {
+        Write-Host "  [警告] 无法重新启用原自动维护任务: $($_.Exception.Message)" -ForegroundColor DarkYellow
+    }
+}
+
+function Remove-WindowsMaintenanceTask {
+    try {
+        $taskName = Get-WindowsMaintenanceTaskName
+        $task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+        if ($task) {
+            Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction Stop
+            Write-Host "  removed maintenance task: $taskName" -ForegroundColor Green
+        }
+    }
+    catch {
+        Write-Host "  [警告] 无法删除自动维护任务: $($_.Exception.Message)" -ForegroundColor DarkYellow
+    }
+}
+
+function Install-WindowsMaintenanceTask {
+    param(
+        [string]$Language,
+        [string]$Mode
+    )
+
+    if ($script:IsMaintenanceRun) {
+        return
+    }
+
+    $root = Get-WindowsMaintenanceRoot
+    if ((Test-Path -LiteralPath $root) -and (Test-PathIsReparsePoint $root)) {
+        throw "拒绝覆盖 reparse point 维护目录: $root"
+    }
+    Disable-WindowsMaintenanceTask
+    if (Test-Path -LiteralPath $root) {
+        Remove-Item -LiteralPath $root -Recurse -Force
+    }
+    New-Item -ItemType Directory -Path $root -Force | Out-Null
+    Set-WindowsMaintenanceAcl $root
+
+    $payloadRoot = Join-Path $root "payload"
+    $payloadScripts = Join-Path $payloadRoot "scripts"
+    $payloadResources = Join-Path $payloadRoot "resources"
+    New-Item -ItemType Directory -Path $payloadScripts -Force | Out-Null
+    New-Item -ItemType Directory -Path $payloadResources -Force | Out-Null
+
+    $sourceScript = Join-Path $PSScriptRoot "install_windows.ps1"
+    $sourceProject = Split-Path -Parent (Split-Path -Parent $sourceScript)
+    $sourceResources = Join-Path $sourceProject "resources"
+    Require-File $sourceScript
+    if (-not (Test-Path -LiteralPath $sourceResources -PathType Container)) {
+        throw "缺少维护 payload resources: $sourceResources"
+    }
+    Copy-Item -LiteralPath $sourceScript -Destination (Join-Path $payloadScripts "install_windows.ps1") -Force
+    Copy-Item -Path (Join-Path $sourceResources "*") -Destination $payloadResources -Recurse -Force
+
+    $targetUserSid = if ($env:CLAUDE_ZH_ORIGINAL_USER_SID) {
+        [string]$env:CLAUDE_ZH_ORIGINAL_USER_SID
+    } else {
+        [string]([System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value)
+    }
+    $targetUserProfile = if ($env:CLAUDE_ZH_ORIGINAL_USER_PROFILE) { [string]$env:CLAUDE_ZH_ORIGINAL_USER_PROFILE } else { [string]$env:USERPROFILE }
+    $targetAppData = if ($env:CLAUDE_ZH_ORIGINAL_APPDATA) { [string]$env:CLAUDE_ZH_ORIGINAL_APPDATA } else { [string]$env:APPDATA }
+    $targetLocalAppData = if ($env:CLAUDE_ZH_ORIGINAL_LOCALAPPDATA) { [string]$env:CLAUDE_ZH_ORIGINAL_LOCALAPPDATA } else { [string]$env:LOCALAPPDATA }
+    $config = [ordered]@{
+        schemaVersion = 1
+        language = $Language
+        patchMode = $Mode
+        originalUserSid = $targetUserSid
+        originalUserProfile = $targetUserProfile
+        originalAppData = $targetAppData
+        originalLocalAppData = $targetLocalAppData
+        installedAt = [DateTimeOffset]::UtcNow.ToString("o")
+    }
+    Save-JsonNoBom (Join-Path $root "config.json") $config 10
+    Set-WindowsMaintenanceAcl $root
+
+    $powershellExe = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
+    Require-File $powershellExe
+    $payloadScript = Join-Path $payloadScripts "install_windows.ps1"
+    $arguments = "-NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$payloadScript`" -Action maintain"
+    $action = New-ScheduledTaskAction -Execute $powershellExe -Argument $arguments
+    $startupTrigger = New-ScheduledTaskTrigger -AtStartup
+    $repeatTrigger = New-ScheduledTaskTrigger `
+        -Once `
+        -At (Get-Date).AddMinutes(10) `
+        -RepetitionInterval (New-TimeSpan -Minutes 15) `
+        -RepetitionDuration (New-TimeSpan -Days 3650)
+    $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+    $settings = New-ScheduledTaskSettingsSet `
+        -MultipleInstances IgnoreNew `
+        -StartWhenAvailable `
+        -ExecutionTimeLimit (New-TimeSpan -Minutes 15) `
+        -AllowStartIfOnBatteries `
+        -DontStopIfGoingOnBatteries
+    $task = New-ScheduledTask `
+        -Action $action `
+        -Trigger @($startupTrigger, $repeatTrigger) `
+        -Principal $principal `
+        -Settings $settings `
+        -Description "Reapply Claude Desktop Chinese resources after an official app update."
+    Register-ScheduledTask -TaskName (Get-WindowsMaintenanceTaskName) -InputObject $task -Force | Out-Null
+    Write-Host "  installed automatic maintenance task (ProgramData payload, SYSTEM/admin-only)" -ForegroundColor Green
+}
+
+function Get-WindowsMaintenanceCriticalPaths {
+    param([hashtable]$Paths)
+
+    $exePath = Get-ClaudeExePath ([string]$Paths["App"])
+    if (-not $exePath) {
+        throw "Claude.exe 尚未准备完成。"
+    }
+    $asarPath = Join-Path ([string]$Paths["Resources"]) "app.asar"
+    Require-File $exePath
+    Require-File $asarPath
+
+    $i18nDir = Get-FrontendI18nDirectory ([string]$Paths["Resources"])
+    $englishPath = Join-Path $i18nDir "en-US.json"
+    Require-File $englishPath
+    $javascriptFiles = @(Get-FrontendJavaScriptFiles ([string]$Paths["Resources"]))
+    if ($javascriptFiles.Count -eq 0) {
+        throw "前端 JavaScript bundle 尚未准备完成。"
+    }
+
+    $criticalPaths = @($exePath, $asarPath, $englishPath)
+    $criticalPaths += @($javascriptFiles | ForEach-Object { $_.FullName })
+    return @($criticalPaths | Where-Object { $_ } | Sort-Object -Unique)
+}
+
+function Test-WindowsMaintenanceReady {
+    param([hashtable]$Paths)
+
+    if (@(Get-ClaudeDesktopProcesses).Count -gt 0 -or @(Get-ClaudeCoworkProcesses).Count -gt 0) {
+        Write-Host "  Claude 正在运行，维护任务延后。" -ForegroundColor DarkYellow
+        return $false
+    }
+    try {
+        $criticalPaths = @(Get-WindowsMaintenanceCriticalPaths $Paths)
+    }
+    catch {
+        Write-Host "  Claude 更新资源尚未准备完成，维护任务延后: $($_.Exception.Message)" -ForegroundColor DarkYellow
+        return $false
+    }
+
+    $cutoff = (Get-Date).ToUniversalTime().AddSeconds(-$WindowsMaintenanceSettleSeconds)
+    foreach ($criticalPath in $criticalPaths) {
+        if (-not (Test-Path -LiteralPath $criticalPath -PathType Leaf)) {
+            Write-Host "  Claude 更新文件尚未出现，维护任务延后: $criticalPath" -ForegroundColor DarkYellow
+            return $false
+        }
+        $item = Get-Item -LiteralPath $criticalPath
+        if ($item.LastWriteTimeUtc -gt $cutoff -or $item.CreationTimeUtc -gt $cutoff) {
+            Write-Host "  Claude 更新文件仍可能写入中，维护任务延后: $criticalPath" -ForegroundColor DarkYellow
+            return $false
+        }
+    }
+    return $true
+}
+
+function Get-WindowsMaintenanceFingerprint {
+    param([hashtable]$Paths)
+
+    $discoveryError = ""
+    try {
+        $criticalPaths = @(Get-WindowsMaintenanceCriticalPaths $Paths)
+    }
+    catch {
+        $discoveryError = $_.Exception.Message
+        $criticalPaths = @(
+            (Get-ClaudeExePath ([string]$Paths["App"])),
+            (Join-Path ([string]$Paths["Resources"]) "app.asar")
+        )
+    }
+
+    $files = @()
+    $javascriptCount = 0
+    $javascriptTotalLength = [int64]0
+    $javascriptNewestWriteTicks = [int64]0
+    $javascriptNewestCreationTicks = [int64]0
+    foreach ($path in @($criticalPaths | Where-Object { $_ } | Sort-Object -Unique)) {
+        if ($path -and (Test-Path -LiteralPath $path -PathType Leaf)) {
+            $item = Get-Item -LiteralPath $path
+            if ($item.Extension -ieq ".js") {
+                $javascriptCount += 1
+                $javascriptTotalLength += [int64]$item.Length
+                $javascriptNewestWriteTicks = [Math]::Max($javascriptNewestWriteTicks, [int64]$item.LastWriteTimeUtc.Ticks)
+                $javascriptNewestCreationTicks = [Math]::Max($javascriptNewestCreationTicks, [int64]$item.CreationTimeUtc.Ticks)
+                continue
+            }
+            $files += [ordered]@{
+                path = [System.IO.Path]::GetFullPath($path)
+                length = [int64]$item.Length
+                lastWriteTimeUtcTicks = [int64]$item.LastWriteTimeUtc.Ticks
+                creationTimeUtcTicks = [int64]$item.CreationTimeUtc.Ticks
+                prefixSha256 = Get-FilePrefixSha256Hex $path
+            }
+        }
+    }
+    return [ordered]@{
+        appIdentity = Get-ClaudeAppIdentity $Paths
+        discoveryError = $discoveryError
+        files = $files
+        frontendJavaScript = [ordered]@{
+            count = $javascriptCount
+            totalLength = $javascriptTotalLength
+            newestWriteTimeUtcTicks = $javascriptNewestWriteTicks
+            newestCreationTimeUtcTicks = $javascriptNewestCreationTicks
+        }
+    }
+}
+
+function Test-PatchMarkerMatchesFingerprint {
+    param(
+        [object]$Marker,
+        [hashtable]$Paths
+    )
+
+    if (-not $Marker -or -not $Marker.patchedFingerprint) {
+        return $false
+    }
+    try {
+        $recordedFingerprint = $Marker.patchedFingerprint | ConvertTo-Json -Compress -Depth 30
+        $currentFingerprint = Get-WindowsMaintenanceFingerprint $Paths | ConvertTo-Json -Compress -Depth 30
+        if ($recordedFingerprint -ne $currentFingerprint) {
+            return $false
+        }
+        $bundleFiles = @($Marker.frontendBundleFiles)
+        $recordedBundles = @($Marker.frontendBundleFingerprints)
+        if ($bundleFiles.Count -eq 0 -or $recordedBundles.Count -eq 0) {
+            return $false
+        }
+        $currentBundles = @(Get-RelativeFileFingerprints ([string]$Paths["Resources"]) $bundleFiles)
+        $recordedBundleJson = $recordedBundles | ConvertTo-Json -Compress -Depth 10
+        $currentBundleJson = $currentBundles | ConvertTo-Json -Compress -Depth 10
+        if ($recordedBundleJson -ne $currentBundleJson) {
+            return $false
+        }
+        $recordedModified = @($Marker.modifiedResourceFingerprints)
+        if ($recordedModified.Count -eq 0) {
+            return $false
+        }
+        $modifiedFiles = @($recordedModified | ForEach-Object { [string]$_.path })
+        $currentModified = @(Get-RelativeFileFingerprints ([string]$Paths["Resources"]) $modifiedFiles)
+        $recordedModifiedJson = $recordedModified | ConvertTo-Json -Compress -Depth 10
+        $currentModifiedJson = $currentModified | ConvertTo-Json -Compress -Depth 10
+        return $recordedModifiedJson -eq $currentModifiedJson
+    }
+    catch {
+        return $false
+    }
+}
+
+function Test-WindowsPatchCurrent {
+    param(
+        [object]$Marker,
+        [hashtable]$Paths,
+        [string]$Language,
+        [string]$Mode
+    )
+
+    if (-not $Marker -or [int]$Marker.schemaVersion -ne 2) {
+        return $false
+    }
+    if ([string]$Marker.patchVersion -ne (Get-PatchReleaseVersion) -or
+        [string]$Marker.language -ne $Language -or
+        [string]$Marker.mode -ne $Mode -or
+        -not (Test-PatchMarkerMatchesIdentity $Marker $Paths) -or
+        -not (Test-PatchMarkerMatchesFingerprint $Marker $Paths)) {
+        return $false
+    }
+
+    try {
+        $resourcesPath = [string]$Paths["Resources"]
+        $backupSetPath = Resolve-MarkerBackupSetPath $resourcesPath $Marker
+        if (-not (Test-Path -LiteralPath $backupSetPath -PathType Container)) {
+            return $false
+        }
+        $frontendBundleFiles = @($Marker.frontendBundleFiles)
+        if ($frontendBundleFiles.Count -eq 0) {
+            return $false
+        }
+        $i18nDir = Get-FrontendI18nDirectory $resourcesPath
+        $requiredLocales = @(
+            (Join-Path $i18nDir "$Language.json"),
+            (Join-Path $i18nDir "statsig\$Language.json"),
+            (Join-Path $resourcesPath "$Language.json")
+        )
+        foreach ($localePath in $requiredLocales) {
+            if (-not (Test-Path -LiteralPath $localePath -PathType Leaf)) {
+                return $false
+            }
+            $locale = Get-Content -LiteralPath $localePath -Raw -Encoding UTF8 | ConvertFrom-Json
+            if (-not $locale -or $locale.PSObject.Properties.Count -eq 0) {
+                return $false
+            }
+        }
+        $recordedLocaleFingerprints = @($Marker.localeResourceFingerprints)
+        if ($recordedLocaleFingerprints.Count -ne $requiredLocales.Count) {
+            return $false
+        }
+        $recordedLocaleFiles = @($recordedLocaleFingerprints | ForEach-Object { [string]$_.path })
+        $currentLocaleFingerprints = @(Get-RelativeFileFingerprints $resourcesPath $recordedLocaleFiles)
+        $recordedLocaleJson = $recordedLocaleFingerprints | ConvertTo-Json -Compress -Depth 10
+        $currentLocaleJson = $currentLocaleFingerprints | ConvertTo-Json -Compress -Depth 10
+        if ($recordedLocaleJson -ne $currentLocaleJson) {
+            return $false
+        }
+
+        $registered = $false
+        $displayNamePatched = $false
+        $resourceRoot = [System.IO.Path]::GetFullPath($resourcesPath).TrimEnd('\', '/')
+        foreach ($relativeValue in $frontendBundleFiles) {
+            $relativePath = [string]$relativeValue
+            $bundlePath = [System.IO.Path]::GetFullPath((Join-Path $resourcesPath $relativePath))
+            if (-not $bundlePath.StartsWith($resourceRoot + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase) -or
+                -not (Test-Path -LiteralPath $bundlePath -PathType Leaf)) {
+                return $false
+            }
+            $text = [System.IO.File]::ReadAllText($bundlePath, [System.Text.Encoding]::UTF8)
+            $languageArrays = Update-LanguageArraysInText $text $Language
+            if ([int]$languageArrays["AlreadyCount"] -gt 0) {
+                $registered = $true
+                if ($text.Contains("__claudeZhLabelPatch")) {
+                    $displayNamePatched = $true
+                }
+            }
+        }
+        return ($registered -and $displayNamePatched)
+    }
+    catch {
+        return $false
+    }
+}
+
+function Read-WindowsPendingRestore {
+    param([string]$ResourcesPath)
+
+    $path = Get-WindowsPendingRestorePath $ResourcesPath
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+        return $null
+    }
+    try {
+        $pending = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json
+        if (-not $pending -or [int]$pending.schemaVersion -ne 1 -or -not $pending.marker) {
+            throw "pending restore 缺少 schemaVersion/marker"
+        }
+        if (-not ([string]$pending.resourcesPath).Trim()) {
+            throw "pending restore 缺少 resourcesPath"
+        }
+        if (-not ([string]$pending.marker.backupSet).Trim()) {
+            throw "pending restore marker 缺少 backupSet"
+        }
+        return $pending
+    }
+    catch {
+        Write-Host "  [警告] 待续作恢复状态无效，将忽略: $path ($($_.Exception.Message))" -ForegroundColor DarkYellow
+        return $null
+    }
+}
+
+function Write-WindowsPendingRestore {
+    param(
+        [string]$ResourcesPath,
+        [object]$Marker,
+        [hashtable]$Paths
+    )
+
+    if (-not $Marker -or -not ([string]$Marker.backupSet).Trim()) {
+        throw "无法写入待续作恢复状态：marker 缺少 backupSet。"
+    }
+    $backupSetPath = Resolve-MarkerBackupSetPath $ResourcesPath $Marker
+    if (-not (Test-Path -LiteralPath $backupSetPath -PathType Container)) {
+        throw "无法写入待续作恢复状态：备份集不存在: $backupSetPath"
+    }
+
+    $pending = [ordered]@{
+        schemaVersion = 1
+        createdAt = [DateTimeOffset]::UtcNow.ToString("o")
+        resourcesPath = [System.IO.Path]::GetFullPath($ResourcesPath)
+        appPath = [System.IO.Path]::GetFullPath([string]$Paths["App"])
+        marker = $Marker
+    }
+    $path = Get-WindowsPendingRestorePath $ResourcesPath
+    $temporaryPath = "$path.tmp-$PID"
+    try {
+        Save-JsonNoBom $temporaryPath $pending 30
+        Move-Item -LiteralPath $temporaryPath -Destination $path -Force
+    }
+    finally {
+        Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
+    }
+    Write-Host "  wrote resumable restore state: $path" -ForegroundColor DarkGray
+}
+
+function Clear-WindowsPendingRestore {
+    param([string]$ResourcesPath)
+
+    $path = Get-WindowsPendingRestorePath $ResourcesPath
+    if (Test-Path -LiteralPath $path -PathType Leaf) {
+        Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+        Write-Host "  cleared resumable restore state: $path" -ForegroundColor DarkGray
+    }
+}
+
+function Test-WindowsPendingRestoreMatchesCurrentApp {
+    param(
+        [object]$Pending,
+        [hashtable]$Paths
+    )
+
+    if (-not $Pending -or [int]$Pending.schemaVersion -ne 1 -or -not $Pending.marker) {
+        return $false
+    }
+    $resourcesPath = [System.IO.Path]::GetFullPath([string]$Paths["Resources"]).TrimEnd('\', '/')
+    $recordedResourcesPath = [System.IO.Path]::GetFullPath([string]$Pending.resourcesPath).TrimEnd('\', '/')
+    if (-not $resourcesPath.Equals($recordedResourcesPath, [System.StringComparison]::OrdinalIgnoreCase)) {
+        return $false
+    }
+    $current = Get-ClaudeAppIdentity $Paths
+    $recorded = $Pending.marker.appIdentity
+    if (-not $recorded) {
+        return $false
+    }
+    # Identity-only match: half-restored trees intentionally fail patched fingerprint checks.
+    foreach ($propertyName in @("appPath", "installKind", "fileVersion", "productVersion")) {
+        $expected = [string]$recorded.$propertyName
+        $actual = [string]$current.$propertyName
+        if ($propertyName -eq "appPath") {
+            if (-not $expected -or -not $actual.Equals($expected, [System.StringComparison]::OrdinalIgnoreCase)) {
+                return $false
+            }
+        }
+        elseif ($expected -and $actual -and $expected -ne $actual) {
+            return $false
+        }
+    }
+    try {
+        $backupSetPath = Resolve-MarkerBackupSetPath $resourcesPath $Pending.marker
+        return Test-Path -LiteralPath $backupSetPath -PathType Container
+    }
+    catch {
+        return $false
+    }
+}
+
+function Invoke-WindowsPendingRestore {
+    param(
+        [object]$Pending,
+        [hashtable]$Paths
+    )
+
+    if (-not (Test-WindowsPendingRestoreMatchesCurrentApp $Pending $Paths)) {
+        throw "待续作恢复状态与当前 Claude build 不匹配。"
+    }
+    $resourcesPath = [string]$Paths["Resources"]
+    $marker = $Pending.marker
+    $backupSetPath = Resolve-MarkerBackupSetPath $resourcesPath $marker
+    Write-Step "[恢复 1/3] 续作当前 build 的精确原版备份"
+    [void](Restore-BackupSet $resourcesPath $backupSetPath)
+
+    Write-Step "[恢复 2/3] 删除仅由补丁创建的资源"
+    Remove-CreatedResourceFiles $resourcesPath @($marker.createdFiles)
+
+    Write-Step "[恢复 3/3] 恢复用户语言配置"
+    try {
+        Set-ClaudeLocale "en-US"
+    }
+    catch {
+        Write-Host "  [警告] 原版文件已恢复，但无法自动写入 en-US 用户配置: $($_.Exception.Message)" -ForegroundColor DarkYellow
+    }
+
+    Remove-Item -LiteralPath (Get-PatchMarkerPath $resourcesPath) -Force -ErrorAction SilentlyContinue
+    Remove-BackupSetAfterRestore $resourcesPath $backupSetPath
+    Clear-WindowsPendingRestore $resourcesPath
+    $script:CurrentBackupSetPath = $null
+    Write-Host "  当前 build 的官方基线已完整恢复。" -ForegroundColor Green
+    return $true
+}
+
+function Invoke-WindowsMaintenanceLocked {
+    $root = Get-WindowsMaintenanceRoot
+    $configPath = Join-Path $root "config.json"
+    Require-File $configPath
+    $config = Get-Content -LiteralPath $configPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    $maintenanceLanguage = [string]$config.language
+    $maintenanceMode = [string]$config.patchMode
+    if ($maintenanceLanguage -notin @("zh-CN", "zh-TW", "zh-HK")) {
+        throw "维护配置中的语言无效。"
+    }
+    if ($maintenanceMode -notin @("safe", "official")) {
+        throw "维护配置中的补丁模式无效。"
+    }
+
+    $env:CLAUDE_ZH_ORIGINAL_USER_SID = [string]$config.originalUserSid
+    $env:CLAUDE_ZH_ORIGINAL_USER_PROFILE = [string]$config.originalUserProfile
+    $env:CLAUDE_ZH_ORIGINAL_APPDATA = [string]$config.originalAppData
+    $env:CLAUDE_ZH_ORIGINAL_LOCALAPPDATA = [string]$config.originalLocalAppData
+    $script:LanguageCode = $maintenanceLanguage
+    $script:PatchMode = $maintenanceMode
+    $script:IsMaintenanceRun = $true
+
+    $paths = Get-ClaudeResourcesPath
+    $resourcesPath = [string]$paths["Resources"]
+    $markerPath = Get-PatchMarkerPath $resourcesPath
+    $existingMarker = $null
+    if (Test-Path -LiteralPath $markerPath -PathType Leaf) {
+        $existingMarker = Read-PatchMarker $resourcesPath
+        if ($existingMarker -and (Test-WindowsPatchCurrent $existingMarker $paths $maintenanceLanguage $maintenanceMode)) {
+            # Fully healthy install: drop any stale resume state left behind by a previous crash.
+            Clear-WindowsPendingRestore $resourcesPath
+            Write-Host "  当前 Claude 版本的汉化状态已完整验证，维护任务无需操作。" -ForegroundColor Green
+            return
+        }
+    }
+    if (-not (Test-WindowsMaintenanceReady $paths)) {
+        return
+    }
+
+    # Resume an interrupted exact restore before any fingerprint-based decisions.
+    # A half-restored tree intentionally fails patched fingerprint checks and must
+    # not be treated as an official upstream update.
+    $pendingRestore = Read-WindowsPendingRestore $resourcesPath
+    if ($pendingRestore) {
+        if (Test-WindowsPendingRestoreMatchesCurrentApp $pendingRestore $paths) {
+            Write-Host "  检测到未完成的精确备份恢复；继续同一份备份，不会误判为官方新版。" -ForegroundColor DarkYellow
+            [void](Invoke-WindowsPendingRestore $pendingRestore $paths)
+            $existingMarker = $null
+        }
+        else {
+            Write-Host "  待续作恢复状态与当前 Claude build 不匹配（可能官方已更新）；丢弃旧恢复状态与旧备份。" -ForegroundColor DarkYellow
+            Clear-WindowsPendingRestore $resourcesPath
+            Remove-Item -LiteralPath $markerPath -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath (Get-BackupRoot $resourcesPath) -Recurse -Force -ErrorAction SilentlyContinue
+            $existingMarker = $null
+        }
+    }
+
+    if (Test-Path -LiteralPath $markerPath -PathType Leaf) {
+        if (-not $existingMarker) {
+            $existingMarker = Read-PatchMarker $resourcesPath
+        }
+        $exactPatchedBuild = $existingMarker -and
+            (Test-PatchMarkerMatchesIdentity $existingMarker $paths) -and
+            (Test-PatchMarkerMatchesFingerprint $existingMarker $paths)
+        if ($exactPatchedBuild) {
+            Write-Host "  当前 build 的部分汉化资源缺失；先从精确 marker 备份恢复官方基线，再完整重装。" -ForegroundColor DarkYellow
+            $restored = Uninstall-WindowsLanguagePack -ForReinstall
+            if (-not $restored) {
+                throw "无法从当前 build 的精确 marker 备份恢复，已停止自动修复。"
+            }
+        }
+        else {
+            Write-Host "  marker 的 build 或补丁指纹已变化；不会恢复旧文件，将以当前官方资源为新基线。" -ForegroundColor DarkYellow
+            Clear-WindowsPendingRestore $resourcesPath
+            Remove-Item -LiteralPath $markerPath -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath (Get-BackupRoot $resourcesPath) -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    $failurePath = Join-Path $root "failure.json"
+    $fingerprint = Get-WindowsMaintenanceFingerprint $paths
+    $fingerprintJson = $fingerprint | ConvertTo-Json -Compress -Depth 20
+    if (Test-Path -LiteralPath $failurePath -PathType Leaf) {
+        try {
+            $previousFailure = Get-Content -LiteralPath $failurePath -Raw -Encoding UTF8 | ConvertFrom-Json
+            $previousFingerprintJson = $previousFailure.fingerprint | ConvertTo-Json -Compress -Depth 20
+            $samePatchVersion = [string]$previousFailure.patchVersion -eq (Get-PatchReleaseVersion)
+            if ($samePatchVersion -and $previousFingerprintJson -eq $fingerprintJson) {
+                $failedAt = [DateTimeOffset]::Parse([string]$previousFailure.failedAt).ToUniversalTime()
+                $retryAt = $failedAt.AddSeconds($WindowsMaintenanceFailureRetrySeconds)
+                if ([DateTimeOffset]::UtcNow -lt $retryAt) {
+                    Write-Host "  此 Claude build 最近已安全回滚；六小时退避期内不重复尝试。" -ForegroundColor DarkYellow
+                    return
+                }
+            }
+        }
+        catch {
+            Remove-Item -LiteralPath $failurePath -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    try {
+        $requestedMode = $script:PatchMode
+        $maintenanceInstalled = Install-WindowsLanguagePackWithFallback
+        if (-not $maintenanceInstalled) {
+            return
+        }
+        if ($requestedMode -eq "official" -and $script:PatchMode -eq "safe") {
+            $config.patchMode = "safe"
+            Save-JsonNoBom $configPath $config 10
+            Write-Host "  后续自动维护已切换为基础模式。" -ForegroundColor DarkYellow
+        }
+        Remove-Item -LiteralPath $failurePath -Force -ErrorAction SilentlyContinue
+    }
+    catch {
+        $failedFingerprint = Get-WindowsMaintenanceFingerprint $paths
+        $failure = [ordered]@{
+            failedAt = [DateTimeOffset]::UtcNow.ToString("o")
+            patchVersion = Get-PatchReleaseVersion
+            message = $_.Exception.Message
+            fingerprint = $failedFingerprint
+        }
+        Save-JsonNoBom $failurePath $failure 20
+        throw
+    }
+}
+
+function Invoke-WindowsMaintenance {
+    $mutex = New-Object System.Threading.Mutex($false, "Global\ClaudeDesktopZhCn-Installer")
+    $mutexAcquired = $false
+    try {
+        try {
+            if (-not $mutex.WaitOne(0)) {
+                Write-Host "  另一个安装或维护进程正在运行，本次维护延后。" -ForegroundColor DarkYellow
+                return
+            }
+            $mutexAcquired = $true
+        }
+        catch [System.Threading.AbandonedMutexException] {
+            $mutexAcquired = $true
+        }
+        Invoke-WindowsMaintenanceLocked
+    }
+    finally {
+        if ($mutexAcquired) {
+            $mutex.ReleaseMutex()
+        }
+        $mutex.Dispose()
+    }
+}
+
+function Remove-WindowsMaintenancePayload {
+    try {
+        $root = Get-WindowsMaintenanceRoot
+        if (-not (Test-Path -LiteralPath $root)) {
+            return
+        }
+        if (Test-PathIsReparsePoint $root) {
+            Write-Host "  [警告] 维护目录是 reparse point，拒绝自动删除: $root" -ForegroundColor DarkYellow
+            return
+        }
+        Remove-Item -LiteralPath $root -Recurse -Force
+        Write-Host "  removed maintenance payload: $root" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "  [警告] 无法删除维护 payload: $($_.Exception.Message)" -ForegroundColor DarkYellow
     }
 }
 
@@ -3189,31 +4550,6 @@ function Unsync-CCSwitchSkills {
     }
 }
 
-function Remove-LanguageFiles {
-    param([string]$ResourcesPath)
-
-    $targets = @(
-        (Join-Path $ResourcesPath "ion-dist\i18n\zh-CN.json"),
-        (Join-Path $ResourcesPath "zh-CN.json"),
-        (Join-Path $ResourcesPath "ion-dist\i18n\statsig\zh-CN.json"),
-        (Join-Path $ResourcesPath "ion-dist\i18n\zh-TW.json"),
-        (Join-Path $ResourcesPath "zh-TW.json"),
-        (Join-Path $ResourcesPath "ion-dist\i18n\statsig\zh-TW.json"),
-        (Join-Path $ResourcesPath "ion-dist\i18n\zh-HK.json"),
-        (Join-Path $ResourcesPath "zh-HK.json"),
-        (Join-Path $ResourcesPath "ion-dist\i18n\statsig\zh-HK.json")
-    )
-
-    foreach ($target in $targets) {
-        Remove-Item $target -Force -ErrorAction SilentlyContinue
-        if (-not (Test-Path $target)) {
-            Write-Host "  removed: $target" -ForegroundColor Green
-        } else {
-            Write-Host "  [警告] 未能删除: $target" -ForegroundColor DarkYellow
-        }
-    }
-}
-
 function Test-ClaudeDesktopProcessPath {
     param([string]$Path)
 
@@ -3364,16 +4700,20 @@ function Restart-Claude {
 
 function Install-WindowsLanguagePack {
     $label = Get-LanguageLabel $LanguageCode
+    $script:LastInstallRollbackSucceeded = $true
 
     # 单实例互斥锁：防止多个安装进程并发写入 app.asar
     $mutex = New-Object System.Threading.Mutex($false, "Global\ClaudeDesktopZhCn-Installer")
+    $mutexAcquired = $false
+    $resourcesPath = $null
     try {
         if (-not $mutex.WaitOne(0)) {
-            Write-Host "  [错误] 另一个安装进程正在运行，请等待其完成后再试。" -ForegroundColor Red
-            return
+            throw "另一个安装进程正在运行，请等待其完成后再试。"
         }
+        $mutexAcquired = $true
     } catch [System.Threading.AbandonedMutexException] {
         # 上一个进程异常退出，锁已释放，继续执行
+        $mutexAcquired = $true
     }
 
     Write-Host "=== Claude Desktop Windows $label 补丁 ===" -ForegroundColor Cyan
@@ -3389,9 +4729,6 @@ function Install-WindowsLanguagePack {
         Write-Step "[2/8] 检查语言资源"
         $pack = Get-LanguageResources $LanguageCode
 
-        Write-Step "关闭 Claude Desktop"
-        Stop-ClaudeProcesses
-
         Write-Step "[3/8] 查找 Claude Desktop"
         $paths = Get-ClaudeResourcesPath
         $claudePath = $paths["App"]
@@ -3400,9 +4737,23 @@ function Install-WindowsLanguagePack {
         Write-Host "  app: $claudePath" -ForegroundColor Green
         Write-Host "  resources: $resourcesPath" -ForegroundColor Green
 
+        if ($script:IsMaintenanceRun) {
+            $staleMarkerPath = Get-PatchMarkerPath $resourcesPath
+            if (Test-Path -LiteralPath $staleMarkerPath -PathType Leaf) {
+                throw "维护预检后仍存在 patch marker，拒绝覆盖其备份状态。"
+            }
+        }
+        else {
+            Write-Step "关闭 Claude Desktop"
+            Stop-ClaudeProcesses
+        }
+
         Write-Step "[4/8] 准备写入权限"
         Enable-WriteAccess $resourcesPath
-        Remove-LegacyAppxForkArtifacts
+        if (-not $script:IsMaintenanceRun) {
+            Remove-LegacyAppxForkArtifacts
+        }
+        Start-InstallTransaction $resourcesPath
 
         Write-Step "[5/8] 写入 $label 资源"
         Install-LanguageFiles $resourcesPath $pack $LanguageCode
@@ -3427,22 +4778,40 @@ function Install-WindowsLanguagePack {
             Write-Host "  skipping Claude.exe asar integrity sync due to patch mode: $PatchMode" -ForegroundColor DarkYellow
         }
 
-        Write-Step "[8/8] 写入用户语言配置"
-        Set-ClaudeLocale $LanguageCode
+        Write-Step "[8/8] 验证并记录当前版本补丁状态"
+        Write-PatchMarker $resourcesPath $paths $LanguageCode $PatchMode
+        Complete-InstallTransaction
 
-        Write-Step "重启 Claude Desktop"
-        Restart-Claude $claudePath
+        try {
+            Set-ClaudeLocale $LanguageCode
+        }
+        catch {
+            Write-Host "  [警告] 汉化已安装，但无法自动写入用户语言配置: $($_.Exception.Message)" -ForegroundColor DarkYellow
+        }
 
-        Write-Step "启动 CoworkVMService"
-        Start-CoworkVMService
+        if (-not $script:IsMaintenanceRun) {
+            try {
+                Write-Step "重启 Claude Desktop"
+                Restart-Claude $claudePath
+
+                Write-Step "启动 CoworkVMService"
+                Start-CoworkVMService
+            }
+            catch {
+                Write-Host "  [警告] 汉化已提交，但 Claude/Cowork 自动重启失败，请手动启动: $($_.Exception.Message)" -ForegroundColor DarkYellow
+            }
+        }
 
         Write-Host ""
         Write-Host "安装完成。如果界面未立即切换，请在 Language 中选择 $label。" -ForegroundColor Green
+        return $true
     }
     catch {
         Write-Host ""
-        Write-Host "安装过程中出现错误，Claude Desktop 可能处于不完整状态。" -ForegroundColor Red
-        Write-Host "  建议运行卸载命令恢复原始状态：install-windows.bat → 选择卸载。" -ForegroundColor DarkYellow
+        if ($resourcesPath -and $script:InstallTransactionActive) {
+            [void](Rollback-InstallTransaction $resourcesPath)
+        }
+        Write-Host "安装过程中出现错误，本次已备份的文件已尝试自动回滚。" -ForegroundColor Red
         Write-Host "  详细日志: $script:InstallLogPath" -ForegroundColor DarkGray
         if ($script:DetectedMultipleClaudeInstalls) {
             Write-MultipleClaudeFailureHint
@@ -3450,44 +4819,134 @@ function Install-WindowsLanguagePack {
         throw
     }
     finally {
-        $mutex.ReleaseMutex()
+        if ($mutexAcquired) {
+            $mutex.ReleaseMutex()
+        }
         $mutex.Dispose()
     }
 }
 
 function Uninstall-WindowsLanguagePack {
+    param([switch]$ForReinstall)
+
     Write-Host "=== Claude Desktop Windows 中文补丁卸载 ===" -ForegroundColor Cyan
 
-    $oldSkipAsarPatch = $SkipAsarPatch
-    $SkipAsarPatch = $true
+    # Nested calls from maintenance already hold the same named mutex; skip re-acquire.
+    $ownsMutex = -not $script:IsMaintenanceRun
+    $mutex = $null
+    $mutexAcquired = $false
+    if ($ownsMutex) {
+        $mutex = New-Object System.Threading.Mutex($false, "Global\ClaudeDesktopZhCn-Installer")
+        try {
+            if (-not $mutex.WaitOne(0)) {
+                throw "另一个安装或维护进程正在运行，请等待其完成后再试。"
+            }
+            $mutexAcquired = $true
+        }
+        catch [System.Threading.AbandonedMutexException] {
+            $mutexAcquired = $true
+        }
+    }
+
     try {
-        $paths = Get-ClaudeResourcesPath
+        $oldSkipAsarPatch = $SkipAsarPatch
+        $SkipAsarPatch = $true
+        try {
+            $paths = Get-ClaudeResourcesPath
+        }
+        finally {
+            $SkipAsarPatch = $oldSkipAsarPatch
+        }
+        $resourcesPath = $paths["Resources"]
+        $markerPath = Get-PatchMarkerPath $resourcesPath
+
+        # Resume an interrupted exact restore first (identity-only; fingerprint may already be half-restored).
+        $pendingRestore = Read-WindowsPendingRestore $resourcesPath
+        if ($pendingRestore) {
+            if (Test-WindowsPendingRestoreMatchesCurrentApp $pendingRestore $paths) {
+                Write-Host "  检测到未完成的精确备份恢复，继续同一份备份..." -ForegroundColor DarkYellow
+                Write-Step "关闭 Claude Desktop"
+                Stop-ClaudeProcesses
+                if (-not $script:IsMaintenanceRun) {
+                    Remove-LegacyAppxForkArtifacts
+                }
+                [void](Invoke-WindowsPendingRestore $pendingRestore $paths)
+                Write-Host ""
+                Write-Host "卸载完成。请重启 Claude Desktop 使更改生效。" -ForegroundColor Green
+                return $true
+            }
+            Write-Host "  待续作恢复状态与当前 build 不匹配；丢弃过期状态。" -ForegroundColor DarkYellow
+            Clear-WindowsPendingRestore $resourcesPath
+        }
+
+        if (-not (Test-Path -LiteralPath $markerPath -PathType Leaf)) {
+            Write-Host "  当前 Claude 版本没有 patch marker；不会恢复任何旧备份。" -ForegroundColor DarkYellow
+            if (-not $ForReinstall) {
+                Set-ClaudeLocale "en-US"
+            }
+            return $false
+        }
+
+        $marker = Read-PatchMarker $resourcesPath
+        if (-not $marker) {
+            Write-Host "  marker 无效；为避免跨版本恢复，仅清理无效元数据。" -ForegroundColor DarkYellow
+            Remove-Item -LiteralPath $markerPath -Force -ErrorAction SilentlyContinue
+            Clear-WindowsPendingRestore $resourcesPath
+            $invalidBackupRoot = Get-BackupRoot $resourcesPath
+            Remove-Item -LiteralPath $invalidBackupRoot -Recurse -Force -ErrorAction SilentlyContinue
+            if (-not $ForReinstall) {
+                Set-ClaudeLocale "en-US"
+            }
+            return $false
+        }
+
+        if (-not (Test-PatchMarkerMatchesIdentity $marker $paths) -or -not (Test-PatchMarkerMatchesFingerprint $marker $paths)) {
+            Write-Host "  marker 对应的 build 或已打补丁文件指纹已变化；为避免降级，不会恢复其旧备份。" -ForegroundColor DarkYellow
+            $staleBackup = Resolve-MarkerBackupSetPath $resourcesPath $marker
+            Remove-Item -LiteralPath $markerPath -Force -ErrorAction SilentlyContinue
+            Clear-WindowsPendingRestore $resourcesPath
+            Remove-BackupSetAfterRestore $resourcesPath $staleBackup
+            if (-not $ForReinstall) {
+                Set-ClaudeLocale "en-US"
+            }
+            return $false
+        }
+
+        Write-Step "关闭 Claude Desktop"
+        Stop-ClaudeProcesses
+        if (-not $script:IsMaintenanceRun) {
+            Remove-LegacyAppxForkArtifacts
+        }
+
+        # Persist resume state before the first file write so a crash mid-restore is recoverable.
+        Write-WindowsPendingRestore $resourcesPath $marker $paths
+        $backupSetPath = Resolve-MarkerBackupSetPath $resourcesPath $marker
+        Write-Step "[1/3] 恢复本版本备份文件"
+        [void](Restore-BackupSet $resourcesPath $backupSetPath)
+
+        Write-Step "[2/3] 删除仅由本次补丁创建的资源"
+        Remove-CreatedResourceFiles $resourcesPath @($marker.createdFiles)
+
+        Write-Step "[3/3] 恢复用户语言配置"
+        Set-ClaudeLocale "en-US"
+
+        Remove-Item -LiteralPath $markerPath -Force -ErrorAction Stop
+        Remove-BackupSetAfterRestore $resourcesPath $backupSetPath
+        Clear-WindowsPendingRestore $resourcesPath
+        $script:CurrentBackupSetPath = $null
+
+        Write-Host ""
+        Write-Host "卸载完成。请重启 Claude Desktop 使更改生效。" -ForegroundColor Green
+        return $true
     }
     finally {
-        $SkipAsarPatch = $oldSkipAsarPatch
+        if ($mutexAcquired -and $mutex) {
+            $mutex.ReleaseMutex()
+        }
+        if ($mutex) {
+            $mutex.Dispose()
+        }
     }
-    $claudePath = $paths["App"]
-    $resourcesPath = $paths["Resources"]
-
-    Write-Step "关闭 Claude Desktop"
-    Stop-ClaudeProcesses
-    Remove-LegacyAppxForkArtifacts
-
-    Write-Step "[1/4] 恢复前端 bundle 和 app.asar"
-    Restore-LatestBackup $resourcesPath
-    Sync-ClaudeExeAsarIntegrity $resourcesPath
-
-    Write-Step "[2/4] 删除中文资源"
-    Remove-LanguageFiles $resourcesPath
-
-    Write-Step "[3/4] 移除 zh-CN 语言注册"
-    Unregister-Language $resourcesPath
-
-    Write-Step "[4/4] 恢复用户语言配置"
-    Set-ClaudeLocale "en-US"
-
-    Write-Host ""
-    Write-Host "卸载完成。请重启 Claude Desktop 使更改生效。" -ForegroundColor Green
 }
 
 function Invoke-PreInstallCleanup {
@@ -3508,19 +4967,46 @@ function Invoke-PreInstallCleanup {
     }
 
     $resourcesPath = $paths["Resources"]
-    $backupRoot = Get-BackupRoot $resourcesPath
-    $backup = $null
-    if (Test-Path $backupRoot) {
-        $backup = Get-ChildItem $backupRoot -Directory -ErrorAction SilentlyContinue |
-            Sort-Object Name |
-            Select-Object -First 1
-    }
-    if (-not $backup) {
-        Write-Host "  未找到旧中文补丁备份，跳过预卸载。" -ForegroundColor DarkYellow
+    $markerPath = Get-PatchMarkerPath $resourcesPath
+    if (-not (Test-Path -LiteralPath $markerPath -PathType Leaf)) {
+        Write-Host "  当前版本没有 patch marker；不会恢复任何旧备份。" -ForegroundColor DarkYellow
         return
     }
 
-    Uninstall-WindowsLanguagePack
+    [void](Uninstall-WindowsLanguagePack -ForReinstall)
+}
+
+function Install-WindowsLanguagePackWithFallback {
+    try {
+        return Install-WindowsLanguagePack
+    }
+    catch {
+        $fullModeError = $_.Exception.Message
+        if ($script:PatchMode -ne "official") {
+            throw
+        }
+        if (-not $script:LastInstallRollbackSucceeded) {
+            throw "完整模式失败，且本次文件回滚未能完整确认。为保护唯一备份，已停止安装，不会继续基础模式。原错误: $fullModeError"
+        }
+
+        Write-Host ""
+        Write-Host "  [兼容回退] 完整 app.asar 增强与此 Claude build 不兼容，改用基础汉化模式重试。" -ForegroundColor Yellow
+        Write-Host "  [兼容详情] $fullModeError" -ForegroundColor DarkYellow
+        $script:PatchMode = "safe"
+        try {
+            $result = Install-WindowsLanguagePack
+            Write-Host "  [兼容回退] 基础汉化安装成功；app.asar 与 Claude.exe 未修改。" -ForegroundColor Green
+            return $result
+        }
+        catch {
+            throw "完整模式和基础模式均未通过兼容检查。完整模式: $fullModeError；基础模式: $($_.Exception.Message)"
+        }
+    }
+}
+
+if ($LibraryMode) {
+    Stop-InstallLog
+    return
 }
 
 if ($Interactive) {
@@ -3539,10 +5025,40 @@ $LanguageCode = $Language
 try {
     switch ($Action) {
         "install" {
-            Invoke-PreInstallCleanup
-            Install-WindowsLanguagePack
+            $oldMaintenanceEnabled = Test-WindowsMaintenanceTaskEnabled
+            Disable-WindowsMaintenanceTask
+            try {
+                Invoke-PreInstallCleanup
+                $installed = Install-WindowsLanguagePackWithFallback
+            }
+            catch {
+                if ($oldMaintenanceEnabled) {
+                    Enable-WindowsMaintenanceTask
+                }
+                throw
+            }
+            if ($installed) {
+                try {
+                    Install-WindowsMaintenanceTask $LanguageCode $PatchMode
+                }
+                catch {
+                    Remove-WindowsMaintenanceTask
+                    Remove-WindowsMaintenancePayload
+                    Write-Host "  [警告] 汉化已安装，但自动维护任务安装失败: $($_.Exception.Message)" -ForegroundColor DarkYellow
+                }
+            }
         }
-        "uninstall" { Uninstall-WindowsLanguagePack }
+        "maintain" { Invoke-WindowsMaintenance }
+        "uninstall" {
+            Disable-WindowsMaintenanceTask
+            try {
+                [void](Uninstall-WindowsLanguagePack)
+            }
+            finally {
+                Remove-WindowsMaintenanceTask
+                $script:RemoveMaintenancePayloadAfterLog = $true
+            }
+        }
         "disable-updates" { Set-ClaudeAutoUpdates $false }
         "enable-updates" { Set-ClaudeAutoUpdates $true }
         "sync-skills" { Sync-CCSwitchSkills }
@@ -3550,6 +5066,9 @@ try {
     }
 
     Stop-InstallLog
+    if ($script:RemoveMaintenancePayloadAfterLog) {
+        Remove-WindowsMaintenancePayload
+    }
     exit 0
 }
 catch {
@@ -3559,6 +5078,9 @@ catch {
         Write-Host "[错误] 详细日志已写入: $script:InstallLogPath" -ForegroundColor Red
     }
     Stop-InstallLog
+    if ($script:RemoveMaintenancePayloadAfterLog) {
+        Remove-WindowsMaintenancePayload
+    }
     if ($Interactive) {
         [void](Read-Host "安装未完成，按 Enter 退出")
     }

@@ -40,8 +40,18 @@ BACKUP_GLOB = "Claude.backup-before-zh-CN-*.app"
 
 APP_ASAR_REL = Path("Contents/Resources/app.asar")
 FRONTEND_I18N_REL = Path("Contents/Resources/ion-dist/i18n")
-FRONTEND_ASSETS_REL = Path("Contents/Resources/ion-dist/assets/v1")
 DESKTOP_RESOURCES_REL = Path("Contents/Resources")
+PATCH_MARKER_NAME = ".claude-zh-cn.json"
+PATCH_MARKER_SCHEMA = 1
+AUTO_REPAIR_LABEL = "cn.javaht.claude-desktop-zh-cn"
+AUTO_REPAIR_ROOT = Path("/Library/Application Support/ClaudeDesktopZhCN")
+AUTO_REPAIR_PAYLOAD = AUTO_REPAIR_ROOT / "payload"
+AUTO_REPAIR_CONFIG = AUTO_REPAIR_ROOT / "config.json"
+AUTO_REPAIR_LOG = AUTO_REPAIR_ROOT / "auto-repair.log"
+AUTO_REPAIR_LOCK = Path("/var/run/claude-desktop-zh-cn.lock")
+AUTO_REPAIR_PLIST = Path(f"/Library/LaunchDaemons/{AUTO_REPAIR_LABEL}.plist")
+AUTO_REPAIR_INTERVAL_SECONDS = 300
+AUTO_REPAIR_SETTLE_SECONDS = 90
 ASAR_PATCH_TARGET = ".vite/build/index.js"
 ASAR_INTEGRITY_BLOCK_SIZE = 4 * 1024 * 1024
 ONLINE_LOCALE_PRELOAD_TARGETS = [
@@ -86,10 +96,24 @@ def log(message: str) -> None:
 def elapsed_since(start: float) -> str:
     return f"{time.perf_counter() - start:.1f}s"
 
-LANG_LIST_RE = re.compile(
-    r'\["en-US","de-DE","fr-FR","ko-KR","ja-JP","es-419","es-ES","it-IT","hi-IN","pt-BR","id-ID"(?:(?:,"zh-CN")|(?:,"zh-TW")|(?:,"zh-HK"))*\]'
+KNOWN_FRONTEND_LOCALES = {
+    "en-US",
+    "de-DE",
+    "fr-FR",
+    "ko-KR",
+    "ja-JP",
+    "es-419",
+    "es-ES",
+    "it-IT",
+    "hi-IN",
+    "pt-BR",
+    "id-ID",
+}
+LOCALE_ARRAY_RE = re.compile(
+    r"\[(?:\s*[\"'][a-z]{2,3}(?:-[A-Za-z0-9]{2,8})?[\"']\s*,){2,}"
+    r"\s*[\"'][a-z]{2,3}(?:-[A-Za-z0-9]{2,8})?[\"']\s*\]"
 )
-BASE_LANGUAGE_LIST = '["en-US","de-DE","fr-FR","ko-KR","ja-JP","es-419","es-ES","it-IT","hi-IN","pt-BR","id-ID"'
+LOCALE_TOKEN_RE = re.compile(r"[\"'](?P<locale>[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})?)[\"']")
 
 
 def get_language_config(lang_code: str) -> dict[str, Any]:
@@ -130,6 +154,117 @@ def save_json(path: Path, data: Any) -> None:
 def require_file(path: Path) -> None:
     if not path.exists():
         raise SystemExit(f"Missing required file: {path}")
+
+
+def get_patch_release() -> str:
+    try:
+        data = load_json(RESOURCES / "release.json")
+    except Exception:
+        return "unknown"
+    return str(data.get("release", "unknown")) if isinstance(data, dict) else "unknown"
+
+
+def get_app_identity(app: Path) -> dict[str, str]:
+    info_path = app / "Contents/Info.plist"
+    try:
+        with info_path.open("rb") as f:
+            info = plistlib.load(f)
+    except Exception as exc:
+        raise SystemExit(f"Cannot read Claude app identity from {info_path}: {exc}")
+    return {
+        "bundleId": str(info.get("CFBundleIdentifier", "")),
+        "version": str(info.get("CFBundleShortVersionString", "")),
+        "build": str(info.get("CFBundleVersion", "")),
+    }
+
+
+def get_app_fingerprint(app: Path) -> dict[str, Any]:
+    """Return a cheap build fingerprint that works even if ASAR internals change."""
+    asar_path = app / APP_ASAR_REL
+    require_file(asar_path)
+    digest = hashlib.sha256()
+    with asar_path.open("rb") as f:
+        digest.update(f.read(256 * 1024))
+    return {
+        "identity": get_app_identity(app),
+        "asarSize": asar_path.stat().st_size,
+        "asarPrefixSha256": digest.hexdigest(),
+    }
+
+
+def patch_marker_path(app: Path) -> Path:
+    return app / DESKTOP_RESOURCES_REL / PATCH_MARKER_NAME
+
+
+def read_patch_marker(app: Path) -> dict[str, Any] | None:
+    path = patch_marker_path(app)
+    if not path.is_file():
+        return None
+    try:
+        data = load_json(path)
+    except Exception:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def write_patch_marker(
+    patched_app: Path,
+    source_app: Path,
+    lang_code: str,
+    patch_mode: str,
+) -> None:
+    marker = {
+        "schema": PATCH_MARKER_SCHEMA,
+        "patchRelease": get_patch_release(),
+        "language": lang_code,
+        "mode": patch_mode,
+        "appIdentity": get_app_identity(source_app),
+        "sourceFingerprint": get_app_fingerprint(source_app),
+        "patchedFingerprint": get_app_fingerprint(patched_app),
+        "patchedAt": dt.datetime.now(dt.timezone.utc).isoformat(),
+    }
+    save_json(patch_marker_path(patched_app), marker)
+
+
+def marker_matches_installed_build(app: Path, marker: dict[str, Any]) -> bool:
+    """Reject markers preserved by an in-place upstream update."""
+    try:
+        return bool(
+            marker.get("schema") == PATCH_MARKER_SCHEMA
+            and marker.get("appIdentity") == get_app_identity(app)
+            and marker.get("patchedFingerprint") == get_app_fingerprint(app)
+        )
+    except (Exception, SystemExit):
+        return False
+
+
+def patch_is_current(app: Path, lang_code: str, patch_mode: str) -> bool:
+    marker = read_patch_marker(app)
+    if not marker:
+        return False
+    if (
+        not marker_matches_installed_build(app, marker)
+        or marker.get("patchRelease") != get_patch_release()
+        or marker.get("language") != lang_code
+        or marker.get("mode") != patch_mode
+    ):
+        return False
+    try:
+        locale_path = find_frontend_i18n_dir(app) / f"{lang_code}.json"
+        locale_data = load_json(locale_path)
+        whitelist_present = False
+        for bundle in find_frontend_js_files(app):
+            text = bundle.read_text(encoding="utf-8")
+            for match in LOCALE_ARRAY_RE.finditer(text):
+                locales = parse_locale_array(match.group(0))
+                if locales and lang_code in locales and locale_array_score(locales, text[max(0, match.start() - 160) : match.end() + 80]) >= 0:
+                    whitelist_present = True
+                    break
+            if whitelist_present:
+                break
+    except (Exception, SystemExit):
+        return False
+    return isinstance(locale_data, dict) and bool(locale_data) and whitelist_present
 
 
 def read_entitlements(path: Path) -> str:
@@ -174,37 +309,136 @@ def copy_app(src: Path, dst: Path) -> None:
     log(f"Copied app to temporary workspace in {elapsed_since(start)}")
 
 
-def patch_language_whitelist(app: Path, lang_code: str) -> Path:
-    assets_dir = app / FRONTEND_ASSETS_REL
-    candidates = sorted(assets_dir.glob("*.js"))
+def find_frontend_i18n_dir(app: Path) -> Path:
+    """Locate the primary frontend locale directory without assuming a versioned layout."""
+    preferred = app / FRONTEND_I18N_REL
+    if (preferred / "en-US.json").is_file():
+        return preferred
+
+    resources_dir = app / DESKTOP_RESOURCES_REL
+    candidates: list[tuple[int, Path]] = []
+    for en_path in resources_dir.rglob("en-US.json"):
+        relative_parts = {part.lower() for part in en_path.relative_to(resources_dir).parts}
+        if "statsig" in relative_parts or "node_modules" in relative_parts:
+            continue
+        try:
+            data = load_json(en_path)
+        except Exception:
+            continue
+        if not isinstance(data, dict):
+            continue
+        score = min(len(data), 20_000)
+        if en_path.parent.name.lower() in {"i18n", "locales"}:
+            score += 50_000
+        if "ion-dist" in relative_parts:
+            score += 25_000
+        candidates.append((score, en_path.parent))
+
     if not candidates:
-        raise SystemExit(f"Cannot find frontend JS bundle in {assets_dir}")
+        raise SystemExit(
+            f"Cannot locate Claude frontend en-US.json under {resources_dir}. "
+            "The frontend resource layout may have changed."
+        )
+    candidates.sort(key=lambda item: (-item[0], str(item[1])))
+    return candidates[0][1]
 
-    replacement = f'{BASE_LANGUAGE_LIST},"{lang_code}"]'
 
+def find_frontend_js_files(app: Path) -> list[Path]:
+    """Return frontend bundles across v1/v2/hashed asset directories."""
+    ion_dist = app / DESKTOP_RESOURCES_REL / "ion-dist"
+    search_roots = [ion_dist / "assets", ion_dist]
+    for root in search_roots:
+        if not root.is_dir():
+            continue
+        files = sorted(
+            path
+            for path in root.rglob("*.js")
+            if "node_modules" not in {part.lower() for part in path.parts}
+        )
+        if files:
+            return files
+    raise SystemExit(
+        f"Cannot find frontend JS bundles under {ion_dist}. "
+        "The frontend resource layout may have changed."
+    )
+
+
+def parse_locale_array(source: str) -> list[str] | None:
+    value = [match.group("locale") for match in LOCALE_TOKEN_RE.finditer(source)]
+    if len(value) < 3:
+        return None
+    return value
+
+
+def locale_array_score(locales: list[str], context: str) -> int:
+    known_count = len(KNOWN_FRONTEND_LOCALES.intersection(locales))
+    if "en-US" not in locales or known_count < 4:
+        return -1
+    score = known_count * 100 + len(locales)
+    if re.search(r"(?:locale|language|displayname)", context, re.IGNORECASE):
+        score += 1_000
+    return score
+
+
+def patch_language_whitelist(app: Path, lang_code: str) -> Path:
+    candidates = find_frontend_js_files(app)
+    matches: list[tuple[int, Path, int, int, list[str]]] = []
     for path in candidates:
         text = path.read_text(encoding="utf-8")
-        if replacement in text:
-            print(f"Language whitelist already contains {lang_code}: {path.name}")
-            return path
-        if LANG_LIST_RE.search(text):
-            patched = LANG_LIST_RE.sub(
-                replacement,
-                text,
-                count=1,
-            )
-            path.write_text(patched, encoding="utf-8")
-            print(f"Patched language whitelist: {path.name}")
-            return path
+        for match in LOCALE_ARRAY_RE.finditer(text):
+            locales = parse_locale_array(match.group(0))
+            if locales is None:
+                continue
+            context = text[max(0, match.start() - 160) : min(len(text), match.end() + 80)]
+            score = locale_array_score(locales, context)
+            if score >= 0:
+                matches.append((score, path, match.start(), match.end(), locales))
 
-    raise SystemExit("Could not patch language whitelist. Claude's bundle format may have changed.")
+    if not matches:
+        raise SystemExit(
+            "Could not locate Claude's language whitelist semantically. "
+            "Run the newest patch release or use --doctor to collect compatibility details."
+        )
+
+    best_score = max(item[0] for item in matches)
+    selected = [item for item in matches if item[0] == best_score]
+    by_path: dict[Path, list[tuple[int, int, list[str]]]] = {}
+    for _score, path, start, end, locales in selected:
+        by_path.setdefault(path, []).append((start, end, locales))
+
+    changed = 0
+    already = 0
+    for path, path_matches in by_path.items():
+        text = path.read_text(encoding="utf-8")
+        for start, end, locales in sorted(path_matches, reverse=True):
+            if lang_code in locales:
+                already += 1
+                continue
+            locales.append(lang_code)
+            replacement = json.dumps(locales, ensure_ascii=False, separators=(",", ":"))
+            text = text[:start] + replacement + text[end:]
+            changed += 1
+        path.write_text(text, encoding="utf-8")
+
+    primary = sorted(by_path)[0]
+    if changed:
+        print(
+            f"Patched language whitelist: {changed} candidate(s) across "
+            f"{len(by_path)} bundle(s); primary={primary.name}"
+        )
+    else:
+        print(f"Language whitelist already contains {lang_code}: {primary.name} ({already} candidate(s))")
+    return primary
 
 
-def patch_language_display_names(app: Path) -> None:
-    assets_dir = app / FRONTEND_ASSETS_REL
-    candidates = sorted(assets_dir.glob("index-*.js"))
-    if not candidates:
-        raise SystemExit(f"Cannot find frontend index bundle in {assets_dir}")
+def patch_language_display_names(app: Path, primary_bundle: Path | None = None) -> None:
+    if primary_bundle is not None:
+        candidates = [primary_bundle]
+    else:
+        all_bundles = find_frontend_js_files(app)
+        candidates = [path for path in all_bundles if path.name.startswith(("index-", "main-"))]
+        if not candidates:
+            candidates = all_bundles[:1]
 
     marker = "__claudeZhLabelPatch"
     patch = ';(()=>{const e=Intl.DisplayNames&&Intl.DisplayNames.prototype;if(!e||e.__claudeZhLabelPatch)return;const n=e.of;e.of=function(e){const t=String(e);return t==="zh-CN"?"简体中文":t==="zh-HK"?"繁体中文（中国香港）":t==="zh-TW"?"繁体中文（中国台湾）":n.call(this,e)},Object.defineProperty(e,"__claudeZhLabelPatch",{value:!0})})();'
@@ -273,13 +507,12 @@ def replace_frontend_hardcoded_text(text: str, source: str, target: str) -> tupl
 
 def patch_hardcoded_frontend_strings(app: Path, lang_code: str) -> None:
     start = time.perf_counter()
-    assets_dir = app / FRONTEND_ASSETS_REL
     replacement_items = sorted(
         load_frontend_hardcoded_replacements(lang_code),
         key=lambda item: len(item[0]),
         reverse=True,
     )
-    js_files = sorted(assets_dir.glob("*.js"))
+    js_files = find_frontend_js_files(app)
     patched_files = 0
     patched_strings = 0
 
@@ -479,9 +712,17 @@ def replace_asar_file_content(app: Path, file_path: str, patched_content: bytes)
     entry["size"] = len(patched_content)
     entry["integrity"] = calculate_file_integrity(patched_content)
     if delta:
-        for other in iter_asar_file_entries(header):
-            if other is not entry and int(other["offset"]) > target_offset:
-                set_asar_offset(other, int(other["offset"]) + delta)
+        ordered_entries = iter_asar_file_entries(header)
+        try:
+            target_index = next(index for index, other in enumerate(ordered_entries) if other is entry)
+        except StopIteration:
+            raise SystemExit(f"Internal patch error: lost ASAR entry for {file_path}.")
+        for index, other in enumerate(ordered_entries):
+            other_offset = int(other["offset"])
+            if index > target_index and other_offset >= target_offset:
+                # Empty files legitimately share an offset with the following file.
+                # Header order disambiguates them when the empty target grows.
+                set_asar_offset(other, other_offset + delta)
 
     updated_header_string = json.dumps(header, ensure_ascii=False, separators=(",", ":"))
     updated_header = encode_asar_header_dynamic(updated_header_string)
@@ -521,8 +762,18 @@ def patch_online_locale_preload(app: Path, lang_code: str) -> None:
     data = path.read_bytes()
     header_size, _header_string, header = read_asar_header(data, path)
 
+    available_files = {file_path: entry for file_path, entry in iter_asar_files(header)}
+    targets = [file_path for file_path in ONLINE_LOCALE_PRELOAD_TARGETS if file_path in available_files]
+    targets.extend(
+        file_path
+        for file_path in available_files
+        if file_path not in targets
+        and file_path.endswith(".js")
+        and Path(file_path).name in {"mainView.js", "mainWindow.js"}
+    )
+
     removed_count = 0
-    for file_path in ONLINE_LOCALE_PRELOAD_TARGETS:
+    for file_path in targets:
         entry = get_asar_file_entry(header, file_path)
         content_offset = 8 + header_size + int(entry["offset"])
         content_size = int(entry["size"])
@@ -541,7 +792,7 @@ def patch_online_locale_preload(app: Path, lang_code: str) -> None:
     if removed_count:
         print(f"Removed stale online claude.ai locale preload: {removed_count} files")
     else:
-        print("Online claude.ai locale preload not present")
+        print("Online claude.ai locale preload not present (missing legacy targets are compatible)")
 
 
 def is_online_dom_translation_entry(source: str, target: str) -> bool:
@@ -555,7 +806,7 @@ def is_online_dom_translation_entry(source: str, target: str) -> bool:
 
 def build_online_translation_map(app: Path, lang_code: str) -> dict[str, str]:
     config = get_language_config(lang_code)
-    en_path = app / FRONTEND_I18N_REL / "en-US.json"
+    en_path = find_frontend_i18n_dir(app) / "en-US.json"
     require_file(en_path)
     require_file(config["frontend_translation"])
 
@@ -813,7 +1064,7 @@ def find_main_process_asar_target(
     handler_matches: list[str] = []
 
     for file_path, entry in iter_asar_files(header):
-        if not (file_path.startswith(".vite/build/") and file_path.endswith(".js")):
+        if not file_path.endswith(".js") or int(entry.get("size", 0)) > 64 * 1024 * 1024:
             continue
         content = read_asar_entry_content(data, header_size, entry, file_path)
         if ONLINE_LOCALE_MAIN_MARKER.encode("utf-8") in content:
@@ -1763,8 +2014,9 @@ def patch_hardcoded_main_process_menu_labels(app: Path, lang_code: str) -> None:
 
 def merge_frontend_locale(app: Path, lang_code: str) -> tuple[int, int, int]:
     config = get_language_config(lang_code)
-    source = app / FRONTEND_I18N_REL / "en-US.json"
-    target = app / FRONTEND_I18N_REL / f"{lang_code}.json"
+    i18n_dir = find_frontend_i18n_dir(app)
+    source = i18n_dir / "en-US.json"
+    target = i18n_dir / f"{lang_code}.json"
     require_file(source)
     require_file(config["frontend_translation"])
 
@@ -1807,7 +2059,7 @@ def install_desktop_locale(app: Path, lang_code: str) -> None:
 
 def install_statsig_locale(app: Path, lang_code: str) -> None:
     config = get_language_config(lang_code)
-    statsig_dir = app / FRONTEND_I18N_REL / "statsig"
+    statsig_dir = find_frontend_i18n_dir(app) / "statsig"
     if not statsig_dir.exists():
         return
     target = statsig_dir / f"{lang_code}.json"
@@ -2303,10 +2555,145 @@ def unsync_cc_switch_skills(user_home: Path, skills_dir: Path, dry_run: bool = F
     return True
 
 
+def secure_root_owned_tree(path: Path) -> None:
+    for item in [path, *path.rglob("*")]:
+        os.chown(item, 0, 0)
+        if item.is_dir():
+            os.chmod(item, 0o755)
+        elif item.suffix in {".py", ".command"}:
+            os.chmod(item, 0o755)
+        else:
+            os.chmod(item, 0o644)
+
+
+def remove_macos_auto_repair(dry_run: bool = False) -> None:
+    if dry_run:
+        print(f"[dry-run] Would unload and remove auto-repair service: {AUTO_REPAIR_LABEL}")
+        return
+    run(["/bin/launchctl", "bootout", "system", str(AUTO_REPAIR_PLIST)], check=False)
+    if AUTO_REPAIR_PLIST.exists():
+        AUTO_REPAIR_PLIST.unlink()
+    if AUTO_REPAIR_ROOT.exists():
+        remove_path(AUTO_REPAIR_ROOT)
+    print("Removed macOS update auto-repair service")
+
+
+def install_macos_auto_repair(
+    app: Path,
+    user_home: Path,
+    lang_code: str,
+    patch_mode: str,
+    dry_run: bool = False,
+) -> None:
+    controller = ROOT / "scripts/macos_auto_repair.py"
+    require_file(controller)
+    if not path_is_within(app.resolve(), Path("/Applications").resolve()):
+        raise SystemExit("Automatic repair currently supports Claude.app installed under /Applications.")
+    if dry_run:
+        print(
+            f"[dry-run] Would install root-owned auto-repair service {AUTO_REPAIR_LABEL} "
+            f"for {lang_code}/{patch_mode}"
+        )
+        return
+    if os.geteuid() != 0:
+        raise SystemExit("Installing the macOS auto-repair service requires sudo/root.")
+
+    run(["/bin/launchctl", "bootout", "system", str(AUTO_REPAIR_PLIST)], check=False)
+    AUTO_REPAIR_ROOT.mkdir(parents=True, exist_ok=True)
+
+    staging_root = Path(tempfile.mkdtemp(prefix="claude-zh-auto-repair."))
+    staging_payload = staging_root / "payload"
+    try:
+        (staging_payload / "scripts").mkdir(parents=True)
+        shutil.copy2(ROOT / "scripts/patch_claude_zh_cn.py", staging_payload / "scripts")
+        shutil.copy2(controller, staging_payload / "scripts")
+        shutil.copytree(RESOURCES, staging_payload / "resources")
+        if AUTO_REPAIR_PAYLOAD.exists():
+            remove_path(AUTO_REPAIR_PAYLOAD)
+        shutil.move(str(staging_payload), str(AUTO_REPAIR_PAYLOAD))
+    finally:
+        if staging_root.exists():
+            remove_path(staging_root)
+
+    config = {
+        "schema": 1,
+        "app": str(app.resolve()),
+        "userHome": str(user_home.resolve()),
+        "language": lang_code,
+        "mode": patch_mode,
+        "patchRelease": get_patch_release(),
+    }
+    save_json(AUTO_REPAIR_CONFIG, config)
+
+    plist = {
+        "Label": AUTO_REPAIR_LABEL,
+        "ProgramArguments": [
+            str(Path("/usr/bin/python3") if Path("/usr/bin/python3").exists() else Path(sys.executable).resolve()),
+            str(AUTO_REPAIR_PAYLOAD / "scripts/macos_auto_repair.py"),
+            "--config",
+            str(AUTO_REPAIR_CONFIG),
+        ],
+        "RunAtLoad": True,
+        "StartInterval": AUTO_REPAIR_INTERVAL_SECONDS,
+        "ThrottleInterval": 60,
+        "ProcessType": "Background",
+        "UserName": "root",
+        "GroupName": "wheel",
+        "StandardOutPath": str(AUTO_REPAIR_LOG),
+        "StandardErrorPath": str(AUTO_REPAIR_LOG),
+    }
+    AUTO_REPAIR_PLIST.parent.mkdir(parents=True, exist_ok=True)
+    with AUTO_REPAIR_PLIST.open("wb") as f:
+        plistlib.dump(plist, f, sort_keys=True)
+
+    secure_root_owned_tree(AUTO_REPAIR_ROOT)
+    os.chmod(AUTO_REPAIR_CONFIG, 0o600)
+    os.chown(AUTO_REPAIR_PLIST, 0, 0)
+    os.chmod(AUTO_REPAIR_PLIST, 0o644)
+
+    result = run(["/bin/launchctl", "bootstrap", "system", str(AUTO_REPAIR_PLIST)], check=False)
+    if result.returncode != 0:
+        raise SystemExit(
+            "Failed to load the macOS auto-repair service. launchctl output:\n" + result.stdout
+        )
+    print(
+        f"Installed update auto-repair service ({AUTO_REPAIR_INTERVAL_SECONDS // 60}-minute checks): "
+        f"{AUTO_REPAIR_LABEL}"
+    )
+
+
+def remove_backups(backups: list[Path], dry_run: bool, reason: str) -> None:
+    for backup in backups:
+        if dry_run:
+            print(f"[dry-run] Would remove {reason} backup: {backup}")
+        else:
+            print(f"Removing {reason} backup: {backup}")
+            remove_path(backup)
+
+
 def backup_and_replace(original: Path, patched: Path, dry_run: bool) -> Path:
     start = time.perf_counter()
     stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
     backup = original.with_name(f"Claude.backup-before-zh-CN-{stamp}.app")
+    suffix = 0
+    while backup.exists():
+        suffix += 1
+        backup = original.with_name(f"Claude.backup-before-zh-CN-{stamp}-{suffix}.app")
+
+    stale_backups = find_app_backups(original)
+    existing_marker = read_patch_marker(original)
+    stale_marker = existing_marker is not None and not marker_matches_installed_build(original, existing_marker)
+    if stale_backups and (existing_marker is None or stale_marker):
+        # An official update has replaced the marked app. Its current files are
+        # the only valid baseline; an older backup must never downgrade it.
+        remove_backups(stale_backups, dry_run, "stale cross-version")
+    if stale_marker:
+        if dry_run:
+            print(f"[dry-run] Would remove stale patch marker: {patch_marker_path(original)}")
+        else:
+            print("Removing a patch marker preserved by an upstream in-place update")
+            patch_marker_path(original).unlink(missing_ok=True)
+
     if dry_run:
         print(f"[dry-run] Would move {original} -> {backup}")
         print(f"[dry-run] Would move {patched} -> {original}")
@@ -2314,8 +2701,14 @@ def backup_and_replace(original: Path, patched: Path, dry_run: bool) -> Path:
 
     log(f"Backing up current app: {backup}")
     shutil.move(str(original), str(backup))
-    log(f"Installing patched app: {original}")
-    shutil.move(str(patched), str(original))
+    try:
+        log(f"Installing patched app: {original}")
+        shutil.move(str(patched), str(original))
+    except Exception:
+        if not original.exists() and backup.exists():
+            log("Patched app commit failed; restoring the original app")
+            shutil.move(str(backup), str(original))
+        raise
     log(f"Replaced app in {elapsed_since(start)}")
     return backup
 
@@ -2331,20 +2724,71 @@ def find_app_backups(app: Path) -> list[Path]:
     return sorted(path for path in app.parent.glob(BACKUP_GLOB) if path.is_dir())
 
 
-def restore_oldest_backup(app: Path, dry_run: bool) -> Path:
+def has_legacy_patch_evidence(app: Path) -> bool:
+    if patch_marker_path(app).exists():
+        return True
+    resources_dir = app / DESKTOP_RESOURCES_REL
+    if any((resources_dir / f"{lang}.json").exists() for lang in ("zh-CN", "zh-TW", "zh-HK")):
+        try:
+            return any(
+                "__claudeZhLabelPatch" in path.read_text(encoding="utf-8")
+                for path in find_frontend_js_files(app)
+            )
+        except Exception:
+            return False
+    return False
+
+
+def select_compatible_backup(app: Path, backups: list[Path]) -> Path | None:
+    marker = read_patch_marker(app)
+    if marker is not None:
+        if marker.get("appIdentity") != get_app_identity(app):
+            return None
+        source_fingerprint = marker.get("sourceFingerprint")
+        for backup in backups:
+            try:
+                if get_app_fingerprint(backup) == source_fingerprint:
+                    return backup
+            except (Exception, SystemExit):
+                continue
+        return None
+
+    # One-time migration path for patches installed before markers existed.
+    if not has_legacy_patch_evidence(app):
+        return None
+    current_identity = get_app_identity(app)
+    for backup in backups:
+        try:
+            if get_app_identity(backup) == current_identity:
+                return backup
+        except (Exception, SystemExit):
+            continue
+    return None
+
+
+def restore_oldest_backup(app: Path, dry_run: bool) -> Path | None:
     backups = find_app_backups(app)
     if not backups:
         raise SystemExit(f"No Claude backup found in {app.parent}: {BACKUP_GLOB}")
 
-    backup = backups[0]
-    extra_backups = backups[1:]
+    backup = select_compatible_backup(app, backups)
+    if backup is None:
+        print(
+            "No backup matches the currently installed patched build; "
+            "keeping the current Claude.app to prevent a cross-version downgrade."
+        )
+        if read_patch_marker(app) is None:
+            remove_backups(backups, dry_run, "unmatched")
+        return None
+
+    extra_backups = [path for path in backups if path != backup]
     stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
     current_tmp = app.with_name(f"Claude.restore-current-{stamp}.app")
 
     if dry_run:
         if app.exists():
             print(f"[dry-run] Would move current app {app} -> {current_tmp}")
-        print(f"[dry-run] Would restore oldest backup {backup} -> {app}")
+        print(f"[dry-run] Would restore matching backup {backup} -> {app}")
         for extra_backup in extra_backups:
             print(f"[dry-run] Would delete extra backup: {extra_backup}")
         return backup
@@ -2354,7 +2798,7 @@ def restore_oldest_backup(app: Path, dry_run: bool) -> Path:
         shutil.move(str(app), str(current_tmp))
 
     try:
-        print(f"Restoring oldest backup: {backup}")
+        print(f"Restoring matching backup: {backup}")
         shutil.move(str(backup), str(app))
     except Exception:
         if current_tmp.exists() and not app.exists():
@@ -2425,15 +2869,22 @@ def verify_online_locale_patch(app: Path, lang_code: str) -> None:
     print(f"Verified online locale patch in {asar_target}: {lang_code}")
 
 
-def verify(app: Path, lang_code: str, *, expect_online_patch: bool = True) -> None:
+def verify(
+    app: Path,
+    lang_code: str,
+    *,
+    expect_online_patch: bool = True,
+    verify_asar: bool = True,
+) -> None:
     start = time.perf_counter()
-    frontend = app / FRONTEND_I18N_REL / f"{lang_code}.json"
+    frontend = find_frontend_i18n_dir(app) / f"{lang_code}.json"
     data = load_json(frontend)
     values = [v for v in data.values() if isinstance(v, str)]
     chinese = sum(1 for v in values if re.search(r"[\u4e00-\u9fff]", v))
     print(f"Verified frontend {lang_code} JSON: {chinese}/{len(values)} strings contain Chinese")
 
-    verify_electron_asar_integrity(app)
+    if verify_asar:
+        verify_electron_asar_integrity(app)
     if expect_online_patch:
         verify_online_locale_patch(app, lang_code)
 
@@ -2458,6 +2909,115 @@ def verify(app: Path, lang_code: str, *, expect_online_patch: bool = True) -> No
     log(f"Verification finished in {elapsed_since(start)}")
 
 
+def doctor_report(app: Path, lang_code: str) -> dict[str, Any]:
+    report: dict[str, Any] = {
+        "schema": 1,
+        "app": str(app),
+        "patchRelease": get_patch_release(),
+        "language": lang_code,
+        "basicCompatible": False,
+        "fullCompatible": False,
+        "checks": {},
+    }
+    checks: dict[str, Any] = report["checks"]
+    if not app.exists():
+        checks["app"] = {"ok": False, "error": "Claude.app not found"}
+        return report
+    try:
+        report["identity"] = get_app_identity(app)
+        report["marker"] = read_patch_marker(app)
+        checks["app"] = {"ok": True}
+    except (Exception, SystemExit) as exc:
+        checks["app"] = {"ok": False, "error": str(exc)}
+        return report
+
+    try:
+        i18n_dir = find_frontend_i18n_dir(app)
+        en_data = load_json(i18n_dir / "en-US.json")
+        checks["frontendI18n"] = {
+            "ok": isinstance(en_data, dict),
+            "path": str(i18n_dir),
+            "englishKeys": len(en_data) if isinstance(en_data, dict) else 0,
+        }
+    except (Exception, SystemExit) as exc:
+        checks["frontendI18n"] = {"ok": False, "error": str(exc)}
+
+    try:
+        js_files = find_frontend_js_files(app)
+        scored_arrays = 0
+        best_score = -1
+        for path in js_files:
+            text = path.read_text(encoding="utf-8")
+            for match in LOCALE_ARRAY_RE.finditer(text):
+                locales = parse_locale_array(match.group(0))
+                if locales is None:
+                    continue
+                context = text[max(0, match.start() - 160) : min(len(text), match.end() + 80)]
+                score = locale_array_score(locales, context)
+                if score >= 0:
+                    scored_arrays += 1
+                    best_score = max(best_score, score)
+        checks["frontendBundles"] = {
+            "ok": bool(js_files) and scored_arrays > 0,
+            "count": len(js_files),
+            "whitelistCandidates": scored_arrays,
+            "bestWhitelistScore": best_score,
+        }
+    except (Exception, SystemExit) as exc:
+        checks["frontendBundles"] = {"ok": False, "error": str(exc)}
+
+    try:
+        asar_path = app / APP_ASAR_REL
+        data = asar_path.read_bytes()
+        header_size, _header_string, header = read_asar_header(data, asar_path)
+        target = find_main_process_asar_target(data, header_size, header)
+        checks["asarFullPatch"] = {"ok": True, "mainBundle": target}
+    except (Exception, SystemExit) as exc:
+        checks["asarFullPatch"] = {"ok": False, "error": str(exc)}
+
+    report["basicCompatible"] = bool(
+        checks.get("frontendI18n", {}).get("ok")
+        and checks.get("frontendBundles", {}).get("ok")
+    )
+    report["fullCompatible"] = bool(
+        report["basicCompatible"] and checks.get("asarFullPatch", {}).get("ok")
+    )
+    return report
+
+
+def prepare_patched_app(
+    source_app: Path,
+    patched_app: Path,
+    lang_code: str,
+    skip_asar_patch: bool,
+) -> None:
+    copy_app(source_app, patched_app)
+    primary_bundle = patch_language_whitelist(patched_app, lang_code)
+    patch_hardcoded_frontend_strings(patched_app, lang_code)
+    patch_language_display_names(patched_app, primary_bundle)
+    if skip_asar_patch:
+        print("Skipping every app.asar and binary-integrity patch (--skip-asar-patch)")
+    else:
+        patch_online_locale_preload(patched_app, lang_code)
+        patch_online_locale_main_process(patched_app, lang_code)
+        patch_hardcoded_main_process_menu_labels(patched_app, lang_code)
+        patch_custom3p_model_validation(patched_app)
+        patch_model_picker_strings(patched_app, lang_code)
+    merge_frontend_locale(patched_app, lang_code)
+    install_desktop_locale(patched_app, lang_code)
+    install_statsig_locale(patched_app, lang_code)
+    patch_mode = "safe" if skip_asar_patch else "full"
+    write_patch_marker(patched_app, source_app, lang_code, patch_mode)
+    resign_app(patched_app)
+    clear_quarantine(patched_app)
+    verify(
+        patched_app,
+        lang_code,
+        expect_online_patch=not skip_asar_patch,
+        verify_asar=not skip_asar_patch,
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Patch Claude Desktop with Chinese language resources.")
     parser.add_argument("--app", type=Path, default=APP_DEFAULT, help="Path to Claude.app")
@@ -2465,11 +3025,16 @@ def main() -> int:
     parser.add_argument("--lang", choices=["zh-CN", "zh-TW", "zh-HK"], default="zh-CN", help="Language code to install (default: zh-CN)")
     parser.add_argument("--dry-run", action="store_true", help="Prepare and verify a patched temp app, but do not replace /Applications/Claude.app")
     parser.add_argument("--launch", action="store_true", help="Launch Claude after installation")
-    parser.add_argument("--restore", action="store_true", help="Restore the oldest macOS app backup and delete other backups")
+    parser.add_argument("--restore", action="store_true", help="Restore the identity-matching macOS app backup and delete other backups")
+    parser.add_argument("--doctor", action="store_true", help="Inspect this Claude build without changing it")
+    parser.add_argument("--json", action="store_true", help="Emit machine-readable output with --doctor")
+    parser.add_argument("--no-auto-repair", action="store_true", help="Do not install the update auto-repair service")
+    parser.add_argument("--remove-auto-repair", action="store_true", help="Remove the update auto-repair service and exit")
+    parser.add_argument("--maintenance-run", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument(
         "--restore-if-backup-exists",
         action="store_true",
-        help="Restore the oldest macOS app backup if one exists, otherwise continue without error",
+        help="Restore the identity-matching macOS app backup if one exists, otherwise continue without error",
     )
     parser.add_argument("--skip-asar-patch", action="store_true", help="Skip app.asar and binary integrity patches (safe mode)")
     parser.add_argument(
@@ -2493,6 +3058,22 @@ def main() -> int:
         help="CC Switch skills directory (default: USER_HOME/.cc-switch/skills)",
     )
     args = parser.parse_args()
+
+    if args.doctor:
+        report = doctor_report(args.app, args.lang)
+        if args.json:
+            print(json.dumps(report, ensure_ascii=False, indent=2))
+        else:
+            print(f"Claude: {report.get('identity', {})}")
+            print(f"Basic localization compatible: {report['basicCompatible']}")
+            print(f"Full app.asar patch compatible: {report['fullCompatible']}")
+            for name, result in report["checks"].items():
+                print(f"  {name}: {result}")
+        return 0 if report["basicCompatible"] else 2
+
+    if args.remove_auto_repair:
+        remove_macos_auto_repair(dry_run=args.dry_run)
+        return 0
 
     if args.set_auto_updates:
         set_auto_updates(
@@ -2519,26 +3100,36 @@ def main() -> int:
         return 0
 
     try:
-        in_applications = args.app.resolve().as_posix().startswith("/Applications/")
+        in_applications = path_is_within(args.app.resolve(), Path("/Applications").resolve())
     except Exception:
-        in_applications = str(args.app).startswith("/Applications/")
+        in_applications = path_is_within(args.app.absolute(), Path("/Applications"))
     if os.geteuid() != 0 and in_applications and not args.dry_run:
         print("This usually needs sudo because /Applications is protected.", file=sys.stderr)
 
     if args.restore:
+        remove_macos_auto_repair(dry_run=args.dry_run)
         if args.dry_run:
             print("[dry-run] Claude will not be quit.")
         else:
             quit_claude()
-        restored = restore_oldest_backup(args.app, args.dry_run)
+        if not find_app_backups(args.app):
+            if read_patch_marker(args.app):
+                raise SystemExit("This app is marked as patched, but its matching original backup is missing.")
+            restored = None
+            print("No patch backup exists; keeping the current unmarked Claude.app.")
+        else:
+            restored = restore_oldest_backup(args.app, args.dry_run)
+        if restored is None and read_patch_marker(args.app):
+            raise SystemExit("No compatible original backup was found; refusing an unsafe restore.")
         if args.dry_run:
             print(f"[dry-run] Would set Claude config locale under: {args.user_home} to en-US")
         else:
             set_user_locale(args.user_home, "en-US")
-            print(f"Restored from backup: {restored}")
+            if restored is not None:
+                print(f"Restored from backup: {restored}")
             if args.launch:
                 run(["open", "-a", str(args.app)], check=False)
-        print("Done. Claude Desktop has been restored to the oldest backup.")
+        print("Done. Claude Desktop is unpatched and automatic repair is disabled.")
         return 0
 
     if args.restore_if_backup_exists:
@@ -2550,9 +3141,12 @@ def main() -> int:
         else:
             quit_claude()
         restored = restore_oldest_backup(args.app, args.dry_run)
-        if not args.dry_run:
+        if not args.dry_run and restored is not None:
             print(f"Restored from backup before install: {restored}")
-        print("Done. Existing Chinese patch has been cleared before install.")
+        if restored is None:
+            print("Kept the current official build and discarded only incompatible old backups.")
+        else:
+            print("Done. Existing Chinese patch has been cleared before install.")
         return 0
 
     lang_code = args.lang
@@ -2567,48 +3161,62 @@ def main() -> int:
         raise SystemExit(f"Claude.app not found: {args.app}")
     require_virtualization_entitlement(args.app)
 
+    patch_mode = "safe" if args.skip_asar_patch else "full"
+    if args.maintenance_run and patch_is_current(args.app, lang_code, patch_mode):
+        print("The installed Claude build is already patched; maintenance is a no-op.")
+        return 0
+
     if args.dry_run:
         print("[dry-run] Claude will not be quit.")
     else:
         quit_claude()
     tmp_root = Path(tempfile.mkdtemp(prefix=f"claude-{lang_code}-patch."))
     patched_app = tmp_root / "Claude.app"
-
-    copy_app(args.app, patched_app)
-    patch_language_whitelist(patched_app, lang_code)
-    patch_hardcoded_frontend_strings(patched_app, lang_code)
-    patch_language_display_names(patched_app)
-    if args.skip_asar_patch:
-        print("Skipping online claude.ai locale preload patch (--skip-asar-patch)")
-    else:
-        patch_online_locale_preload(patched_app, lang_code)
-        patch_online_locale_main_process(patched_app, lang_code)
-    if args.skip_asar_patch:
-        print("Applying length-preserving main-process menu label patch (--skip-asar-patch)")
-        patch_length_preserving_main_process_menu_labels(patched_app, lang_code)
-    else:
-        patch_hardcoded_main_process_menu_labels(patched_app, lang_code)
-    if args.skip_asar_patch:
-        print("Skipping 3P model validation patch (--skip-asar-patch)")
-    else:
-        patch_custom3p_model_validation(patched_app)
-        patch_model_picker_strings(patched_app, lang_code)
-    merge_frontend_locale(patched_app, lang_code)
-    install_desktop_locale(patched_app, lang_code)
-    install_statsig_locale(patched_app, lang_code)
-    resign_app(patched_app)
-    clear_quarantine(patched_app)
-    if args.dry_run:
-        print(f"[dry-run] Would set Claude config locale under: {args.user_home}")
-    else:
-        set_user_locale(args.user_home, lang_code)
-    verify(patched_app, lang_code, expect_online_patch=not args.skip_asar_patch)
-
-    backup = backup_and_replace(args.app, patched_app, args.dry_run)
-    if not args.dry_run:
-        print(f"Backup kept at: {backup}")
-        if args.launch:
-            run(["open", "-a", str(args.app)], check=False)
+    try:
+        effective_skip_asar = args.skip_asar_patch
+        try:
+            prepare_patched_app(args.app, patched_app, lang_code, effective_skip_asar)
+        except SystemExit as full_error:
+            if effective_skip_asar:
+                raise
+            print(
+                "Full app.asar patch is not compatible with this Claude build; "
+                "retrying the verified basic localization mode."
+            )
+            print(f"Full-mode compatibility detail: {full_error}")
+            if patched_app.exists():
+                remove_path(patched_app)
+            try:
+                prepare_patched_app(args.app, patched_app, lang_code, True)
+            except SystemExit as safe_error:
+                raise SystemExit(
+                    "This Claude build failed both full and basic localization checks. "
+                    f"Full mode: {full_error}; basic mode: {safe_error}"
+                ) from safe_error
+            effective_skip_asar = True
+            patch_mode = "safe"
+            print("Compatibility fallback succeeded; installed basic localization without changing app.asar.")
+        backup = backup_and_replace(args.app, patched_app, args.dry_run)
+        if args.dry_run:
+            print(f"[dry-run] Would set Claude config locale under: {args.user_home}")
+        else:
+            print(f"Backup kept at: {backup}")
+            set_user_locale(args.user_home, lang_code)
+            if not args.no_auto_repair and not args.maintenance_run:
+                try:
+                    install_macos_auto_repair(
+                        args.app,
+                        args.user_home,
+                        lang_code,
+                        patch_mode,
+                    )
+                except SystemExit as exc:
+                    print(f"Warning: patch installed, but automatic update repair could not be enabled: {exc}")
+            if args.launch:
+                run(["open", "-a", str(args.app)], check=False)
+    finally:
+        if tmp_root.exists():
+            remove_path(tmp_root)
 
     print(f"Done. Select Language -> {label} in Claude if it is not already selected.")
     return 0

@@ -625,6 +625,12 @@ def build_online_dom_translation_script(lang_code: str, mapping: dict[str, str])
         f'[/^Updated (\\d+) weeks? ago$/,"{updated_week_text}"],'
         f'[/^Updated (\\d+) months? ago$/,"{updated_month_text}"],'
         f'[/^Updated (\\d+) years? ago$/,"{updated_year_text}"],'
+        '[/^Updated Jan (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"已更新 1月$1日"],[/^Updated Feb (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"已更新 2月$1日"],'
+        '[/^Updated Mar (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"已更新 3月$1日"],[/^Updated Apr (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"已更新 4月$1日"],'
+        '[/^Updated May (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"已更新 5月$1日"],[/^Updated Jun (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"已更新 6月$1日"],'
+        '[/^Updated Jul (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"已更新 7月$1日"],[/^Updated Aug (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"已更新 8月$1日"],'
+        '[/^Updated Sep (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"已更新 9月$1日"],[/^Updated Oct (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"已更新 10月$1日"],'
+        '[/^Updated Nov (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"已更新 11月$1日"],[/^Updated Dec (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"已更新 12月$1日"],'
         '[/^Mon$/,"周一"],[/^Tue$/,"周二"],[/^Wed$/,"周三"],[/^Thu$/,"周四"],'
         '[/^Fri$/,"周五"],[/^Sat$/,"周六"],[/^Sun$/,"周日"]'
     ))

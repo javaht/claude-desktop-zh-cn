@@ -56,6 +56,10 @@
     "关联的拉取请求合并或关闭后，自动归档桌面会话。"
   ],
   [
+    "Automatically archive desktop sessions when the associated pull request is merged or closed. Archiving also removes the session's worktree and deletes its branch once the pull request is merged. Work that isn't pushed is kept.",
+    "关联的拉取请求合并或关闭后，自动归档桌面会话。归档还会移除该会话的工作树，并在拉取请求合并后删除其分支。未推送的工作会被保留。"
+  ],
+  [
     "Autofix pull requests",
     "自动修复拉取请求"
   ],
@@ -1273,11 +1277,11 @@
   ],
   [
     "T=P.length>0?`Usage: ${P.join(\", \")}`:\"Usage\";",
-    "T=P.length>0?`使用情况：${P.join(\", \")}`:\"使用情况\";"
+    "T=P.length>0?`用量：${P.join(\", \")}`:\"用量\";"
   ],
   [
     "\"aria-label\":\"Usage\"",
-    "\"aria-label\":\"使用情况\""
+    "\"aria-label\":\"用量\""
   ],
   [
     "children:\"Filter\"",
@@ -2210,5 +2214,113 @@
   [
     "Set time limits for Claude. You can dismiss or adjust anytime.",
     "设置 Claude 的使用时限。你可以随时忽略或调整。"
+  ],
+  [
+    "A quiet month.",
+    "这个月很安静。"
+  ],
+  [
+    "Not much to reflect on from this month's conversations with Claude. One short exchange in Chinese, and that was the month.",
+    "这个月与 Claude 的对话没什么可回顾的。只有一段简短的中文交流，这就是这个月的全部了。"
+  ],
+  [
+    "MOST ACTIVE DAY",
+    "最活跃日期"
+  ],
+  [
+    "PEAK HOUR",
+    "高峰时段"
+  ],
+  [
+    "TOTAL CONVERSATIONS",
+    "对话总数"
+  ],
+  [
+    "YOUR TIME WITH CLAUDE",
+    "你与 Claude 共度的时间"
+  ],
+  [
+    "Time spent",
+    "使用时长"
+  ],
+  [
+    "Decide when Claude is off",
+    "设定 Claude 的休息时间"
+  ],
+  [
+    "Schedule quiet hours and get a nudge when a session runs long.",
+    "设置安静时段；当会话持续过长时，Claude 会提醒你。"
+  ],
+  [
+    "Set quiet hours and breaks",
+    "设置安静时段和休息提醒"
+  ],
+  [
+    "WHAT YOU SPENT TIME ON",
+    "你的时间投入"
+  ],
+  [
+    "A brief hello",
+    "简短问候"
+  ],
+  [
+    "A single short greeting exchange in Chinese",
+    "一次简短的中文问候交流"
+  ],
+  [
+    "EXPANDING YOUR SKILLS",
+    "拓展你的技能"
+  ],
+  [
+    "Your Claude activity measured as AI fluency skills",
+    "你的 Claude 活动将按 AI 熟练度技能衡量"
+  ],
+  [
+    "DELEGATION",
+    "委派"
+  ],
+  [
+    "DISCERNMENT",
+    "辨析"
+  ],
+  [
+    "DILIGENCE",
+    "严谨"
+  ],
+  [
+    "Nothing to build on yet",
+    "暂时没有可积累的内容"
+  ],
+  [
+    "There wasn't enough this month to reflect on this skill.",
+    "这个月与此技能相关的内容还不足以进行回顾。"
+  ],
+  [
+    "There wasn’t enough this month to reflect on this skill.",
+    "这个月与此技能相关的内容还不足以进行回顾。"
+  ],
+  [
+    "Explore more hard questions",
+    "探索更多高难度问题"
+  ],
+  [
+    "Claude uses memory to build your reflection. Turn this off anytime in memory settings.",
+    "Claude 会使用记忆生成你的回顾。你可以随时在记忆设置中关闭此功能。"
+  ],
+  [
+    "Topics",
+    "主题"
+  ],
+  [
+    "Recent Work",
+    "近期工作"
+  ],
+  [
+    "Who the user is — identity and stable preferences",
+    "用户身份与稳定偏好"
+  ],
+  [
+    "Recent one-off activity that doesn't fit elsewhere",
+    "不适合归入其他类别的近期一次性活动"
   ]
 ]

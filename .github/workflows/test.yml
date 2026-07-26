@@ -227,7 +227,9 @@ jobs:
             throw "resumable pending restore did not complete"
           }
           $afterResume = [IO.File]::ReadAllText((Join-Path $resumeAssets "app-HASH.js"))
-          if ($afterResume -ne $originalBundle) {
+          # Set-Content appended a trailing newline when the fixture was written,
+          # so compare ignoring it; the restored bytes come from that same fixture.
+          if ($afterResume.TrimEnd("`r", "`n") -ne $originalBundle) {
             throw "resumable restore did not keep the original frontend bundle"
           }
           if (Test-Path -LiteralPath (Get-WindowsPendingRestorePath $resumeFixture)) {

@@ -4986,7 +4986,7 @@ function Install-WindowsLanguagePackWithFallback {
             throw
         }
         if (-not $script:LastInstallRollbackSucceeded) {
-            throw "完整模式失败，且本次文件回滚未能完整确认。为保护唯一备份，已停止安装，不会继续基础模式。原错误: $fullModeError"
+            throw "[fullmode-halt] 完整模式失败，且本次文件回滚未能完整确认。为保护唯一备份，已停止安装，不会继续基础模式。原错误: $fullModeError"
         }
 
         Write-Host ""

@@ -160,7 +160,10 @@ jobs:
             throw "fallback guard did not throw"
           }
           catch {
-            if ($_.Exception.Message -notmatch "不会继续基础模式") { throw }
+            # Match the ASCII error code, not the Chinese text: the runner may
+            # hand the inline script to Windows PowerShell 5.1 without a BOM,
+            # and mojibake in the pattern would make this rethrow forever.
+            if ($_.Exception.Message -notmatch "fullmode-halt") { throw }
           }
           if ($script:fallbackCalls -ne 1) { throw "fallback ran after an unconfirmed rollback" }
 

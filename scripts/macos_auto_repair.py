@@ -9,6 +9,7 @@ import fcntl
 import json
 import os
 import pwd
+import re
 import subprocess
 import sys
 import time
@@ -20,11 +21,30 @@ import patch_claude_zh_cn as patcher
 
 STATE_PATH = patcher.AUTO_REPAIR_ROOT / "state.json"
 FAILURE_RETRY_SECONDS = 6 * 60 * 60
+LOG_ROTATE_BYTES = 1024 * 1024
+CLAUDE_BUNDLE_ID = "com.anthropic.claudefordesktop"
+QUIT_WAIT_SECONDS = 20
 
 
 def log(message: str) -> None:
     stamp = dt.datetime.now().astimezone().isoformat(timespec="seconds")
     print(f"[{stamp}] {message}", flush=True)
+
+
+def rotate_log_if_needed() -> None:
+    """Keep the launchd-managed log bounded: rename to .old once it exceeds the cap.
+
+    launchd already holds the log open for this run, so output keeps flowing to
+    the rotated file; the next launch recreates a fresh auto-repair.log.
+    """
+    try:
+        log_path = patcher.AUTO_REPAIR_LOG
+        if log_path.stat().st_size >= LOG_ROTATE_BYTES:
+            log_path.replace(log_path.with_suffix(log_path.suffix + ".old"))
+    except FileNotFoundError:
+        pass
+    except OSError as exc:
+        log(f"Log rotation skipped: {exc}")
 
 
 def load_object(path: Path) -> dict[str, Any]:
@@ -61,14 +81,66 @@ def validate_config(value: dict[str, Any], path: Path) -> dict[str, Any]:
     return value
 
 
-def claude_is_running() -> bool:
+def claude_is_running(app: Path) -> bool:
+    # Match by bundle path prefix instead of the bare name "Claude" so an
+    # unrelated process that happens to share the name never triggers a relaunch.
+    # macOS pgrep cannot read the Electron main process's argv (it falls back to
+    # a truncated comm), so `pgrep -x Claude` misses it entirely; the app's
+    # helper children (renderer/GPU/crashpad) always run from inside the bundle
+    # with readable argv, so a path-prefix match reliably detects a running app.
+    # ^ anchors to argv[0]: only processes launched from inside the bundle
+    # match, not unrelated commands whose arguments mention the path.
+    bundle_prefix = "^" + re.escape(str(app.resolve() / "Contents") + "/")
     result = subprocess.run(
-        ["/usr/bin/pgrep", "-x", "Claude"],
+        ["/usr/bin/pgrep", "-f", bundle_prefix],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         check=False,
     )
     return result.returncode == 0
+
+
+def quit_claude_for_user(app: Path, user_home: Path) -> bool:
+    """Ask the user's GUI session to quit Claude; return True once it is gone.
+
+    This daemon runs in the system launchd domain, where a bare osascript has
+    no route to the user's Aqua session and the quit AppleEvent silently fails
+    (-600/-1743). Delivering it via `launchctl asuser` fixes the bootstrap
+    namespace; TCC may still deny Automation for root, so the caller must
+    treat a lingering process as "patch on disk, effective on next launch".
+    """
+    if not claude_is_running(app):
+        return True
+    try:
+        uid = user_home.stat().st_uid
+        user_name = pwd.getpwuid(uid).pw_name
+    except Exception as exc:
+        log(f"Cannot determine user for quitting Claude: {exc}")
+        return False
+    env = os.environ.copy()
+    env["HOME"] = str(user_home)
+    env["USER"] = user_name
+    env["LOGNAME"] = user_name
+    subprocess.run(
+        [
+            "/bin/launchctl",
+            "asuser",
+            str(uid),
+            "/usr/bin/osascript",
+            "-e",
+            f'tell application id "{CLAUDE_BUNDLE_ID}" to quit',
+        ],
+        env=env,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    deadline = time.time() + QUIT_WAIT_SECONDS
+    while time.time() < deadline:
+        if not claude_is_running(app):
+            return True
+        time.sleep(1)
+    return not claude_is_running(app)
 
 
 def launch_for_user(app: Path, user_home: Path) -> None:
@@ -153,7 +225,17 @@ def run_once(config_path: Path) -> int:
         log("Claude.app is not settled yet; waiting for the official updater to finish")
         return 0
 
-    was_running = claude_is_running()
+    was_running = claude_is_running(app)
+    quit_ok = True
+    if was_running:
+        quit_ok = quit_claude_for_user(app, user_home)
+        if quit_ok:
+            log("Claude was quit from the user session for the repair")
+        else:
+            log(
+                "Claude is still running (Automation may be denied for root); "
+                "patching on disk anyway - the repair takes effect on the next launch"
+            )
     command = [
         sys.executable,
         str(Path(patcher.__file__).resolve()),
@@ -174,7 +256,9 @@ def run_once(config_path: Path) -> int:
         f"{fingerprint['identity'].get('version')} ({fingerprint['identity'].get('build')}); repairing"
     )
     result = subprocess.run(command, check=False)
-    if was_running:
+    if was_running and quit_ok:
+        # Only relaunch when the old instance actually quit; `open -a` against
+        # a still-running app would merely focus the unpatched instance.
         launch_for_user(app, user_home)
     if result.returncode == 0:
         if STATE_PATH.exists():
@@ -185,7 +269,13 @@ def run_once(config_path: Path) -> int:
             config["mode"] = repaired_mode
             save_object(config_path, config)
             log(f"Compatibility fallback changed the maintained patch mode to {repaired_mode}")
-        log("Automatic Chinese patch repair completed")
+        if was_running and not quit_ok:
+            log(
+                "Automatic Chinese patch repair completed on disk; "
+                "it takes effect after Claude restarts"
+            )
+        else:
+            log("Automatic Chinese patch repair completed")
         return 0
 
     save_object(
@@ -208,6 +298,7 @@ def main() -> int:
     parser.add_argument("--config", type=Path, required=True)
     args = parser.parse_args()
 
+    rotate_log_if_needed()
     patcher.AUTO_REPAIR_LOCK.parent.mkdir(parents=True, exist_ok=True)
     with patcher.AUTO_REPAIR_LOCK.open("a+", encoding="utf-8") as lock_file:
         try:

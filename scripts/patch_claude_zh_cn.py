@@ -2634,6 +2634,11 @@ def install_macos_auto_repair(
             str(AUTO_REPAIR_CONFIG),
         ],
         "RunAtLoad": True,
+        # Event trigger: launchd fires the job as soon as the official updater
+        # replaces Info.plist (the .app swap touches it). The settle/debounce
+        # logic in macos_auto_repair.py keeps mid-update runs harmless, and
+        # StartInterval remains as the polling fallback if a watch is missed.
+        "WatchPaths": [str(app.resolve() / "Contents/Info.plist")],
         "StartInterval": AUTO_REPAIR_INTERVAL_SECONDS,
         "ThrottleInterval": 60,
         "ProcessType": "Background",
@@ -2657,8 +2662,8 @@ def install_macos_auto_repair(
             "Failed to load the macOS auto-repair service. launchctl output:\n" + result.stdout
         )
     print(
-        f"Installed update auto-repair service ({AUTO_REPAIR_INTERVAL_SECONDS // 60}-minute checks): "
-        f"{AUTO_REPAIR_LABEL}"
+        f"Installed update auto-repair service (update-triggered, "
+        f"{AUTO_REPAIR_INTERVAL_SECONDS // 60}-minute fallback checks): {AUTO_REPAIR_LABEL}"
     )
 
 
@@ -2971,7 +2976,23 @@ def doctor_report(app: Path, lang_code: str) -> dict[str, Any]:
         data = asar_path.read_bytes()
         header_size, _header_string, header = read_asar_header(data, asar_path)
         target = find_main_process_asar_target(data, header_size, header)
-        checks["asarFullPatch"] = {"ok": True, "mainBundle": target}
+        # Selecting a bundle is not enough: the legacy-path fallback can return
+        # a bundle whose injection anchor is gone. Verify the anchor (or an
+        # already-applied patch marker) actually exists before reporting ok.
+        entry = get_asar_file_entry(header, target)
+        content = read_asar_entry_content(data, header_size, entry, target)
+        anchor_ok = ONLINE_LOCALE_MAIN_MARKER.encode("utf-8") in content
+        if not anchor_ok:
+            try:
+                text = content.decode("utf-8")
+            except UnicodeDecodeError:
+                text = ""
+            anchor_ok = find_main_view_dom_ready_handler(text) is not None
+        checks["asarFullPatch"] = {
+            "ok": anchor_ok,
+            "mainBundle": target,
+            **({} if anchor_ok else {"error": "main view dom-ready anchor not found"}),
+        }
     except (Exception, SystemExit) as exc:
         checks["asarFullPatch"] = {"ok": False, "error": str(exc)}
 
@@ -3168,6 +3189,11 @@ def main() -> int:
 
     if args.dry_run:
         print("[dry-run] Claude will not be quit.")
+    elif args.maintenance_run:
+        # The auto-repair daemon runs outside the user's GUI session, where a
+        # bare osascript cannot deliver the quit AppleEvent; the controller
+        # already quit Claude via `launchctl asuser` before spawning us.
+        pass
     else:
         quit_claude()
     tmp_root = Path(tempfile.mkdtemp(prefix=f"claude-{lang_code}-patch."))

@@ -73,7 +73,7 @@ CC Switch skills 同步会扫描 `~/.cc-switch/skills` 下包含 `SKILL.md` 的�
 ## 更新后自动恢复与新版兼容
 
 - 自动修复只运行本次安装时复制的脚本和语言资源，不会以 root/SYSTEM 身份从网络下载或执行新代码。
-- macOS payload 位于 `/Library/Application Support/ClaudeDesktopZhCN`，由 LaunchDaemon 每 5 分钟检查一次；Windows payload 位于 `%ProgramData%\ClaudeDesktopZhCn`，由计划任务检查。两处目录都只允许系统或管理员修改。
+- macOS payload 位于 `/Library/Application Support/ClaudeDesktopZhCN`，由 LaunchDaemon 在检测到官方更新时立即检查（监听 `Claude.app/Contents/Info.plist` 变化），并以每 5 分钟轮询作为兜底；Windows payload 位于 `%ProgramData%\ClaudeDesktopZhCn`，由计划任务检查。两处目录都只允许系统或管理员修改。
 - 检测到 Claude 刚更新或文件仍在变化时会等待下一次检查，避免与官方更新器并发写入。macOS 在版本稳定后会受控退出并恢复原先正在运行的 Claude；Windows 会等 Claude/Cowork 关闭后再修复，避免中断会话。
 - 新版只要基础 i18n 布局仍可语义识别，就会合并当前版本的 `en-US.json`：已有中文继续使用中文，新增加的 key 自动回退英文，不会因旧语言包缺 key 而显示空白。
 - 完整模式的 `app.asar` 增强锚点若不兼容，两端都会先回滚本次修改，再自动重试完全不改 `app.asar` 的基础模式；macOS 的真实官方应用在临时副本验证成功前不会被替换。

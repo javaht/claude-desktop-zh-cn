@@ -4,6 +4,7 @@ import importlib.util
 import json
 import plistlib
 import shutil
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -18,6 +19,19 @@ SPEC = importlib.util.spec_from_file_location(
 assert SPEC and SPEC.loader
 patcher = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(patcher)
+# macos_auto_repair does `import patch_claude_zh_cn`; register the already
+# loaded instance so both modules share state and mock.patch.object works.
+sys.modules["patch_claude_zh_cn"] = patcher
+
+auto_repair = None
+if sys.platform != "win32":  # fcntl/pwd imports are Unix-only
+    AUTO_REPAIR_SPEC = importlib.util.spec_from_file_location(
+        "macos_auto_repair",
+        ROOT / "scripts/macos_auto_repair.py",
+    )
+    assert AUTO_REPAIR_SPEC and AUTO_REPAIR_SPEC.loader
+    auto_repair = importlib.util.module_from_spec(AUTO_REPAIR_SPEC)
+    AUTO_REPAIR_SPEC.loader.exec_module(auto_repair)
 
 
 def make_app(root: Path, version: str, build: str, asar: bytes = b"official-asar") -> Path:
@@ -291,6 +305,26 @@ class PatcherTests(unittest.TestCase):
             hashed_path,
         )
 
+    def test_doctor_flags_selected_bundle_with_missing_anchor(self) -> None:
+        # The legacy-path fallback in find_main_process_asar_target can select
+        # a bundle whose dom-ready anchor is gone; doctor must not report that
+        # as full-compatible (upstream-watch relies on this signal).
+        app = make_app(self.root, "9.9.9", "999")
+        make_frontend(app)
+        write_single_file_asar(app, ".vite/build/index.js", b"console.log('no anchor');")
+        report = patcher.doctor_report(app, "zh-CN")
+        self.assertTrue(report["basicCompatible"])
+        self.assertFalse(report["checks"]["asarFullPatch"]["ok"])
+        self.assertFalse(report["fullCompatible"])
+
+        anchored = b'a.webContents.on("dom-ready",()=>{t.track("main_view_dom_ready")});'
+        app2 = make_app(self.root / "anchored", "9.9.9", "999")
+        make_frontend(app2)
+        write_single_file_asar(app2, ".vite/build/index.js", anchored)
+        report2 = patcher.doctor_report(app2, "zh-CN")
+        self.assertTrue(report2["checks"]["asarFullPatch"]["ok"])
+        self.assertTrue(report2["fullCompatible"])
+
     def test_resource_manifests_match_actual_key_counts(self) -> None:
         manifests = {
             "zh-CN": "manifest.json",
@@ -309,6 +343,100 @@ class PatcherTests(unittest.TestCase):
                 self.assertEqual(manifest["language"], language)
                 self.assertEqual(manifest["frontend_strings"], len(frontend))
                 self.assertEqual(manifest["desktop_shell_strings"], len(desktop))
+
+
+@unittest.skipIf(sys.platform == "win32", "macos_auto_repair is Unix-only (fcntl/pwd)")
+class AutoRepairTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+
+    def test_log_rotation_only_when_over_cap(self) -> None:
+        log_path = self.tmp / "auto-repair.log"
+        rotated = self.tmp / "auto-repair.log.old"
+        with mock.patch.object(patcher, "AUTO_REPAIR_LOG", log_path):
+            auto_repair.rotate_log_if_needed()  # missing file is a no-op
+            log_path.write_bytes(b"x" * (auto_repair.LOG_ROTATE_BYTES - 1))
+            auto_repair.rotate_log_if_needed()
+            self.assertTrue(log_path.exists())
+            self.assertFalse(rotated.exists())
+            log_path.write_bytes(b"x" * auto_repair.LOG_ROTATE_BYTES)
+            auto_repair.rotate_log_if_needed()
+            self.assertFalse(log_path.exists())
+            self.assertTrue(rotated.exists())
+
+    def test_claude_is_running_uses_anchored_bundle_prefix(self) -> None:
+        app = Path("/Applications/Claude.app")
+        with mock.patch.object(auto_repair.subprocess, "run") as run:
+            run.return_value = mock.Mock(returncode=0)
+            self.assertTrue(auto_repair.claude_is_running(app))
+        argv = run.call_args[0][0]
+        self.assertEqual(argv[:2], ["/usr/bin/pgrep", "-f"])
+        pattern = argv[2]
+        # Anchored to argv[0] and scoped inside the bundle: unrelated commands
+        # that merely mention the path in an argument must not match.
+        self.assertTrue(pattern.startswith("^"))
+        self.assertIn("Contents/", pattern)
+        self.assertIn(r"Claude\.app", pattern)
+
+    def test_failure_backoff_quadrants(self) -> None:
+        fingerprint = {"identity": {"version": "1.0"}, "asarSize": 1}
+        base = {
+            "failedFingerprint": fingerprint,
+            "patchRelease": "1.4.2",
+            "failedAt": 1_000_000.0,
+        }
+        with mock.patch.object(auto_repair.time, "time", return_value=1_000_000.0 + 60):
+            self.assertTrue(auto_repair.failure_is_backed_off(base, fingerprint, "1.4.2"))
+            self.assertFalse(
+                auto_repair.failure_is_backed_off(base, {"identity": {}, "asarSize": 2}, "1.4.2")
+            )
+            self.assertFalse(auto_repair.failure_is_backed_off(base, fingerprint, "1.4.3"))
+            self.assertFalse(
+                auto_repair.failure_is_backed_off({**base, "failedAt": "bad"}, fingerprint, "1.4.2")
+            )
+        after = 1_000_000.0 + auto_repair.FAILURE_RETRY_SECONDS + 1
+        with mock.patch.object(auto_repair.time, "time", return_value=after):
+            self.assertFalse(auto_repair.failure_is_backed_off(base, fingerprint, "1.4.2"))
+
+    def test_quit_claude_for_user_delivers_via_launchctl_asuser(self) -> None:
+        app = Path("/Applications/Claude.app")
+        calls: list[list[str]] = []
+
+        def fake_run(argv, **kwargs):
+            calls.append(argv)
+            return mock.Mock(returncode=0)
+
+        running = iter([True, False])  # running before quit, gone afterwards
+        with (
+            mock.patch.object(auto_repair, "claude_is_running", lambda _: next(running)),
+            mock.patch.object(auto_repair.subprocess, "run", side_effect=fake_run),
+            mock.patch.object(auto_repair.pwd, "getpwuid") as getpwuid,
+            mock.patch.object(Path, "stat") as stat,
+        ):
+            stat.return_value = mock.Mock(st_uid=501)
+            getpwuid.return_value = mock.Mock(pw_name="tester")
+            self.assertTrue(auto_repair.quit_claude_for_user(app, Path("/Users/tester")))
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0][:3], ["/bin/launchctl", "asuser", "501"])
+        self.assertIn("/usr/bin/osascript", calls[0])
+        self.assertIn(
+            f'tell application id "{auto_repair.CLAUDE_BUNDLE_ID}" to quit', calls[0]
+        )
+
+    def test_quit_claude_for_user_reports_lingering_process(self) -> None:
+        app = Path("/Applications/Claude.app")
+        with (
+            mock.patch.object(auto_repair, "claude_is_running", return_value=True),
+            mock.patch.object(auto_repair.subprocess, "run") as run,
+            mock.patch.object(auto_repair.pwd, "getpwuid") as getpwuid,
+            mock.patch.object(Path, "stat") as stat,
+            mock.patch.object(auto_repair, "QUIT_WAIT_SECONDS", 0),
+        ):
+            stat.return_value = mock.Mock(st_uid=501)
+            getpwuid.return_value = mock.Mock(pw_name="tester")
+            run.return_value = mock.Mock(returncode=0)
+            self.assertFalse(auto_repair.quit_claude_for_user(app, Path("/Users/tester")))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,255 @@
+name: Test patch compatibility
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile Python scripts
+        run: python -m py_compile scripts/patch_claude_zh_cn.py scripts/macos_auto_repair.py
+      - name: Run fixture tests
+        run: python -m unittest discover -s tests -v
+
+  powershell:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse Windows installer with Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path "scripts/install_windows.ps1"),
+            [ref]$null,
+            [ref]$errors
+          )
+          if ($errors.Count -gt 0) {
+            $errors | Format-List -Force
+            exit 1
+          }
+      - name: Test Windows dynamic layout and locale registration
+        shell: powershell
+        run: |
+          . .\scripts\install_windows.ps1 -LibraryMode
+          $appRoot = Join-Path $env:RUNNER_TEMP "claude-zh-layout"
+          $fixture = Join-Path $appRoot "resources"
+          $assets = Join-Path $fixture "ion-dist\assets\v2"
+          $locales = Join-Path $fixture "ion-dist\locales"
+          New-Item -ItemType Directory -Path $assets, $locales -Force | Out-Null
+          Set-Content -LiteralPath (Join-Path $appRoot "Claude.exe") -Encoding ASCII -Value "fixture-exe"
+          Set-Content -LiteralPath (Join-Path $fixture "app.asar") -Encoding ASCII -Value "fixture-asar"
+          Set-Content -LiteralPath (Join-Path $assets "app-HASH.js") -Encoding UTF8 -Value `
+            "const languageOptions=['fr-FR','en-US','nl-NL','de-DE','ja-JP','ko-KR','id-ID'];"
+          Set-Content -LiteralPath (Join-Path $locales "en-US.json") -Encoding UTF8 -Value '{"hello":"Hello"}'
+
+          $files = @(Get-FrontendJavaScriptFiles $fixture)
+          if ($files.Count -ne 1 -or $files[0].Name -ne "app-HASH.js") { throw "dynamic assets discovery failed" }
+          if ((Get-FrontendI18nDirectory $fixture) -ne $locales) { throw "dynamic i18n discovery failed" }
+
+          $source = [IO.File]::ReadAllText($files[0].FullName)
+          $first = Update-LanguageArraysInText $source "zh-CN"
+          if ($first.ChangedCount -ne 1 -or -not $first.Text.Contains("'nl-NL'") -or -not $first.Text.Contains("'zh-CN'")) {
+            throw "semantic locale append failed"
+          }
+          $second = Update-LanguageArraysInText $first.Text "zh-CN"
+          if ($second.ChangedCount -ne 0 -or $second.AlreadyCount -lt 1) { throw "locale append is not idempotent" }
+
+          Set-Content -LiteralPath $files[0].FullName -Encoding UTF8 -Value ($first.Text + ";/*__claudeZhLabelPatch*/")
+          Set-Content -LiteralPath (Join-Path $locales "zh-CN.json") -Encoding UTF8 -Value '{"hello":"你好"}'
+          New-Item -ItemType Directory -Path (Join-Path $locales "statsig") -Force | Out-Null
+          Set-Content -LiteralPath (Join-Path $locales "statsig\zh-CN.json") -Encoding UTF8 -Value '{"hello":"你好"}'
+          Set-Content -LiteralPath (Join-Path $fixture "zh-CN.json") -Encoding UTF8 -Value '{"hello":"你好"}'
+          $paths = @{ App = $appRoot; Resources = $fixture; InstallKind = "Fixture" }
+          $frontendBundleFiles = @("ion-dist\assets\v2\app-HASH.js")
+          $localeResourceFiles = @(
+            "ion-dist\locales\zh-CN.json",
+            "ion-dist\locales\statsig\zh-CN.json",
+            "zh-CN.json"
+          )
+          $marker = [ordered]@{
+            schemaVersion = 2
+            patchVersion = Get-PatchReleaseVersion
+            language = "zh-CN"
+            mode = "safe"
+            backupSet = "fixture"
+            createdFiles = @(
+              $localeResourceFiles
+            )
+            frontendBundleFiles = $frontendBundleFiles
+            frontendBundleFingerprints = @(Get-RelativeFileFingerprints $fixture $frontendBundleFiles)
+            localeResourceFingerprints = @(Get-RelativeFileFingerprints $fixture $localeResourceFiles)
+            modifiedResourceFingerprints = @(Get-RelativeFileFingerprints $fixture $frontendBundleFiles)
+            appIdentity = Get-ClaudeAppIdentity $paths
+            patchedFingerprint = Get-WindowsMaintenanceFingerprint $paths
+          }
+          $marker = $marker | ConvertTo-Json -Depth 30 | ConvertFrom-Json
+          # Test-WindowsPatchCurrent requires the marker's backup set to exist.
+          $backupBundle = Join-Path $fixture ".zh-cn-backups\fixture\ion-dist\assets\v2\app-HASH.js"
+          New-Item -ItemType Directory -Path (Split-Path -Parent $backupBundle) -Force | Out-Null
+          Set-Content -LiteralPath $backupBundle -Encoding UTF8 -Value $source
+          if (-not (Test-WindowsPatchCurrent $marker $paths "zh-CN" "safe")) {
+            throw "complete marker was not accepted"
+          }
+          Remove-Item -LiteralPath (Join-Path $locales "zh-CN.json") -Force
+          if (Test-WindowsPatchCurrent $marker $paths "zh-CN" "safe") {
+            throw "marker without locale was incorrectly accepted"
+          }
+          if (-not (Test-PatchMarkerMatchesIdentity $marker $paths) -or
+              -not (Test-PatchMarkerMatchesFingerprint $marker $paths)) {
+            throw "missing locale invalidated the exact official backup baseline"
+          }
+
+          Save-JsonNoBom (Get-PatchMarkerPath $fixture) $marker 30
+          function Get-ClaudeResourcesPath { return $paths }
+          function Stop-ClaudeProcesses {}
+          function Remove-LegacyAppxForkArtifacts {}
+          if (-not (Uninstall-WindowsLanguagePack -ForReinstall)) {
+            throw "exact partial marker baseline was not restored"
+          }
+          $restoredSource = [IO.File]::ReadAllText($files[0].FullName)
+          if ($restoredSource.Contains("zh-CN") -or $restoredSource.Contains("__claudeZhLabelPatch")) {
+            throw "partial repair did not restore the original frontend bundle"
+          }
+          if (Test-Path -LiteralPath (Get-BackupRoot $fixture)) {
+            throw "restored backup set was not cleaned up"
+          }
+
+          $rollbackRoot = Join-Path $fixture ".zh-cn-backups\fixture-rollback"
+          New-Item -ItemType Directory -Path $rollbackRoot -Force | Out-Null
+          Set-Content -LiteralPath (Join-Path $rollbackRoot "original.bin") -Encoding ASCII -Value "keep-me"
+          $realRestoreBackupSet = ${function:Restore-BackupSet}
+          function Restore-BackupSet { throw "injected restore failure" }
+          $script:InstallTransactionActive = $true
+          $script:InstallTransactionResourcesPath = $fixture
+          $script:CurrentBackupSetPath = $rollbackRoot
+          $script:InstallTransactionCreatedFiles = [System.Collections.Generic.List[string]]::new()
+          $rollbackResult = Rollback-InstallTransaction $fixture
+          if ($rollbackResult -or -not (Test-Path -LiteralPath $rollbackRoot)) {
+            throw "failed rollback did not preserve its backup"
+          }
+          $script:InstallTransactionActive = $true
+          $script:InstallTransactionResourcesPath = $fixture
+          $script:CurrentBackupSetPath = Join-Path $fixture ".zh-cn-backups\missing"
+          $script:InstallTransactionCreatedFiles = [System.Collections.Generic.List[string]]::new()
+          if (Rollback-InstallTransaction $fixture) {
+            throw "missing backup set was incorrectly treated as a successful rollback"
+          }
+
+          $script:PatchMode = "official"
+          $script:fallbackCalls = 0
+          function Install-WindowsLanguagePack {
+            $script:fallbackCalls += 1
+            throw "injected full-mode failure"
+          }
+          try {
+            [void](Install-WindowsLanguagePackWithFallback)
+            throw "fallback guard did not throw"
+          }
+          catch {
+            # Match the ASCII error code, not the Chinese text: the runner may
+            # hand the inline script to Windows PowerShell 5.1 without a BOM,
+            # and mojibake in the pattern would make this rethrow forever.
+            if ($_.Exception.Message -notmatch "fullmode-halt") { throw }
+          }
+          if ($script:fallbackCalls -ne 1) { throw "fallback ran after an unconfirmed rollback" }
+
+          # Resumable exact restore: half-restored tree + pending state must continue the same backup.
+          Set-Item function:Restore-BackupSet $realRestoreBackupSet
+          $resumeApp = Join-Path $env:RUNNER_TEMP "claude-zh-resume"
+          $resumeFixture = Join-Path $resumeApp "resources"
+          $resumeAssets = Join-Path $resumeFixture "ion-dist\assets\v2"
+          $resumeLocales = Join-Path $resumeFixture "ion-dist\locales"
+          New-Item -ItemType Directory -Path $resumeAssets, $resumeLocales, (Join-Path $resumeLocales "statsig") -Force | Out-Null
+          Set-Content -LiteralPath (Join-Path $resumeApp "Claude.exe") -Encoding ASCII -Value "resume-exe"
+          Set-Content -LiteralPath (Join-Path $resumeFixture "app.asar") -Encoding ASCII -Value "resume-asar"
+          $originalBundle = "const languageOptions=['fr-FR','en-US','nl-NL','de-DE','ja-JP','ko-KR','id-ID'];"
+          $patchedBundle = $originalBundle + "/*__claudeZhLabelPatch*/;const languageOptions=['fr-FR','en-US','nl-NL','de-DE','ja-JP','ko-KR','id-ID','zh-CN'];"
+          Set-Content -LiteralPath (Join-Path $resumeAssets "app-HASH.js") -Encoding UTF8 -Value $patchedBundle
+          Set-Content -LiteralPath (Join-Path $resumeLocales "en-US.json") -Encoding UTF8 -Value '{"hello":"Hello"}'
+          Set-Content -LiteralPath (Join-Path $resumeLocales "zh-CN.json") -Encoding UTF8 -Value '{"hello":"你好"}'
+          Set-Content -LiteralPath (Join-Path $resumeLocales "statsig\zh-CN.json") -Encoding UTF8 -Value '{"hello":"你好"}'
+          Set-Content -LiteralPath (Join-Path $resumeFixture "zh-CN.json") -Encoding UTF8 -Value '{"hello":"你好"}'
+          $resumePaths = @{ App = $resumeApp; Resources = $resumeFixture; InstallKind = "Fixture" }
+          $resumeBundleRel = "ion-dist\assets\v2\app-HASH.js"
+          $resumeLocaleRels = @(
+            "ion-dist\locales\zh-CN.json",
+            "ion-dist\locales\statsig\zh-CN.json",
+            "zh-CN.json"
+          )
+          $backupBundle = Join-Path $resumeFixture ".zh-cn-backups\resume-set\$resumeBundleRel"
+          New-Item -ItemType Directory -Path (Split-Path -Parent $backupBundle) -Force | Out-Null
+          Set-Content -LiteralPath $backupBundle -Encoding UTF8 -Value $originalBundle
+          $resumeMarker = [ordered]@{
+            schemaVersion = 2
+            patchVersion = Get-PatchReleaseVersion
+            language = "zh-CN"
+            mode = "safe"
+            backupSet = "resume-set"
+            createdFiles = @($resumeLocaleRels)
+            frontendBundleFiles = @($resumeBundleRel)
+            frontendBundleFingerprints = @(Get-RelativeFileFingerprints $resumeFixture @($resumeBundleRel))
+            localeResourceFingerprints = @(Get-RelativeFileFingerprints $resumeFixture $resumeLocaleRels)
+            modifiedResourceFingerprints = @(Get-RelativeFileFingerprints $resumeFixture @($resumeBundleRel))
+            appIdentity = Get-ClaudeAppIdentity $resumePaths
+            patchedFingerprint = Get-WindowsMaintenanceFingerprint $resumePaths
+          }
+          $resumeMarker = $resumeMarker | ConvertTo-Json -Depth 30 | ConvertFrom-Json
+          Save-JsonNoBom (Get-PatchMarkerPath $resumeFixture) $resumeMarker 30
+          # Simulate crash mid-restore: original bundle already restored, locale still present, pending state written.
+          Set-Content -LiteralPath (Join-Path $resumeAssets "app-HASH.js") -Encoding UTF8 -Value $originalBundle
+          Write-WindowsPendingRestore $resumeFixture $resumeMarker $resumePaths
+          if (-not (Test-Path -LiteralPath (Get-WindowsPendingRestorePath $resumeFixture))) {
+            throw "pending restore state was not written"
+          }
+          if (Test-PatchMarkerMatchesFingerprint $resumeMarker $resumePaths) {
+            throw "half-restored tree still matched patched fingerprint"
+          }
+          function Get-ClaudeResourcesPath { return $resumePaths }
+          function Stop-ClaudeProcesses {}
+          function Remove-LegacyAppxForkArtifacts {}
+          function Set-ClaudeLocale { param([string]$Locale) }
+          if (-not (Uninstall-WindowsLanguagePack -ForReinstall)) {
+            throw "resumable pending restore did not complete"
+          }
+          $afterResume = [IO.File]::ReadAllText((Join-Path $resumeAssets "app-HASH.js"))
+          # Set-Content appended a trailing newline when the fixture was written,
+          # so compare ignoring it; the restored bytes come from that same fixture.
+          if ($afterResume.TrimEnd("`r", "`n") -ne $originalBundle) {
+            throw "resumable restore did not keep the original frontend bundle"
+          }
+          if (Test-Path -LiteralPath (Get-WindowsPendingRestorePath $resumeFixture)) {
+            throw "pending restore state was not cleared after success"
+          }
+          if (Test-Path -LiteralPath (Get-PatchMarkerPath $resumeFixture)) {
+            throw "marker remained after resumable restore"
+          }
+          if (Test-Path -LiteralPath (Get-BackupRoot $resumeFixture)) {
+            throw "backup set remained after resumable restore"
+          }
+          foreach ($localeRel in $resumeLocaleRels) {
+            if (Test-Path -LiteralPath (Join-Path $resumeFixture $localeRel)) {
+              throw "patch-created locale remained after resumable restore: $localeRel"
+            }
+          }
+
+  shell:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate macOS entrypoint
+        run: bash -n install-mac.command

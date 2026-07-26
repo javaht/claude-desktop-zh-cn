@@ -1,0 +1,175 @@
+name: Upstream compatibility watch
+
+# 监控 Claude Desktop 官方更新源:新版本发布后数小时内自动下载并做兼容性
+# 检测(--doctor + 完整 dry-run),失败或"完整模式静默降级为安全模式"时自动
+# 开 issue——把"客户端更新打破汉化"的发现时间从"用户报 issue 后数天"压缩到
+# "官方发版当天"。
+#
+# 仅在 macOS 上检测:前端资源与 asar 锚点两端同构,macOS 检测失败即预示
+# Windows 同样受影响;Windows 专属逻辑由 test.yml 的 fixture 测试覆盖。
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: upstream-watch
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Query official update feed
+        id: feed
+        run: |
+          set -euo pipefail
+          DEVICE_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
+          FEED=$(curl -fsS --retry 3 --retry-all-errors --retry-delay 10 --max-time 30 \
+            "https://api.anthropic.com/api/desktop/darwin/universal/squirrel/update?device_id=${DEVICE_ID}")
+          VERSION=$(printf '%s' "$FEED" | python3 -c 'import json,sys; print(json.load(sys.stdin)["currentRelease"])')
+          URL=$(printf '%s' "$FEED" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["releases"][0]["updateTo"]["url"])')
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "url=${URL}" >> "$GITHUB_OUTPUT"
+          echo "Latest upstream release: ${VERSION}"
+
+      - name: Skip if this version was already reported
+        id: dedupe
+        env:
+          UPSTREAM_VERSION: ${{ steps.feed.outputs.version }}
+        run: |
+          set -euo pipefail
+          # 前缀匹配同时覆盖“检测失败”与“降级”两种标题;--state all 保证
+          # issue 被关闭后同版本不会在下个周期重复开出。
+          PREFIX="[upstream-watch] Claude ${UPSTREAM_VERSION}"
+          EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" --state all \
+            --search "\"$PREFIX\" in:title" --json number --jq 'length')
+          echo "already-reported=$([ "$EXISTING" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+      - name: Download and extract Claude.app
+        if: steps.dedupe.outputs.already-reported == 'false'
+        env:
+          UPSTREAM_URL: ${{ steps.feed.outputs.url }}
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 --retry-all-errors --retry-delay 10 --retry-max-time 900 \
+            --max-time 600 -o claude-upstream.zip "$UPSTREAM_URL"
+          mkdir -p extracted
+          ditto -x -k claude-upstream.zip extracted/
+          APP=$(find extracted -maxdepth 3 -name "Claude.app" -type d | head -1)
+          test -n "$APP" || { echo "Claude.app not found in the archive"; exit 1; }
+          echo "CLAUDE_APP=$APP" >> "$GITHUB_ENV"
+
+      - name: Doctor compatibility report
+        if: steps.dedupe.outputs.already-reported == 'false'
+        id: doctor
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          python3 scripts/patch_claude_zh_cn.py --app "$CLAUDE_APP" --doctor --json | tee doctor.json
+
+      - name: Full dry-run patch
+        if: steps.dedupe.outputs.already-reported == 'false'
+        id: dryrun
+        continue-on-error: true
+        run: |
+          python3 scripts/patch_claude_zh_cn.py --app "$CLAUDE_APP" --user-home "$HOME" --dry-run 2>&1 | tee dryrun.log
+          rc="${PIPESTATUS[0]}"
+          # 安装器对最终用户"降级到安全模式继续装"是正确行为,但对监控是漏报:
+          # asar 锚点失效恰是最该报警的场景,这里把静默降级转为独立失败信号。
+          if [ "$rc" -eq 0 ] && grep -q "Compatibility fallback succeeded" dryrun.log; then
+            echo "degraded=true" >> "$GITHUB_OUTPUT"
+            exit 3
+          fi
+          echo "degraded=false" >> "$GITHUB_OUTPUT"
+          exit "$rc"
+
+      - name: Check for silent full-mode degradation
+        if: >-
+          steps.dedupe.outputs.already-reported == 'false' &&
+          steps.doctor.outcome == 'success' && steps.dryrun.outcome == 'success'
+        id: fullcheck
+        run: |
+          set -euo pipefail
+          if python3 -c 'import json,sys; sys.exit(0 if json.load(open("doctor.json")).get("fullCompatible") else 1)'; then
+            echo "degraded=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "degraded=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open issue on failure or degradation
+        if: >-
+          steps.dedupe.outputs.already-reported == 'false' &&
+          (steps.doctor.outcome == 'failure' ||
+           steps.dryrun.outcome == 'failure' ||
+           steps.fullcheck.outputs.degraded == 'true')
+        env:
+          UPSTREAM_VERSION: ${{ steps.feed.outputs.version }}
+          UPSTREAM_URL: ${{ steps.feed.outputs.url }}
+          DOCTOR_OUTCOME: ${{ steps.doctor.outcome }}
+          DRYRUN_OUTCOME: ${{ steps.dryrun.outcome }}
+          DRYRUN_DEGRADED: ${{ steps.dryrun.outputs.degraded }}
+          FULLCHECK_DEGRADED: ${{ steps.fullcheck.outputs.degraded }}
+        run: |
+          set -euo pipefail
+          DEGRADED=false
+          [ "$DRYRUN_DEGRADED" = "true" ] && DEGRADED=true
+          [ "$FULLCHECK_DEGRADED" = "true" ] && DEGRADED=true
+          if [ "$DOCTOR_OUTCOME" = "failure" ] || { [ "$DRYRUN_OUTCOME" = "failure" ] && [ "$DEGRADED" != "true" ]; }; then
+            TITLE="[upstream-watch] Claude ${UPSTREAM_VERSION} 兼容性检测失败"
+            LEVEL="基础汉化安装失败,需要尽快适配。"
+          else
+            TITLE="[upstream-watch] Claude ${UPSTREAM_VERSION} 完整模式降级为安全模式"
+            LEVEL="基础汉化仍可安装,但 app.asar 增强补丁(在线页面翻译/菜单等)的锚点已失效,自动降级为安全模式。"
+          fi
+          {
+            echo "官方更新源发布了 Claude Desktop **${UPSTREAM_VERSION}**,自动兼容性检测结果:${LEVEL}"
+            echo
+            echo "- \`--doctor\`: **${DOCTOR_OUTCOME}**"
+            echo "- 完整 dry-run: **${DRYRUN_OUTCOME}**(降级: ${DEGRADED})"
+            echo "- 安装包: ${UPSTREAM_URL}"
+            echo
+            echo "<details><summary>doctor.json</summary>"
+            echo
+            echo '```json'
+            cat doctor.json 2>/dev/null || echo "(doctor 无输出)"
+            echo '```'
+            echo "</details>"
+            echo
+            echo "<details><summary>dry-run 日志(末尾 100 行)</summary>"
+            echo
+            echo '```'
+            tail -100 dryrun.log 2>/dev/null || echo "(dry-run 无输出)"
+            echo '```'
+            echo "</details>"
+          } > issue-body.md
+          gh label create upstream-watch --repo "$GITHUB_REPOSITORY" \
+            --description "自动上游兼容性检测" --color D93F0B --force
+          gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" \
+            --body-file issue-body.md --label "upstream-watch"
+
+      - name: Summary
+        if: always()
+        env:
+          UPSTREAM_VERSION: ${{ steps.feed.outputs.version }}
+        run: |
+          {
+            echo "## Upstream watch: Claude ${UPSTREAM_VERSION}"
+            if [ "${{ steps.dedupe.outputs.already-reported }}" = "true" ]; then
+              echo "该版本已有检测报告(含已关闭的),跳过本轮检测。"
+            else
+              echo "- doctor: ${{ steps.doctor.outcome }}"
+              echo "- dry-run: ${{ steps.dryrun.outcome }}"
+              echo "- 完整模式降级: ${{ steps.fullcheck.outputs.degraded || steps.dryrun.outputs.degraded }}"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

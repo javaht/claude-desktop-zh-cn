@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Claude Desktop 中文补丁 — 一键汉化 · 双平台 · 可恢复</title>
-  <meta name="description" content="免费开源的 Claude Desktop 中文汉化补丁：macOS 与 Windows 一键安装，支持简体、繁体（中国台湾）、繁体（中国香港），安装前自动备份、随时可恢复，官方更新后持续跟进。">
+  <meta name="description" content="免费开源的 Claude Desktop 中文汉化补丁：macOS 与 Windows 一键安装，支持三种中文，版本指纹备份可恢复，Claude 更新后自动补回汉化。">
   <meta property="og:title" content="Claude Desktop 中文补丁">
-  <meta property="og:description" content="一键把 Claude Desktop 翻成中文。双平台、三种中文变体、自动备份可恢复、持续维护。">
+  <meta property="og:description" content="一键把 Claude Desktop 翻成中文。双平台、三种中文变体、更新后自动恢复、版本安全可回滚。">
   <style>
     :root {
       color-scheme: light;
@@ -569,7 +569,7 @@
           <span class="stamp-word">翻成中文。</span>
         </h1>
         <p class="hero-lead" data-reveal style="--delay:140ms">
-          免费、开源、持续维护的 <span class="term">Claude Desktop</span> 汉化补丁。<b>一条脚本装上，界面即刻变中文</b> —— macOS 与 Windows 双平台，简体、繁体（中国台湾）、繁体（中国香港）任你选。官方更新后同步跟进，遇到漏翻随时反馈、随时修。
+          免费、开源、持续维护的 <span class="term">Claude Desktop</span> 汉化补丁。<b>一条脚本装上，界面即刻变中文</b> —— macOS 与 Windows 双平台，简体、繁体（中国台湾）、繁体（中国香港）任你选。官方更新覆盖资源后，受保护的后台服务会自动补回汉化。
         </p>
         <div class="hero-cta" data-reveal style="--delay:210ms">
           <a class="btn btn-primary" href="https://github.com/javaht/claude-desktop-zh-cn/releases/latest">立即下载补丁 <span class="arrow">→</span></a>
@@ -579,7 +579,7 @@
           <div><dt>双平台</dt><dd>macOS + Windows</dd></div>
           <div><dt>三种中文</dt><dd>简体 · 繁·中国台湾 · 繁·中国香港</dd></div>
           <div><dt>安全可逆</dt><dd>自动备份 · 一键恢复</dd></div>
-          <div><dt>持续维护</dt><dd>跟随官方更新</dd></div>
+          <div><dt>更新不掉</dt><dd>检测新版 · 自动补回</dd></div>
         </dl>
       </div>
 
@@ -634,7 +634,7 @@
         <article class="feature">
           <span class="fno">03</span>
           <h3>安全备份 · 一键恢复</h3>
-          <p>安装前自动备份原始 Claude，随时可从备份恢复或彻底卸载，装坏也退得回去。</p>
+          <p>备份记录 Claude build 与原始文件指纹，只恢复精确匹配版本；新版绝不会被旧备份降级，提交失败自动回滚。</p>
         </article>
         <article class="feature">
           <span class="fno">04</span>
@@ -656,6 +656,7 @@
       <div class="more-strip" data-reveal style="--delay:80ms">
         <span>登录后的 claude.ai 在线页面也汉化</span>
         <span>菜单内一键开关自动更新</span>
+        <span>官方更新后自动恢复汉化</span>
         <span>macOS 原生菜单同步汉化</span>
         <span>安装写入失败自动容错</span>
       </div>
@@ -705,9 +706,9 @@
             <li>退出 Claude Desktop。</li>
             <li>双击 <code>install-mac.command</code>，选择「安装中文补丁」。</li>
             <li>选语言（<b>1</b> 简体 / <b>2</b> 繁体·中国台湾 / <b>3</b> 繁体·中国香港），按提示输入 Mac 登录密码。</li>
-            <li>Claude 自动重启即生效；若没切换，到左下角账号菜单 <span class="term">Language</span> 里手动选。</li>
+            <li>Claude 自动重启即生效，并启用受保护的更新修复服务；若没切换，到 <span class="term">Language</span> 里手动选。</li>
           </ol>
-          <p class="os-note"><b>想更稳？</b> 菜单里还有「安全模式」，跳过 <span class="term">app.asar</span> 结构性补丁，只做等长菜单汉化，兼容性更高。</p>
+          <p class="os-note"><b>想更稳？</b> 菜单里的「基础兼容模式」完全不读写 <span class="term">app.asar</span>；完整模式遇到新版增强锚点不兼容时也会自动回退。</p>
         </article>
 
         <article class="os-card" data-reveal style="--delay:80ms">
@@ -719,15 +720,15 @@
             <li>退出 Claude Desktop。</li>
             <li>右键 <code>install-windows.bat</code>，选择以管理员身份运行。</li>
             <li>先选安装模式，再选语言（简体 / 繁·中国台湾 / 繁·中国香港）。</li>
-            <li>脚本自动备份资源、写入中文并重启 Claude。</li>
+            <li>脚本自动备份资源、写入中文、重启 Claude，并注册受保护的自动修复任务。</li>
           </ol>
-          <p class="os-note"><b>三种模式：</b> ① Cowork 兼容（跳过 <span class="term">app.asar</span>）② 官方账号登录 ③ 第三方 API 实验。需要 Cowork 沙箱 / 截图工作区请选 ①。</p>
+          <p class="os-note"><b>两种模式：</b> ① Cowork 兼容（跳过 <span class="term">app.asar</span>）② 官方账号在线汉化。② 未通过新版结构验证时会先完整回滚，再自动退到 ①；需要 Cowork 沙箱 / 截图工作区请直接选 ①。</p>
         </article>
       </div>
 
       <div class="safety-bar" data-reveal>
         <span class="ic" aria-hidden="true">↺</span>
-        <span>所有改动只动本机 Claude 的本地资源，<b>安装前自动备份</b>。要恢复？再跑一次脚本，选「恢复 / 卸载」即可。</span>
+        <span>所有改动只动本机资源，<b>安装前按版本指纹备份</b>。卸载会先移除后台修复任务，再恢复精确匹配的原版，不会刚卸载又被补回。</span>
       </div>
     </section>
 
@@ -776,7 +777,7 @@
 
     <footer>
       <p class="foot-disc">
-        <b>免责声明：</b>本项目为非官方中文补丁，与 Anthropic 无关，仅修改本机 Claude Desktop 的本地资源文件。Claude Desktop 更新后资源结构可能变化，若补丁失效，请先更新本项目或重新运行安装脚本。开源社区维护。
+        <b>免责声明：</b>本项目为非官方中文补丁，与 Anthropic 无关，仅修改本机 Claude Desktop 的本地资源文件。若新版结构无法通过兼容验证，自动修复会保留官方应用并退避；请更新本项目后重新安装。开源社区维护。
       </p>
       <nav class="foot-links" aria-label="页脚链接">
         <a href="https://github.com/javaht/claude-desktop-zh-cn">GitHub</a><span class="dot">/</span>

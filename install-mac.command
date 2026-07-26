@@ -26,15 +26,34 @@ try:
         metadata = json.load(f)
     repo = metadata["repo"]
     current = str(metadata["release"])
-    req = urllib.request.Request(
-        f"https://api.github.com/repos/{repo}/releases/latest",
-        headers={
-            "Accept": "application/vnd.github+json",
-            "User-Agent": "claude-desktop-zh-cn-update-check",
-        },
-    )
-    with urllib.request.urlopen(req, timeout=3) as response:
-        latest = str(json.load(response)["tag_name"])
+
+    def fetch_json(url, headers):
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=3) as response:
+            return json.load(response)
+
+    latest = None
+    try:
+        latest = str(
+            fetch_json(
+                f"https://api.github.com/repos/{repo}/releases/latest",
+                {
+                    "Accept": "application/vnd.github+json",
+                    "User-Agent": "claude-desktop-zh-cn-update-check",
+                },
+            )["tag_name"]
+        )
+    except Exception:
+        # api.github.com is often unreachable from mainland China; fall back to
+        # the jsDelivr package API, which mirrors GitHub tags and stays reachable.
+        versions = fetch_json(
+            f"https://data.jsdelivr.com/v1/package/gh/{repo}",
+            {"User-Agent": "claude-desktop-zh-cn-update-check"},
+        ).get("versions") or []
+        if versions:
+            latest = str(versions[0])
+    if not latest:
+        raise RuntimeError("no release info")
 
     def version_key(value):
         parts = [int(part) for part in re.findall(r"\d+", value)]
@@ -42,9 +61,10 @@ try:
 
     if version_key(latest) > version_key(current):
         print(
-            f"检测到 GitHub Releases 已发布新版 {latest}，当前脚本包为 {current}。"
+            f"检测到项目已发布新版 {latest}，当前脚本包为 {current}。"
             "建议及时更新。本次操作会继续执行。"
         )
+        print("国内网络下载较慢时，可参考 README 的「国内用户下载」章节。")
 except Exception:
     pass
 PY
@@ -54,6 +74,7 @@ check_release_update
 
 echo "Claude Desktop 中文补丁"
 echo "目录: $DIR"
+echo "安装成功后会启用受保护的自动修复服务；Claude 更新后会自动补回汉化。"
 echo
 
 ACTION="${CLAUDE_ACTION:-}"
@@ -61,7 +82,7 @@ SKIP_ASAR_PATCH="${CLAUDE_SKIP_ASAR_PATCH:-0}"
 if [ -z "$ACTION" ]; then
   echo "请选择操作："
   echo "  [1] 安装中文补丁(官方订阅与第三方api均可使用：Cowork 沙箱/工作区不可用看群公告)"
-  echo "  [2] 安装中文补丁(第三方api可用：第三方模型需借助ccswitch映射(Cowork 沙箱/工作区不可用看群公告))"
+  echo "  [2] 基础兼容模式（完全不修改 app.asar；新版增强补丁不兼容时也会自动回退到此模式）"
   echo "  [3] 恢复原样 / 卸载补丁"
   echo "  [4] 自动更新设置（y=禁止自动更新，n=允许自动更新）"
   echo "  [5] 同步CC Switch skills （y=同步，n=删除之前的同步）"
@@ -140,7 +161,7 @@ esac
 if [ "$ACTION" = "install" ]; then
   echo "选择的语言: $LANG_CODE"
   if [ -n "$SKIP_ASAR_ARG" ]; then
-    echo "安全模式: 跳过结构性 app.asar 补丁，仅应用等长菜单汉化补丁"
+    echo "基础模式: 完全不读写 app.asar 或二进制完整性信息"
   fi
   echo
 fi

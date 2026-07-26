@@ -5,7 +5,7 @@
     [string]$PatchMode = "safe",
 
     [Parameter(Position = 0)]
-    [ValidateSet("install", "uninstall", "disable-updates", "enable-updates", "sync-skills", "unsync-skills")]
+    [ValidateSet("install", "uninstall", "disable-updates", "enable-updates", "sync-skills", "unsync-skills", "frida-launch")]
     [string]$Action = "install",
 
     [Parameter(Position = 1)]
@@ -128,21 +128,24 @@ function Read-InteractiveSelection {
     Write-Host ""
     Write-Host "[1] 安装中文补丁(第三方API登陆模式(例DeepSeek)：（Cowork 沙箱/工作区不可用(看群公告))"
     Write-Host "[2] 安装中文补丁(官方账号登录模式：Cowork 沙箱/工作区不可用(看群公告))"
-    Write-Host "[3] 恢复原样 / 卸载补丁"
-    Write-Host "[4] 自动更新设置（y=禁止自动更新，n=允许自动更新）"
-    Write-Host "[5] 同步 CC Switch skills（y=开启同步，n=删除同步）"
+    Write-Host "[3] Frida 运行时汉化（实验中，有问题请反馈，不保证成功）"
+    Write-Host "[4] 恢复原样 / 卸载补丁"
+    Write-Host "[5] 自动更新设置（y=禁止自动更新，n=允许自动更新）"
+    Write-Host "[6] 同步 CC Switch skills（y=开启同步，n=删除同步）"
     Write-Host "[Q] 退出"
     Write-Host ""
 
     $patchModeForInstall = "safe"
     $actionSelected = $false
+    $selectedAction = "install"
     while (-not $actionSelected) {
-        $actionSelection = (Read-Host "请选择操作 [1/2/3/4/5/Q]").Trim()
+        $actionSelection = (Read-Host "请选择操作 [1/2/3/4/5/6/Q]").Trim()
         switch -Regex ($actionSelection) {
-            '^[1]$' { $patchModeForInstall = "safe"; $actionSelected = $true }
-            '^[2]$' { $patchModeForInstall = "official"; $actionSelected = $true }
-            '^[3]$' { return @{ Action = "uninstall"; Language = "zh-CN"; PatchMode = "safe" } }
-            '^[4]$' {
+            '^[1]$' { $patchModeForInstall = "safe"; $selectedAction = "install"; $actionSelected = $true }
+            '^[2]$' { $patchModeForInstall = "official"; $selectedAction = "install"; $actionSelected = $true }
+            '^[3]$' { $selectedAction = "frida-launch"; $actionSelected = $true }
+            '^[4]$' { return @{ Action = "uninstall"; Language = "zh-CN"; PatchMode = "safe" } }
+            '^[5]$' {
                 $updateChoice = (Read-Host "是否禁止自动更新？[y=禁止 / n=允许]").Trim()
                 switch -Regex ($updateChoice) {
                     '^[Yy]$' { return @{ Action = "disable-updates"; Language = "zh-CN"; PatchMode = "safe" } }
@@ -153,7 +156,7 @@ function Read-InteractiveSelection {
                     }
                 }
             }
-            '^[5]$' {
+            '^[6]$' {
                 $skillsChoice = (Read-Host "是否同步 CC Switch skills？[y=开启同步 / n=删除同步]").Trim()
                 switch -Regex ($skillsChoice) {
                     '^[Yy]$' { return @{ Action = "sync-skills"; Language = "zh-CN"; PatchMode = "safe" } }
@@ -165,14 +168,22 @@ function Read-InteractiveSelection {
                 }
             }
             '^[Qq]$' { exit 0 }
-            default { Write-Host "请输入 1、2、3、4、5 或 Q。" -ForegroundColor Yellow }
+            default { Write-Host "请输入 1、2、3、4、5、6 或 Q。" -ForegroundColor Yellow }
         }
     }
 
     Write-Host ""
-    Invoke-PreInstallCleanup
-    Write-Host ""
-    Write-Host "请选择要安装的语言："
+    if ($selectedAction -eq "install") {
+        Invoke-PreInstallCleanup
+        Write-Host ""
+    }
+
+    if ($selectedAction -eq "frida-launch") {
+        Write-Host "请选择要注入的语言："
+    }
+    else {
+        Write-Host "请选择要安装的语言："
+    }
     Write-Host "[1] 简体中文"
     Write-Host "[2] 繁体中文（中国台湾）"
     Write-Host "[3] 繁体中文（中国香港）"
@@ -182,12 +193,32 @@ function Read-InteractiveSelection {
     while ($true) {
         $languageSelection = (Read-Host "请选择语言 [1/2/3/Q]").Trim()
         switch -Regex ($languageSelection) {
-            '^[1]$' { return @{ Action = "install"; Language = "zh-CN"; PatchMode = $patchModeForInstall } }
-            '^[2]$' { return @{ Action = "install"; Language = "zh-TW"; PatchMode = $patchModeForInstall } }
-            '^[3]$' { return @{ Action = "install"; Language = "zh-HK"; PatchMode = $patchModeForInstall } }
+            '^[1]$' { return @{ Action = $selectedAction; Language = "zh-CN"; PatchMode = $patchModeForInstall } }
+            '^[2]$' { return @{ Action = $selectedAction; Language = "zh-TW"; PatchMode = $patchModeForInstall } }
+            '^[3]$' { return @{ Action = $selectedAction; Language = "zh-HK"; PatchMode = $patchModeForInstall } }
             '^[Qq]$' { exit 0 }
             default { Write-Host "请输入 1、2、3 或 Q。" -ForegroundColor Yellow }
         }
+    }
+}
+
+function Invoke-FridaRuntimeLaunch {
+    param([string]$Lang)
+
+    $runner = Join-Path $PSScriptRoot "experimental\run_frida_zh_win.ps1"
+    if (-not (Test-Path -LiteralPath $runner)) {
+        throw "缺少 Frida 启动入口: $runner"
+    }
+
+    Write-Host "=== Frida 运行时汉化（实验，不修改官方磁盘文件）===" -ForegroundColor Cyan
+    Write-Host "  将检测 %LOCALAPPDATA%\claude-zh\runtime 或本机 Python+frida。" -ForegroundColor DarkGray
+    Write-Host "  若缺失，会提示下载便携 Python（仅本工具使用）。" -ForegroundColor DarkGray
+    Write-Host ""
+
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $runner -Language $Lang
+    $code = $LASTEXITCODE
+    if ($code -ne 0) {
+        throw "Frida 运行时汉化退出码: $code"
     }
 }
 
@@ -3469,6 +3500,18 @@ function Uninstall-WindowsLanguagePack {
     $claudePath = $paths["App"]
     $resourcesPath = $paths["Resources"]
 
+    # Best-effort: stop Frida resident/watch/launcher and remove deployed runtime files.
+    $fridaCtl = Join-Path $PSScriptRoot "experimental\frida-zh-resident-ctl.ps1"
+    if (Test-Path -LiteralPath $fridaCtl) {
+        try {
+            Write-Step "清理 Frida 常驻 / 进程 / claude-zh 目录（如有）"
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $fridaCtl -Action uninstall -RemoveRuntime 2>$null
+        }
+        catch {
+            Write-Host "  [警告] 清理 Frida 常驻失败（可忽略）: $($_.Exception.Message)" -ForegroundColor DarkYellow
+        }
+    }
+
     Write-Step "关闭 Claude Desktop"
     Stop-ClaudeProcesses
     Remove-LegacyAppxForkArtifacts
@@ -3547,6 +3590,7 @@ try {
         "enable-updates" { Set-ClaudeAutoUpdates $true }
         "sync-skills" { Sync-CCSwitchSkills }
         "unsync-skills" { Unsync-CCSwitchSkills }
+        "frida-launch" { Invoke-FridaRuntimeLaunch -Lang $LanguageCode }
     }
 
     Stop-InstallLog

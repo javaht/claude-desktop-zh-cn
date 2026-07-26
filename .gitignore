@@ -1,10 +1,14 @@
 .DS_Store
 __pycache__/
 *.py[cod]
+.DS_Store
 .venv/
+.venv-*/
 venv/
 *.log
 .codegraph/
 .omc/
 .reasonix/
-
+runtime/
+scripts/experimental/runtime/
+*.embed-*.zip

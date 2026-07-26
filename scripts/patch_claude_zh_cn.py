@@ -1819,9 +1819,17 @@ def install_statsig_locale(app: Path, lang_code: str) -> None:
     print(f"Installed statsig {lang_code} resource")
 
 
-def sign_path(path: Path, entitlements_dir: Path) -> None:
+def sign_path(
+    path: Path,
+    entitlements_dir: Path,
+    *,
+    hardened_runtime: bool = True,
+    force_get_task_allow: bool = False,
+) -> None:
     entitlements = load_entitlements(path)
-    if entitlements:
+    if entitlements is None:
+        entitlements = {}
+    if entitlements or force_get_task_allow:
         entitlements.pop("com.apple.application-identifier", None)
         entitlements.pop("com.apple.developer.team-identifier", None)
         entitlements.pop("keychain-access-groups", None)
@@ -1829,16 +1837,20 @@ def sign_path(path: Path, entitlements_dir: Path) -> None:
         # Electron's main process otherwise fails library validation when it loads
         # bundled frameworks, even when the whole bundle is signed consistently.
         entitlements["com.apple.security.cs.disable-library-validation"] = True
+        if force_get_task_allow:
+            # Required for Frida/task_for_pid against this process under SIP.
+            entitlements["com.apple.security.get-task-allow"] = True
+            entitlements.setdefault("com.apple.security.cs.allow-jit", True)
 
     cmd = [
         "codesign",
         "--force",
         "--sign",
         "-",
-        "--options",
-        "runtime",
-        "--preserve-metadata=identifier,flags",
+        "--timestamp=none",
     ]
+    if hardened_runtime:
+        cmd.extend(["--options", "runtime", "--preserve-metadata=identifier,flags"])
     if entitlements:
         entitlement_path = entitlements_dir / f"{abs(hash(path.as_posix()))}.plist"
         entitlement_path.write_bytes(plistlib.dumps(entitlements, fmt=plistlib.FMT_XML))
@@ -1859,14 +1871,10 @@ def is_signable_file(path: Path) -> bool:
     return os.access(path, os.X_OK)
 
 
-def resign_app(app: Path) -> None:
-    start = time.perf_counter()
-    log("Re-signing patched app with local ad-hoc signature, preserving entitlements")
+def _collect_sign_targets(app: Path) -> tuple[list[Path], list[Path]]:
     contents = app / "Contents"
-    entitlements_dir = Path(tempfile.mkdtemp(prefix="claude-zh-cn-entitlements."))
     bundle_targets: list[Path] = []
     file_targets: list[Path] = []
-
     for root, dirs, files in os.walk(contents):
         root_path = Path(root)
         for dirname in dirs:
@@ -1877,6 +1885,14 @@ def resign_app(app: Path) -> None:
             path = root_path / filename
             if is_signable_file(path):
                 file_targets.append(path)
+    return file_targets, bundle_targets
+
+
+def resign_app(app: Path) -> None:
+    start = time.perf_counter()
+    log("Re-signing patched app with local ad-hoc signature, preserving entitlements")
+    entitlements_dir = Path(tempfile.mkdtemp(prefix="claude-zh-cn-entitlements."))
+    file_targets, bundle_targets = _collect_sign_targets(app)
 
     # Sign nested Mach-O files first, then their containing bundles, then the outer app.
     log(f"  signing {len(file_targets)} executable files and {len(bundle_targets) + 1} bundles")
@@ -1894,6 +1910,178 @@ def resign_app(app: Path) -> None:
     log(f"Re-signed patched app in {elapsed_since(start)}")
 
 
+def codesign_info(app: Path) -> dict[str, Any]:
+    """Return a small codesign summary for *app* (best-effort)."""
+    result = run(["codesign", "-dv", "--verbose=4", str(app)], check=False)
+    text = (result.stdout or "") + (result.stderr or "")
+    flags = ""
+    for line in text.splitlines():
+        if "flags=" in line:
+            flags = line.split("flags=", 1)[-1].strip()
+            break
+    entitlements = load_entitlements(app) or {}
+    return {
+        "flags": flags,
+        "adhoc": "adhoc" in flags or "Signature=adhoc" in text or "Signature=adhoc" in (result.stderr or ""),
+        "hardened_runtime": "runtime" in flags,
+        "get_task_allow": bool(entitlements.get("com.apple.security.get-task-allow")),
+        "entitlements": entitlements,
+        "raw": text,
+    }
+
+
+def app_frida_debug_ready(app: Path) -> bool:
+    """True when the app is signed so Frida can inject under SIP-enabled macOS.
+
+    Working combination verified on macOS 26 / Apple Silicon with SIP ON:
+      - ad-hoc signature
+      - hardened runtime OFF (no --options runtime)
+      - com.apple.security.get-task-allow = true
+    Official Developer ID + hardened runtime blocks attach even when SIP is
+    believed disabled (csrutil often still reports enabled until recovery reboot).
+    """
+    try:
+        info = codesign_info(app)
+    except Exception:
+        return False
+    if info.get("hardened_runtime"):
+        return False
+    if not info.get("get_task_allow"):
+        return False
+    return True
+
+
+def _codesign_team_and_signature(path: Path) -> tuple[str, str]:
+    """Return (team_identifier_or_empty, signature_kind) best-effort."""
+    result = run(["codesign", "-dv", "--verbose=4", str(path)], check=False)
+    text = (result.stdout or "") + (result.stderr or "")
+    team = ""
+    for line in text.splitlines():
+        if line.startswith("TeamIdentifier="):
+            team = line.split("=", 1)[-1].strip()
+            if team.lower() in {"not set", "n/a", "none"}:
+                team = ""
+            break
+    sig = "unknown"
+    if "Signature=adhoc" in text or "flags=0x2(adhoc)" in text or "flags=0x2(adhoc)" in text.replace(
+        " ", ""
+    ):
+        sig = "adhoc"
+    elif "Authority=Developer ID" in text or "Authority=Apple" in text:
+        sig = "developer-id"
+    elif "Signature=" in text:
+        for line in text.splitlines():
+            if line.startswith("Signature="):
+                sig = line.split("=", 1)[-1].strip() or sig
+                break
+    return team, sig
+
+
+def verify_frida_resign_consistent(app: Path) -> None:
+    """Fail fast if nested Mach-Os still mix official Team ID with ad-hoc.
+
+    macOS dyld rejects loads when the main process and a dylib have different
+    Team IDs — classic crash:
+      libffmpeg.dylib ... different Team IDs
+    """
+    probes = [
+        app / "Contents/MacOS/Claude",
+        app
+        / "Contents/Frameworks/Electron Framework.framework/Versions/A/Electron Framework",
+        app
+        / "Contents/Frameworks/Electron Framework.framework/Versions/A/Libraries/libffmpeg.dylib",
+        app
+        / "Contents/Frameworks/Electron Framework.framework/Versions/A/Libraries/libEGL.dylib",
+    ]
+    problems: list[str] = []
+    for path in probes:
+        if not path.is_file():
+            continue
+        team, sig = _codesign_team_and_signature(path)
+        if team or sig not in {"adhoc", "unknown"}:
+            problems.append(f"{path.relative_to(app)} team={team or 'not-set'!r} sig={sig}")
+        elif sig != "adhoc":
+            # unknown is weak; still require no team id
+            if team:
+                problems.append(f"{path.relative_to(app)} team={team!r} sig={sig}")
+    ents = load_entitlements(app) or {}
+    if not ents.get("com.apple.security.cs.disable-library-validation"):
+        problems.append("outer app missing com.apple.security.cs.disable-library-validation")
+    if not ents.get("com.apple.security.get-task-allow"):
+        problems.append("outer app missing com.apple.security.get-task-allow")
+    if problems:
+        raise SystemExit(
+            "Frida re-sign is incomplete / inconsistent (would crash at launch with "
+            "libffmpeg Team ID mismatch). Problems:\n  - "
+            + "\n  - ".join(problems)
+            + "\nRe-run Frida prepare to completion, or restore official Claude.app "
+            "and try again. Do not launch a half-signed app."
+        )
+
+
+def resign_app_for_frida(app: Path) -> None:
+    """Re-sign *in place* for Frida inject. Does NOT modify app.asar.
+
+    Replaces the Developer ID / hardened-runtime seal with a local ad-hoc
+    signature that includes get-task-allow and omits hardened runtime.
+    Official asar bytes stay intact; only the code signature changes.
+
+    CRITICAL: every nested dylib/framework must be re-signed in the same pass.
+    A half-finished resign (e.g. libffmpeg ad-hoc but Claude still Developer ID)
+    crashes at launch with dyld Team ID mismatch.
+    """
+    start = time.perf_counter()
+    log(
+        "Re-signing official app for Frida debug inject "
+        "(ad-hoc, no hardened runtime, get-task-allow; app.asar untouched)"
+    )
+    require_file(app / "Contents/MacOS/Claude")
+    entitlements_dir = Path(tempfile.mkdtemp(prefix="claude-zh-cn-frida-entitlements."))
+    file_targets, bundle_targets = _collect_sign_targets(app)
+    log(f"  signing {len(file_targets)} executable files and {len(bundle_targets) + 1} bundles")
+    sorted_file_targets = sorted(file_targets, key=lambda p: len(p.parts), reverse=True)
+    for index, path in enumerate(sorted_file_targets, start=1):
+        sign_path(
+            path,
+            entitlements_dir,
+            hardened_runtime=False,
+            force_get_task_allow=True,
+        )
+        if index % 25 == 0 or index == len(sorted_file_targets):
+            log(f"  signed {index}/{len(sorted_file_targets)} executable files ({elapsed_since(start)})")
+    sorted_bundle_targets = sorted(bundle_targets, key=lambda p: len(p.parts), reverse=True)
+    for index, path in enumerate(sorted_bundle_targets, start=1):
+        sign_path(
+            path,
+            entitlements_dir,
+            hardened_runtime=False,
+            force_get_task_allow=True,
+        )
+        if index % 10 == 0 or index == len(sorted_bundle_targets):
+            log(f"  signed {index}/{len(sorted_bundle_targets)} nested bundles ({elapsed_since(start)})")
+    sign_path(
+        app,
+        entitlements_dir,
+        hardened_runtime=False,
+        force_get_task_allow=True,
+    )
+    clear_quarantine(app)
+    log(f"Frida debug re-sign finished in {elapsed_since(start)}")
+    info = codesign_info(app)
+    log(
+        f"  codesign: flags={info.get('flags')!r} "
+        f"get_task_allow={info.get('get_task_allow')} "
+        f"hardened_runtime={info.get('hardened_runtime')}"
+    )
+    if not app_frida_debug_ready(app):
+        raise SystemExit(
+            "Frida debug re-sign completed but codesign probe still looks blocked. "
+            "Check codesign -dv / entitlements manually."
+        )
+    verify_frida_resign_consistent(app)
+    log("Frida re-sign consistency check OK (main + Electron + libffmpeg all ad-hoc)")
+
+
 def clear_quarantine(app: Path) -> None:
     result = run(["xattr", "-dr", "com.apple.quarantine", str(app)], check=False)
     if result.returncode == 0:
@@ -1901,25 +2089,114 @@ def clear_quarantine(app: Path) -> None:
 
 
 def set_user_locale(user_home: Path, lang_code: str) -> None:
-    config = user_home / "Library/Application Support/Claude/config.json"
-    config.parent.mkdir(parents=True, exist_ok=True)
-    data: dict[str, Any] = {}
-    if config.exists():
-        try:
-            data = load_json(config)
-        except Exception:
-            backup = config.with_suffix(".json.bak-invalid")
-            shutil.copy2(config, backup)
-            print(f"Existing config was not valid JSON; backed up to {backup}")
-    data["locale"] = lang_code
-    save_json(config, data)
-    os.chmod(config, 0o600)
-
+    """Write locale into Claude (+ Claude-3p if present) user config."""
+    targets = [
+        user_home / "Library/Application Support/Claude/config.json",
+        user_home / "Library/Application Support/Claude-3p/config.json",
+    ]
     sudo_uid = os.environ.get("SUDO_UID")
     sudo_gid = os.environ.get("SUDO_GID")
-    if sudo_uid and sudo_gid:
-        os.chown(config, int(sudo_uid), int(sudo_gid))
-    print(f"Set Claude config locale: {config}")
+
+    for config in targets:
+        if config.name.startswith("Claude-3p") and not config.parent.exists():
+            continue
+        config.parent.mkdir(parents=True, exist_ok=True)
+        data: dict[str, Any] = {}
+        if config.exists():
+            try:
+                data = load_json(config)
+                if not isinstance(data, dict):
+                    data = {}
+            except Exception:
+                backup = config.with_suffix(".json.bak-invalid")
+                shutil.copy2(config, backup)
+                print(f"Existing config was not valid JSON; backed up to {backup}")
+                data = {}
+        if data.get("locale") == lang_code:
+            print(f"Claude config locale already {lang_code}: {config}")
+            continue
+        data["locale"] = lang_code
+        save_json(config, data)
+        os.chmod(config, 0o600)
+        if sudo_uid and sudo_gid:
+            os.chown(config, int(sudo_uid), int(sudo_gid))
+        print(f"Set Claude config locale: {config} -> {lang_code}")
+
+
+def install_locale_resources_in_place(
+    app: Path,
+    lang_code: str,
+    *,
+    user_home: Path | None = None,
+    patch_frontend_js: bool = True,
+    patch_hardcoded: bool = False,
+) -> dict[str, Any]:
+    """Install Chinese locale resources into the official app without touching app.asar.
+
+    Used by Frida mode: real i18n (onboarding / settings / local UI) needs
+    zh-CN.json + language whitelist + user locale. DOM inject alone is not enough
+    for pages that render from ion-dist i18n with locale=en-US.
+
+    Does not copy the app bundle. Callers that care about codesign should
+    re-sign afterwards (Frida uses resign_app_for_frida).
+
+    patch_hardcoded defaults to False: scanning ~1700 ion-dist JS files is slow and
+    Frida already covers online DOM + menus; local UI uses real i18n JSON.
+    """
+    require_file(app / "Contents/MacOS/Claude")
+    config = get_language_config(lang_code)
+    require_file(config["frontend_translation"])
+    require_file(config["desktop_translation"])
+
+    summary: dict[str, Any] = {"lang": lang_code, "steps": []}
+
+    if patch_frontend_js:
+        try:
+            path = patch_language_whitelist(app, lang_code)
+            summary["steps"].append(f"whitelist:{path.name}")
+        except SystemExit as exc:
+            # Older/newer bundles may not match; keep going so resources still install.
+            print(f"Language whitelist patch skipped: {exc}")
+            summary["steps"].append(f"whitelist:skipped:{exc}")
+        if patch_hardcoded:
+            try:
+                patch_hardcoded_frontend_strings(app, lang_code)
+                summary["steps"].append("hardcoded-frontend")
+            except SystemExit as exc:
+                print(f"Hardcoded frontend patch skipped: {exc}")
+                summary["steps"].append(f"hardcoded:skipped:{exc}")
+        try:
+            patch_language_display_names(app)
+            summary["steps"].append("display-names")
+        except SystemExit as exc:
+            print(f"Language display-name patch skipped: {exc}")
+            summary["steps"].append(f"display-names:skipped:{exc}")
+
+    translated, fallback, extra = merge_frontend_locale(app, lang_code)
+    summary["frontend"] = {
+        "translated": translated,
+        "fallback": fallback,
+        "extra": extra,
+    }
+    install_desktop_locale(app, lang_code)
+    summary["steps"].append("desktop-locale")
+    install_statsig_locale(app, lang_code)
+    summary["steps"].append("statsig-locale")
+
+    if user_home is not None:
+        set_user_locale(user_home, lang_code)
+        summary["steps"].append(f"user-locale:{user_home}")
+
+    # Quick presence checks
+    frontend_json = app / FRONTEND_I18N_REL / f"{lang_code}.json"
+    desktop_json = app / DESKTOP_RESOURCES_REL / f"{lang_code}.json"
+    if not frontend_json.is_file():
+        raise SystemExit(f"Frontend locale missing after install: {frontend_json}")
+    if not desktop_json.is_file():
+        raise SystemExit(f"Desktop locale missing after install: {desktop_json}")
+    summary["frontend_json"] = str(frontend_json)
+    summary["desktop_json"] = str(desktop_json)
+    return summary
 
 
 def chown_to_sudo_user(path: Path) -> None:

@@ -1,0 +1,14 @@
+# Frida runtime Chinese launcher dependencies (macOS + Windows experimental).
+# macOS: install into a local venv via install-mac [3], or:
+#   python3 -m pip install -r requirements-frida.txt
+# Windows: bootstrap_frida_runtime_win.ps1 downloads embeddable Python into
+#   %LOCALAPPDATA%\claude-zh\runtime and pip-installs these packages there.
+#
+# frida-tools is required on Frida 17+ so the macOS host can serve bridges/objc.js
+# for native menu rewriting. Windows DOM path does not need ObjC; frida-tools is
+# still useful for CLI debugging. A bundled macOS copy also lives as objc.js.
+
+frida>=16.0.0
+frida-tools>=12.0.0
+websockets>=12.0
+typing_extensions>=4.0; python_version < "3.11"

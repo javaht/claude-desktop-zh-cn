@@ -132,6 +132,7 @@ jobs:
           $rollbackRoot = Join-Path $fixture ".zh-cn-backups\fixture-rollback"
           New-Item -ItemType Directory -Path $rollbackRoot -Force | Out-Null
           Set-Content -LiteralPath (Join-Path $rollbackRoot "original.bin") -Encoding ASCII -Value "keep-me"
+          $realRestoreBackupSet = ${function:Restore-BackupSet}
           function Restore-BackupSet { throw "injected restore failure" }
           $script:InstallTransactionActive = $true
           $script:InstallTransactionResourcesPath = $fixture
@@ -168,6 +169,7 @@ jobs:
           if ($script:fallbackCalls -ne 1) { throw "fallback ran after an unconfirmed rollback" }
 
           # Resumable exact restore: half-restored tree + pending state must continue the same backup.
+          Set-Item function:Restore-BackupSet $realRestoreBackupSet
           $resumeApp = Join-Path $env:RUNNER_TEMP "claude-zh-resume"
           $resumeFixture = Join-Path $resumeApp "resources"
           $resumeAssets = Join-Path $resumeFixture "ion-dist\assets\v2"

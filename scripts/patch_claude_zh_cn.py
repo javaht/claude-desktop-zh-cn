@@ -77,6 +77,7 @@ STRUCTURAL_JS_LITERAL_CONTEXT_RE = re.compile(
     r"(?:as|component|displayName|glyph|icon|iconName|leadingIcon|name|role|trailingIcon|type)"
     r"\s*[:=]\s*$"
 )
+JS_IDENTIFIER_CHAR_RE = re.compile(r"[A-Za-z0-9_$]")
 
 
 def log(message: str) -> None:
@@ -247,15 +248,59 @@ def is_structural_js_literal_context(text: str, literal_start: int) -> bool:
     return STRUCTURAL_JS_LITERAL_CONTEXT_RE.search(prefix) is not None
 
 
-def replace_frontend_hardcoded_text(text: str, source: str, target: str) -> tuple[str, int]:
+def is_identifier_boundary_collision(text: str, start: int, end: int, source: str) -> bool:
+    """True if the match could be a fragment of a longer identifier rather than
+    a standalone occurrence of `source` (e.g. matching "Ca" inside "XCarrot").
+    Only checked on the side where `source` itself starts/ends with an
+    identifier character — a match bounded by punctuation on that side can't
+    be a fragment collision."""
+    if source and JS_IDENTIFIER_CHAR_RE.match(source[0]) and start > 0:
+        if JS_IDENTIFIER_CHAR_RE.match(text[start - 1]):
+            return True
+    if source and JS_IDENTIFIER_CHAR_RE.match(source[-1]) and end < len(text):
+        if JS_IDENTIFIER_CHAR_RE.match(text[end]):
+            return True
+    return False
+
+
+def replace_frontend_hardcoded_text(
+    text: str, source: str, target: str, *, file_label: str = "?"
+) -> tuple[str, int]:
     if source in STRUCTURAL_JS_STRING_REPLACEMENTS or source in STRUCTURAL_JS_LITERAL_REPLACEMENTS:
         return text, 0
 
     if not is_plain_ui_text_replacement(source):
-        count = text.count(source)
-        if count:
-            text = text.replace(source, target)
-        return text, count
+        # This branch is reached for sources that themselves contain code
+        # syntax (e.g. `Ca="Local"`, a minified single-letter identifier
+        # assignment) rather than a quoted UI string. Minifiers reuse short
+        # identifiers across unrelated scopes throughout a bundle, and the
+        # exact same literal text can legitimately mean something different
+        # a few hundred bytes later — or a version bump can reuse the
+        # sequence as a fragment of an unrelated, longer identifier. Neither
+        # case is safe to patch blindly (this is how a real install broke
+        # `_addDefaultMeta` on a Statsig-adjacent bundle: an entry shaped
+        # like a short-identifier assignment collided with unrelated code
+        # in a later Claude Desktop build). Guard both failure modes instead
+        # of doing an unconditional `text.replace()`.
+        matches = [m for m in re.finditer(re.escape(source), text)]
+        if not matches:
+            return text, 0
+        if len(matches) > 1:
+            log(
+                f"  ! skipping ambiguous hardcoded replacement in {file_label}: "
+                f"{source!r} occurs {len(matches)} times (expected exactly 1) — "
+                "leaving as-is rather than risk patching the wrong occurrence"
+            )
+            return text, 0
+        match = matches[0]
+        if is_identifier_boundary_collision(text, match.start(), match.end(), source):
+            log(
+                f"  ! skipping hardcoded replacement in {file_label}: "
+                f"{source!r} matched inside a longer identifier, not as a standalone token"
+            )
+            return text, 0
+        text = text[: match.start()] + target + text[match.end() :]
+        return text, 1
 
     pattern = re.compile(r'(?P<quote>["\'`])' + re.escape(source) + r"(?P=quote)")
     replacement_count = 0
@@ -292,7 +337,9 @@ def patch_hardcoded_frontend_strings(app: Path, lang_code: str) -> None:
         patched = text
         count = 0
         for source, target in replacement_items:
-            patched, occurrences = replace_frontend_hardcoded_text(patched, source, target)
+            patched, occurrences = replace_frontend_hardcoded_text(
+                patched, source, target, file_label=path.name
+            )
             if occurrences:
                 count += occurrences
         if patched != text:

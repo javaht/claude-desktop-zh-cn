@@ -1,0 +1,58 @@
+name: Sync to Gitee mirror
+
+# 将 main 分支与 tag 自动同步到 Gitee 镜像仓库,供国内用户直连下载。
+#
+# 启用步骤(维护者):
+#   1. 在 Gitee 创建同名仓库(可为空仓库);
+#   2. 在 Gitee「设置 → 私人令牌」生成具有 projects 权限的 token;
+#   3. 在本仓库 GitHub「Settings → Secrets and variables → Actions」添加:
+#      - Secret  GITEE_TOKEN     : 上一步生成的 Gitee 私人令牌
+#      - Variable GITEE_REPO     : Gitee 仓库路径,如 javaht/claude-desktop-zh-cn
+#      - Variable GITEE_USERNAME : Gitee 登录用户名
+#   未配置时本 workflow 自动跳过,不报错。
+
+on:
+  push:
+    branches: [main]
+    tags: ["*"]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync-gitee
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+      GITEE_REPO: ${{ vars.GITEE_REPO }}
+      GITEE_USERNAME: ${{ vars.GITEE_USERNAME }}
+    steps:
+      - name: Check configuration
+        id: config
+        run: |
+          if [ -n "$GITEE_TOKEN" ] && [ -n "$GITEE_REPO" ] && [ -n "$GITEE_USERNAME" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "Gitee 镜像未配置(缺 GITEE_TOKEN / GITEE_REPO / GITEE_USERNAME),跳过同步。" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.config.outputs.configured == 'true'
+        with:
+          fetch-depth: 0
+
+      - name: Push main and tags to Gitee
+        if: steps.config.outputs.configured == 'true'
+        run: |
+          set -euo pipefail
+          git remote add gitee "https://${GITEE_USERNAME}:${GITEE_TOKEN}@gitee.com/${GITEE_REPO}.git"
+          git push --force gitee "refs/remotes/origin/main:refs/heads/main"
+          git push --force gitee --tags
+          echo "已同步 main 与全部 tag 到 gitee.com/${GITEE_REPO}" >> "$GITHUB_STEP_SUMMARY"

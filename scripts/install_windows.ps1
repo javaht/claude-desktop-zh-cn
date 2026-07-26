@@ -115,14 +115,31 @@ function Test-GitHubReleaseUpdate {
             return
         }
 
-        $latestRelease = Invoke-RestMethod `
-            -Uri "https://api.github.com/repos/$repo/releases/latest" `
-            -Headers @{ Accept = "application/vnd.github+json"; "User-Agent" = "claude-desktop-zh-cn-update-check" } `
-            -TimeoutSec 3 `
-            -ErrorAction Stop
-        $latest = [string]$latestRelease.tag_name
+        $latest = $null
+        try {
+            $latestRelease = Invoke-RestMethod `
+                -Uri "https://api.github.com/repos/$repo/releases/latest" `
+                -Headers @{ Accept = "application/vnd.github+json"; "User-Agent" = "claude-desktop-zh-cn-update-check" } `
+                -TimeoutSec 3 `
+                -ErrorAction Stop
+            $latest = [string]$latestRelease.tag_name
+        }
+        catch {
+            # 国内网络经常无法访问 api.github.com；回退到 jsDelivr 的包 API，
+            # 它镜像 GitHub tag 且在国内可达。
+            $mirror = Invoke-RestMethod `
+                -Uri "https://data.jsdelivr.com/v1/package/gh/$repo" `
+                -Headers @{ "User-Agent" = "claude-desktop-zh-cn-update-check" } `
+                -TimeoutSec 3 `
+                -ErrorAction Stop
+            $versions = @($mirror.versions)
+            if ($versions.Count -gt 0) {
+                $latest = [string]$versions[0]
+            }
+        }
         if ($latest -and ((Compare-ReleaseVersion $latest $current) -gt 0)) {
-            Write-Host "检测到 GitHub Releases 已发布新版 $latest，当前脚本包为 $current。建议及时更新。本次操作会继续执行。" -ForegroundColor Yellow
+            Write-Host "检测到项目已发布新版 $latest，当前脚本包为 $current。建议及时更新。本次操作会继续执行。" -ForegroundColor Yellow
+            Write-Host "国内网络下载较慢时，可参考 README 的「国内用户下载」章节。" -ForegroundColor Yellow
             Write-Host ""
         }
     }

@@ -26,15 +26,34 @@ try:
         metadata = json.load(f)
     repo = metadata["repo"]
     current = str(metadata["release"])
-    req = urllib.request.Request(
-        f"https://api.github.com/repos/{repo}/releases/latest",
-        headers={
-            "Accept": "application/vnd.github+json",
-            "User-Agent": "claude-desktop-zh-cn-update-check",
-        },
-    )
-    with urllib.request.urlopen(req, timeout=3) as response:
-        latest = str(json.load(response)["tag_name"])
+
+    def fetch_json(url, headers):
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=3) as response:
+            return json.load(response)
+
+    latest = None
+    try:
+        latest = str(
+            fetch_json(
+                f"https://api.github.com/repos/{repo}/releases/latest",
+                {
+                    "Accept": "application/vnd.github+json",
+                    "User-Agent": "claude-desktop-zh-cn-update-check",
+                },
+            )["tag_name"]
+        )
+    except Exception:
+        # api.github.com is often unreachable from mainland China; fall back to
+        # the jsDelivr package API, which mirrors GitHub tags and stays reachable.
+        versions = fetch_json(
+            f"https://data.jsdelivr.com/v1/package/gh/{repo}",
+            {"User-Agent": "claude-desktop-zh-cn-update-check"},
+        ).get("versions") or []
+        if versions:
+            latest = str(versions[0])
+    if not latest:
+        raise RuntimeError("no release info")
 
     def version_key(value):
         parts = [int(part) for part in re.findall(r"\d+", value)]
@@ -42,9 +61,10 @@ try:
 
     if version_key(latest) > version_key(current):
         print(
-            f"检测到 GitHub Releases 已发布新版 {latest}，当前脚本包为 {current}。"
+            f"检测到项目已发布新版 {latest}，当前脚本包为 {current}。"
             "建议及时更新。本次操作会继续执行。"
         )
+        print("国内网络下载较慢时，可参考 README 的「国内用户下载」章节。")
 except Exception:
     pass
 PY

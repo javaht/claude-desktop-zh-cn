@@ -38,6 +38,19 @@ macOS 双击 `install-mac.command`；Windows 双击 `install-windows.bat` 后按
 
 ## 使用方式
 
+### 国内用户下载
+
+无法顺畅访问 GitHub 时,可用以下方式获取本项目(安装器的新版检测已内置 jsDelivr 回退,无需翻墙也能收到更新提醒):
+
+1. **Gitee 镜像**(若维护者已启用):`https://gitee.com/<镜像地址>`,克隆或下载 zip 与 GitHub 相同。
+2. **公共加速站**:在 GitHub 下载链接前加上加速前缀,例如:
+   ```text
+   https://ghfast.top/https://github.com/javaht/claude-desktop-zh-cn/archive/refs/heads/main.zip
+   ```
+   同类站点还有 `gh-proxy.com` 等,失效时可自行搜索「GitHub 加速」替换前缀。
+   > ⚠️ 加速站是第三方中转,理论上存在内容被篡改的风险。本项目的安装脚本会以管理员权限运行,请尽量优先使用直连或 Gitee 镜像;使用加速站下载后,建议与群内发布的文件比对大小/哈希。
+3. **用户群**:关注群公告发布的安装包(见项目主页)。
+
 ### macOS
 
 1. 退出 Claude Desktop。
@@ -101,7 +114,8 @@ macOS 可先做只读兼容诊断：
 - `resources/desktop-zh-CN.json` / `desktop-zh-TW.json` / `desktop-zh-HK.json`：Claude 桌面壳层中文翻译。
 - `resources/Localizable.strings` / `Localizable-zh-TW.strings` / `Localizable-zh-HK.strings`：macOS 原生菜单中文资源。
 - `resources/statsig-zh-CN.json` / `statsig-zh-TW.json` / `statsig-zh-HK.json`：statsig i18n 兜底资源。
-- `resources/release.json`：安装入口用于检查 GitHub Releases 是否有新版的版本信息。
+- `resources/release.json`：安装入口用于检查是否有新版的版本信息(GitHub API 不可达时自动回退 jsDelivr)。
+- `.github/workflows/sync-gitee.yml`：GitHub → Gitee 镜像自动同步(维护者按文件内注释配置 `GITEE_TOKEN` 等后生效,未配置时自动跳过)。
 
 ## macOS 脚本会做什么
 

@@ -98,6 +98,10 @@ jobs:
             patchedFingerprint = Get-WindowsMaintenanceFingerprint $paths
           }
           $marker = $marker | ConvertTo-Json -Depth 30 | ConvertFrom-Json
+          # Test-WindowsPatchCurrent requires the marker's backup set to exist.
+          $backupBundle = Join-Path $fixture ".zh-cn-backups\fixture\ion-dist\assets\v2\app-HASH.js"
+          New-Item -ItemType Directory -Path (Split-Path -Parent $backupBundle) -Force | Out-Null
+          Set-Content -LiteralPath $backupBundle -Encoding UTF8 -Value $source
           if (-not (Test-WindowsPatchCurrent $marker $paths "zh-CN" "safe")) {
             throw "complete marker was not accepted"
           }
@@ -110,9 +114,6 @@ jobs:
             throw "missing locale invalidated the exact official backup baseline"
           }
 
-          $backupBundle = Join-Path $fixture ".zh-cn-backups\fixture\ion-dist\assets\v2\app-HASH.js"
-          New-Item -ItemType Directory -Path (Split-Path -Parent $backupBundle) -Force | Out-Null
-          Set-Content -LiteralPath $backupBundle -Encoding UTF8 -Value $source
           Save-JsonNoBom (Get-PatchMarkerPath $fixture) $marker 30
           function Get-ClaudeResourcesPath { return $paths }
           function Stop-ClaudeProcesses {}

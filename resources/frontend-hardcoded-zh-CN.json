@@ -140,6 +140,10 @@
     "连接器与扩展"
   ],
   [
+    "Configure",
+    "配置"
+  ],
+  [
     "Credential kind",
     "凭据类型"
   ],
@@ -188,6 +192,10 @@
     "扩展"
   ],
   [
+    "Installed on your computer",
+    "安装在你的计算机上"
+  ],
+  [
     "Extra HTTP headers sent on every inference request to the configured provider. For tenant routing, org IDs, Bedrock Guardrails, etc.",
     "每次向所配置提供商发送推理请求时附加的 HTTP 请求头。可用于租户路由、组织 ID、Bedrock Guardrails 等场景。"
   ],
@@ -206,6 +214,38 @@
   [
     "Browse extensions",
     "浏览扩展"
+  ],
+  [
+    "Advanced settings",
+    "高级设置"
+  ],
+  [
+    "Drag .MCPB or .DXT files here to install",
+    "将 .MCPB 或 .DXT 文件拖到此处以安装"
+  ],
+  [
+    "Local MCP servers",
+    "本地 MCP 服务器"
+  ],
+  [
+    "Edit Config",
+    "编辑配置"
+  ],
+  [
+    "This server is managed by an extension",
+    "该服务器由扩展程序管理"
+  ],
+  [
+    "Command",
+    "命令"
+  ],
+  [
+    "Arguments",
+    "参数"
+  ],
+  [
+    "View Logs",
+    "查看日志"
   ],
   [
     "Full URL of the inference gateway endpoint.",
@@ -1529,6 +1569,10 @@
   ],
   [
     "Add and manage MCP servers that you’re working on.",
+    "添加并管理你正在使用的 MCP 服务器。"
+  ],
+  [
+    "Add and manage MCP servers that you\\u2019re working on. ",
     "添加并管理你正在使用的 MCP 服务器。"
   ],
   [

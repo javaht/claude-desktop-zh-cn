@@ -69,8 +69,11 @@ FRIDA_AGENT = EXPERIMENTAL_DIR / "frida_cdp_gate_win.js"
 EXE_INTEGRITY_MARKER = 'app.asar","alg":"SHA256","value":"'
 PATCHED_ASAR_CACHE_VERSION = 2
 
-GATE_SUFFIX = b"(process.argv)&&!yR()&&process.exit(1)"
-GATE_SUFFIX_PATCHED = b"(process.argv)&&false&&process.exit(1)"
+JS_IDENTIFIER = rb"[A-Za-z_$][A-Za-z0-9_$]*"
+GATE_PATTERN = re.compile(
+    rb"(?P<argv>" + JS_IDENTIFIER + rb")\(process\.argv\)&&"
+    rb"(?P<approval>!" + JS_IDENTIFIER + rb"\(\))&&process\.exit\(1\)"
+)
 
 
 def log(message: str) -> None:
@@ -93,39 +96,24 @@ def format_fp(fp: dict[str, Any]) -> str:
 
 
 def find_gate_bytes(content: bytes) -> tuple[bytes, bytes] | None:
-    idx = content.find(GATE_SUFFIX)
-    if idx < 0:
-        if content.find(GATE_SUFFIX_PATCHED) >= 0:
-            return None
+    matches = list(GATE_PATTERN.finditer(content))
+    if not matches:
         return None
-    start = idx
-    while start > 0:
-        c = content[start - 1]
-        if (
-            (48 <= c <= 57)
-            or (65 <= c <= 90)
-            or (97 <= c <= 122)
-            or c == 36
-            or c == 95
-        ):
-            start -= 1
-            continue
-        break
-    if start == idx:
-        return None
-    first = content[start]
-    if not (
-        (65 <= first <= 90) or (97 <= first <= 122) or first == 36 or first == 95
-    ):
-        return None
-    gate_old = content[start : idx + len(GATE_SUFFIX)]
-    gate_new = gate_old.replace(b"&&!yR()&&", b"&&false&&", 1)
-    if len(gate_new) != len(gate_old) or b"&&false&&" not in gate_new:
-        raise SystemExit("Failed equal-length gate rewrite")
-    if content.count(gate_old) != 1:
+    if len(matches) > 1:
         raise SystemExit(
-            f"Expected exactly one CDP gate occurrence, found {content.count(gate_old)}"
+            f"Expected exactly one CDP gate occurrence, found {len(matches)}"
         )
+
+    match = matches[0]
+    gate_old = match.group(0)
+    approval = match.group("approval")
+    false_expr = b"false" if len(approval) >= 5 else b"!1"
+    false_expr = false_expr.ljust(len(approval), b" ")
+    approval_start = match.start("approval") - match.start()
+    approval_end = match.end("approval") - match.start()
+    gate_new = gate_old[:approval_start] + false_expr + gate_old[approval_end:]
+    if len(gate_new) != len(gate_old):
+        raise SystemExit("Failed equal-length gate rewrite")
     return gate_old, gate_new
 
 

@@ -26,6 +26,7 @@ $LanguageListPattern = [System.Text.RegularExpressions.Regex]::Escape($BaseLangu
 $AsarPatchTargetFallback = ".vite/build/index.js"
 $AsarIntegrityBlockSize = 4 * 1024 * 1024
 $OnlineLocaleMainMarker = "__claudeZhOnlineLocaleMain"
+$OnlineLocaleLockMarker = "__claudeZhLocaleLock"
 $MenuRuntimeMarker = "__claudeZhMenuRuntimePatch"
 $OnlineTranslationMaxSourceLength = 1000
 $script:CurrentBackupSetPath = $null
@@ -1530,12 +1531,15 @@ function Remove-ExistingOnlineDomTranslationPatch {
     }
 
     Write-Host "  [进度] 检测到旧版在线 DOM 补丁标记，正在快速定位旧注入..." -ForegroundColor DarkGray
-    $eventAnchor = '.webContents.on("dom-ready",()=>{'
-    $anchorIndex = $Text.LastIndexOf($eventAnchor, $markerIndex, [System.StringComparison]::Ordinal)
-    if ($anchorIndex -lt 1) {
+    $eventPattern = [System.Text.RegularExpressions.Regex]::new('\.webContents\.on\((?<quote>["''`])dom-ready\k<quote>,\(\)=>\{')
+    $eventMatches = $eventPattern.Matches($Text.Substring(0, $markerIndex))
+    if ($eventMatches.Count -eq 0) {
         Write-Host "  [警告] 找到旧补丁标记，但无法定位 dom-ready 注入起点；将保留原内容继续。" -ForegroundColor DarkYellow
         return @{ Text = $Text; Removed = $false }
     }
+    $eventMatch = $eventMatches[$eventMatches.Count - 1]
+    $anchorIndex = $eventMatch.Index
+    $eventQuote = $eventMatch.Groups["quote"].Value
 
     $receiverStart = $anchorIndex - 1
     while ($receiverStart -ge 0) {
@@ -1553,7 +1557,7 @@ function Remove-ExistingOnlineDomTranslationPatch {
     }
 
     $receiver = $Text.Substring($receiverStart, $anchorIndex - $receiverStart)
-    $bodyStart = $anchorIndex + $eventAnchor.Length
+    $bodyStart = $anchorIndex + $eventMatch.Length
     $executeNeedle = ";" + $receiver + ".webContents.executeJavaScript("
     $executeIndex = $Text.LastIndexOf($executeNeedle, $markerIndex, [System.StringComparison]::Ordinal)
     $handlerEnding = if ($markerIndex -ge 3) { $Text.Substring($markerIndex - 3, 3) } else { "" }
@@ -1564,7 +1568,7 @@ function Remove-ExistingOnlineDomTranslationPatch {
 
     $body = $Text.Substring($bodyStart, $executeIndex - $bodyStart)
     $terminator = $handlerEnding.Substring(2, 1)
-    $replacement = $receiver + '.webContents.on("dom-ready",()=>{' + $body + '})' + $terminator
+    $replacement = $receiver + ".webContents.on(" + $eventQuote + "dom-ready" + $eventQuote + ",()=>{" + $body + '})' + $terminator
     $patchedEnd = $markerIndex + $markerComment.Length
     $patchedText = $Text.Substring(0, $receiverStart) + $replacement + $Text.Substring($patchedEnd)
     return @{ Text = $patchedText; Removed = $true }
@@ -1577,7 +1581,7 @@ function Find-OnlineDomTranslationHook {
     )
 
     $readyNeedle = "main_view_dom_ready"
-    $eventAnchor = '.webContents.on("dom-ready",()=>{'
+    $eventPattern = [System.Text.RegularExpressions.Regex]::new('\.webContents\.on\((?<quote>["''`])dom-ready\k<quote>,\(\)=>\{')
     $handlerCloseNeedle = "})"
 
     if (-not $Quiet) {
@@ -1585,17 +1589,17 @@ function Find-OnlineDomTranslationHook {
     }
     $searchIndex = 0
     $checked = 0
+    $fallbackMatch = $null
+    $mainViewMatch = $null
     while ($true) {
-        $anchorIndex = $Text.IndexOf($eventAnchor, $searchIndex, [System.StringComparison]::Ordinal)
-        if ($anchorIndex -lt 0) {
-            if (-not $Quiet) {
-                Write-Host "  [进度] 已扫描 $checked 个 dom-ready handler，未找到 main_view_dom_ready handler，准备尝试 legacy 注入点..." -ForegroundColor DarkGray
-            }
-            return @{ Success = $false }
+        $eventMatch = $eventPattern.Match($Text, $searchIndex)
+        if (-not $eventMatch.Success) {
+            break
         }
+        $anchorIndex = $eventMatch.Index
         $checked += 1
 
-        $bodyStart = $anchorIndex + $eventAnchor.Length
+        $bodyStart = $anchorIndex + $eventMatch.Length
         $handlerClose = $Text.IndexOf($handlerCloseNeedle, $bodyStart, [System.StringComparison]::Ordinal)
         if ($handlerClose -lt $bodyStart) {
             if (-not $Quiet) {
@@ -1622,14 +1626,6 @@ function Find-OnlineDomTranslationHook {
             $searchIndex = $bodyStart
             continue
         }
-        if (-not $body.Contains($readyNeedle)) {
-            $searchIndex = $terminatorIndex + 1
-            continue
-        }
-
-        if (-not $Quiet) {
-            Write-Host "  [进度] 已找到包含 main_view_dom_ready 的 dom-ready handler，正在识别 webContents 变量..." -ForegroundColor DarkGray
-        }
         $receiverStart = $anchorIndex - 1
         while ($receiverStart -ge 0) {
             $ch = $Text[$receiverStart]
@@ -1650,18 +1646,44 @@ function Find-OnlineDomTranslationHook {
 
         $receiver = $Text.Substring($receiverStart, $anchorIndex - $receiverStart)
         $hookLength = ($terminatorIndex + 1) - $receiverStart
-        if (-not $Quiet) {
-            Write-Host "  [进度] 在线 DOM 注入点定位完成：handler=$checked, receiver=$receiver。" -ForegroundColor DarkGray
-        }
-        return @{
+        $result = @{
             Success = $true
             Index = $receiverStart
             Length = $hookLength
             Receiver = $receiver
             Body = $body
             Terminator = $terminator
+            EventQuote = $eventMatch.Groups["quote"].Value
         }
+        if ($body.Contains($readyNeedle)) {
+            if (-not $Quiet) {
+                Write-Host "  [进度] 已找到包含 main_view_dom_ready 的 dom-ready handler：handler=$checked, receiver=$receiver。" -ForegroundColor DarkGray
+            }
+            return $result
+        }
+
+        $contextStart = [Math]::Max(0, $receiverStart - 2500)
+        $context = $Text.Substring($contextStart, $receiverStart - $contextStart)
+        if (($null -eq $mainViewMatch) -and $context.Contains(".vite/build/mainView.js")) {
+            $mainViewMatch = $result
+        }
+        if ($null -eq $fallbackMatch) {
+            $fallbackMatch = $result
+        }
+        $searchIndex = $terminatorIndex + 1
     }
+
+    $selected = if ($null -ne $mainViewMatch) { $mainViewMatch } else { $fallbackMatch }
+    if ($null -ne $selected) {
+        if (-not $Quiet) {
+            Write-Host "  [进度] 在线 DOM 注入点定位完成：扫描 $checked 个 handler，receiver=$($selected['Receiver'])。" -ForegroundColor DarkGray
+        }
+        return $selected
+    }
+    if (-not $Quiet) {
+        Write-Host "  [进度] 已扫描 $checked 个 dom-ready handler，未找到可用注入点，准备尝试 legacy 注入点..." -ForegroundColor DarkGray
+    }
+    return @{ Success = $false }
 }
 
 function Resolve-MainProcessAsarTarget {
@@ -1691,7 +1713,7 @@ function Resolve-MainProcessAsarTarget {
             $markerMatches.Add($filePath)
             continue
         }
-        if ($text.Contains("main_view_dom_ready") -and $text.Contains('.webContents.on("dom-ready",()=>{')) {
+        if ($text.Contains("main_view_dom_ready")) {
             $hookMatch = Find-OnlineDomTranslationHook $text -Quiet
             if ($hookMatch["Success"]) {
                 $hookMatches.Add($filePath)
@@ -1733,6 +1755,141 @@ function Resolve-MainProcessAsarTarget {
     }
 
     throw "Could not locate Claude's main-process app.asar bundle."
+}
+
+function Remove-ExistingOnlineLocaleLockPatch {
+    param([string]$Text)
+
+    $pattern = [System.Text.RegularExpressions.Regex]::new(
+        'requestLocaleChange\((?<arg>[A-Za-z_$][A-Za-z0-9_$]*)\)\{(?<setter>[A-Za-z_$][A-Za-z0-9_$]*)\("(?<lang>[^"]+)"\)\}/\*' +
+        [System.Text.RegularExpressions.Regex]::Escape($OnlineLocaleLockMarker) +
+        '\*/'
+    )
+    $match = $pattern.Match($Text)
+    if (-not $match.Success) {
+        return @{ Text = $Text; Removed = $false }
+    }
+    if ($pattern.Match($Text, $match.Index + $match.Length).Success) {
+        throw "Could not refresh DesktopIntl locale persistence: multiple existing lock markers found."
+    }
+
+    $arg = $match.Groups["arg"].Value
+    $setter = $match.Groups["setter"].Value
+    $replacement = "requestLocaleChange(" + $arg + "){" + $setter + "(" + $arg + ")}"
+    $patched = $Text.Substring(0, $match.Index) + $replacement + $Text.Substring($match.Index + $match.Length)
+    return @{ Text = $patched; Removed = $true }
+}
+
+function Find-OnlineLocaleLockHandler {
+    param([string]$Text)
+
+    $pattern = [System.Text.RegularExpressions.Regex]::new(
+        'requestLocaleChange\((?<arg>[A-Za-z_$][A-Za-z0-9_$]*)\)\{(?<setter>[A-Za-z_$][A-Za-z0-9_$]*)\(\k<arg>\)\}'
+    )
+    $candidates = @()
+    foreach ($match in $pattern.Matches($Text)) {
+        $beforeStart = [Math]::Max(0, $match.Index - 512)
+        $before = $Text.Substring($beforeStart, $match.Index - $beforeStart)
+        $afterLength = [Math]::Min(512, $Text.Length - ($match.Index + $match.Length))
+        $after = $Text.Substring($match.Index + $match.Length, $afterLength)
+        if ($before.Contains(".setImplementation({") -and $before.Contains("getInitialLocale") -and $after.Contains("dispatchLocaleChanged")) {
+            $candidates += $match
+        }
+    }
+
+    if ($candidates.Count -gt 1) {
+        throw "Could not patch DesktopIntl locale persistence: multiple requestLocaleChange handlers found."
+    }
+    if ($candidates.Count -eq 0) {
+        return @{ Success = $false }
+    }
+
+    $match = $candidates[0]
+    return @{
+        Success = $true
+        Index = $match.Index
+        Length = $match.Length
+        Arg = $match.Groups["arg"].Value
+        Setter = $match.Groups["setter"].Value
+    }
+}
+
+function Resolve-OnlineLocaleLockAsarTarget {
+    param(
+        [byte[]]$Data,
+        [int]$HeaderSize,
+        [object]$Header
+    )
+
+    $markerMatches = [System.Collections.Generic.List[string]]::new()
+    $handlerMatches = [System.Collections.Generic.List[string]]::new()
+    foreach ($item in Get-AsarFilePathEntries $Header) {
+        $filePath = [string]$item.Path
+        if ((-not $filePath.StartsWith(".vite/build/", [System.StringComparison]::Ordinal)) -or (-not $filePath.EndsWith(".js", [System.StringComparison]::Ordinal))) {
+            continue
+        }
+
+        $content = Get-AsarEntryContent $Data $HeaderSize $item.Entry $filePath
+        $text = [System.Text.Encoding]::UTF8.GetString($content)
+        if ($text.Contains($OnlineLocaleLockMarker)) {
+            $markerMatches.Add($filePath)
+            continue
+        }
+        if ((-not $text.Contains("requestLocaleChange")) -or (-not $text.Contains("dispatchLocaleChanged"))) {
+            continue
+        }
+        $handler = Find-OnlineLocaleLockHandler $text
+        if ($handler["Success"]) {
+            $handlerMatches.Add($filePath)
+        }
+    }
+
+    if ($markerMatches.Count -eq 1) {
+        return $markerMatches[0]
+    }
+    if ($markerMatches.Count -gt 1) {
+        throw "Could not select DesktopIntl locale bundle: multiple candidates found: $($markerMatches -join ', ')"
+    }
+    if ($handlerMatches.Count -eq 1) {
+        return $handlerMatches[0]
+    }
+    if ($handlerMatches.Count -gt 1) {
+        throw "Could not select DesktopIntl locale bundle: multiple candidates found: $($handlerMatches -join ', ')"
+    }
+    throw "Could not patch DesktopIntl locale persistence. Claude's bundle format may have changed."
+}
+
+function Patch-OnlineLocaleLock {
+    param(
+        [string]$ResourcesPath,
+        [string]$Language
+    )
+
+    $asarPath = Join-Path $ResourcesPath "app.asar"
+    $data = [System.IO.File]::ReadAllBytes($asarPath)
+    $parsed = Read-AsarHeader $data $asarPath
+    $headerSize = $parsed["HeaderSize"]
+    $header = $parsed["Header"]
+    $asarTarget = Resolve-OnlineLocaleLockAsarTarget $data $headerSize $header
+    $entry = Get-AsarFileEntry $header $asarTarget
+    $content = Get-AsarEntryContent $data $headerSize $entry $asarTarget
+    $text = [System.Text.Encoding]::UTF8.GetString($content)
+
+    $existing = Remove-ExistingOnlineLocaleLockPatch $text
+    $text = $existing["Text"]
+    $handler = Find-OnlineLocaleLockHandler $text
+    if (-not $handler["Success"]) {
+        throw "Could not patch DesktopIntl locale persistence in $asarTarget."
+    }
+
+    $languageJson = $Language | ConvertTo-Json -Compress
+    $replacement = "requestLocaleChange(" + $handler["Arg"] + "){" + $handler["Setter"] + "(" + $languageJson + ")}/*" + $OnlineLocaleLockMarker + "*/"
+    $index = [int]$handler["Index"]
+    $length = [int]$handler["Length"]
+    $patched = $text.Substring(0, $index) + $replacement + $text.Substring($index + $length)
+    [void](Replace-AsarFileContent $ResourcesPath $asarTarget ([System.Text.Encoding]::UTF8.GetBytes($patched)))
+    $action = if ([bool]$existing["Removed"]) { "refreshed" } else { "patched" }
+    Write-Host "  $action DesktopIntl locale lock in ${asarTarget}: $Language" -ForegroundColor Green
 }
 
 function Patch-OnlineDomTranslation {
@@ -1792,43 +1949,43 @@ function Patch-OnlineDomTranslation {
         $receiver = $hookMatch["Receiver"]
         $body = $hookMatch["Body"]
         $terminator = $hookMatch["Terminator"]
+        $eventQuote = $hookMatch["EventQuote"]
         $injectedBody = $body + ";" + $receiver + ".webContents.executeJavaScript(" + $scriptLiteral + ").catch(()=>{})"
-        $injection = $receiver + '.webContents.on("dom-ready",()=>{' + $injectedBody + '})' + $terminator + '/*' + $OnlineLocaleMainMarker + '*/'
+        $injection = $receiver + ".webContents.on(" + $eventQuote + "dom-ready" + $eventQuote + ",()=>{" + $injectedBody + '})' + $terminator + '/*' + $OnlineLocaleMainMarker + '*/'
         if ($text.Contains($injection)) {
             Write-Host "  online claude.ai DOM translation already patched" -ForegroundColor Green
-            return
+        } else {
+            Write-Host "  injecting online DOM translation hook" -ForegroundColor DarkGray
+            $hookIndex = [int]$hookMatch["Index"]
+            $hookLength = [int]$hookMatch["Length"]
+            $patched = $text.Substring(0, $hookIndex) + $injection + $text.Substring($hookIndex + $hookLength)
+            $patchedContent = [System.Text.Encoding]::UTF8.GetBytes($patched)
+            [void](Replace-AsarFileContent $ResourcesPath $asarTarget $patchedContent)
+            $action = if ($hadExisting) { "refreshed" } else { "patched" }
+            Write-Host "  $action online claude.ai DOM translation: $($mapping.Count) strings" -ForegroundColor Green
         }
-
-        Write-Host "  injecting online DOM translation hook" -ForegroundColor DarkGray
-        $hookIndex = [int]$hookMatch["Index"]
-        $hookLength = [int]$hookMatch["Length"]
-        $patched = $text.Substring(0, $hookIndex) + $injection + $text.Substring($hookIndex + $hookLength)
-        $patchedContent = [System.Text.Encoding]::UTF8.GetBytes($patched)
-        [void](Replace-AsarFileContent $ResourcesPath $asarTarget $patchedContent)
-        $action = if ($hadExisting) { "refreshed" } else { "patched" }
-        Write-Host "  $action online claude.ai DOM translation: $($mapping.Count) strings" -ForegroundColor Green
+        Patch-OnlineLocaleLock $ResourcesPath $Language
         return
     }
 
     $legacyAnchor = 's.webContents.on("dom-ready",()=>{DIA()});'
     if (-not $text.Contains($legacyAnchor)) {
-        Write-Host "  [警告] 未找到在线 claude.ai DOM 翻译注入点，跳过 app.asar 在线页面补丁；本地中文资源和语言配置会继续安装。" -ForegroundColor DarkYellow
-        return
+        throw "Could not find online claude.ai DOM translation injection point. Claude's bundle format may have changed."
     }
 
     $injection = 's.webContents.on("dom-ready",()=>{DIA();s.webContents.executeJavaScript(' + $scriptLiteral + ').catch(()=>{})});/*' + $OnlineLocaleMainMarker + '*/'
     if ($text.Contains($injection)) {
         Write-Host "  online claude.ai DOM translation already patched" -ForegroundColor Green
-        return
+    } else {
+        $anchorIndex = $text.IndexOf($legacyAnchor, [System.StringComparison]::Ordinal)
+        Write-Host "  injecting legacy online DOM translation hook" -ForegroundColor DarkGray
+        $patched = $text.Substring(0, $anchorIndex) + $injection + $text.Substring($anchorIndex + $legacyAnchor.Length)
+        $patchedContent = [System.Text.Encoding]::UTF8.GetBytes($patched)
+        [void](Replace-AsarFileContent $ResourcesPath $asarTarget $patchedContent)
+        $action = if ($hadExisting) { "refreshed" } else { "patched" }
+        Write-Host "  $action online claude.ai DOM translation: $($mapping.Count) strings" -ForegroundColor Green
     }
-
-    $anchorIndex = $text.IndexOf($legacyAnchor, [System.StringComparison]::Ordinal)
-    Write-Host "  injecting legacy online DOM translation hook" -ForegroundColor DarkGray
-    $patched = $text.Substring(0, $anchorIndex) + $injection + $text.Substring($anchorIndex + $legacyAnchor.Length)
-    $patchedContent = [System.Text.Encoding]::UTF8.GetBytes($patched)
-    [void](Replace-AsarFileContent $ResourcesPath $asarTarget $patchedContent)
-    $action = if ($hadExisting) { "refreshed" } else { "patched" }
-    Write-Host "  $action online claude.ai DOM translation: $($mapping.Count) strings" -ForegroundColor Green
+    Patch-OnlineLocaleLock $ResourcesPath $Language
 }
 
 function Patch-HardcodedFrontendStrings {

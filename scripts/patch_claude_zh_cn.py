@@ -700,16 +700,19 @@ def build_online_locale_main_process_script(
     web_contents_expr: str,
     existing_dom_ready_body: str,
     handler_terminator: str,
+    event_quote: str = '"',
 ) -> str:
     if handler_terminator not in {";", ","}:
         raise ValueError(f"Unsupported dom-ready handler terminator: {handler_terminator!r}")
+    if event_quote not in {'"', "'", "`"}:
+        raise ValueError(f"Unsupported dom-ready event quote: {event_quote!r}")
     script = (
         f'(()=>{{try{{const l="{lang_code}";'
         'if(localStorage.getItem("spa:locale")!==l){localStorage.setItem("spa:locale",l)}}catch(e){}})();'
         + build_online_dom_translation_script(lang_code, mapping)
     )
     return (
-        f'{web_contents_expr}.on("dom-ready",()=>{{{existing_dom_ready_body};'
+        f"{web_contents_expr}.on({event_quote}dom-ready{event_quote},()=>{{{existing_dom_ready_body};"
         f"{web_contents_expr}.executeJavaScript({json.dumps(script)}).catch(()=>{{}})"
         f"}}){handler_terminator}/*{ONLINE_LOCALE_MAIN_MARKER}*/"
     )
@@ -718,7 +721,7 @@ def build_online_locale_main_process_script(
 def strip_online_locale_main_process_patch(text: str) -> tuple[str, bool]:
     pattern = re.compile(
         r'(?P<web_contents>[A-Za-z_$][A-Za-z0-9_$]*\.webContents)'
-        r'\.on\("dom-ready",\(\)=>\{'
+        r'\.on\((?P<quote>["\'`])dom-ready(?P=quote),\(\)=>\{'
         r'(?P<body>.*?);'
         r'(?P=web_contents)\.executeJavaScript\("(?:\\.|[^"])*"\)\.catch\(\(\)=>\{\}\)'
         rf'\}}\)(?P<terminator>[;,])/\*{ONLINE_LOCALE_MAIN_MARKER}\*/'
@@ -726,9 +729,10 @@ def strip_online_locale_main_process_patch(text: str) -> tuple[str, bool]:
 
     def restore(match: re.Match[str]) -> str:
         web_contents = match.group("web_contents")
+        quote = match.group("quote")
         body = match.group("body")
         terminator = match.group("terminator")
-        return f'{web_contents}.on("dom-ready",()=>{{{body}}}){terminator}'
+        return f"{web_contents}.on({quote}dom-ready{quote},()=>{{{body}}}){terminator}"
 
     patched, count = pattern.subn(restore, text)
     return patched, count > 0
@@ -780,10 +784,70 @@ def patch_online_locale_lock(text: str, lang_code: str) -> tuple[str, bool]:
     return patched, True
 
 
+def find_online_locale_lock_asar_target(
+    data: bytes | bytearray,
+    header_size: int,
+    header: dict[str, Any],
+    lang_code: str,
+) -> str:
+    marker_matches: list[str] = []
+    handler_matches: list[str] = []
+
+    for file_path, entry in iter_asar_files(header):
+        if not (file_path.startswith(".vite/build/") and file_path.endswith(".js")):
+            continue
+        content = read_asar_entry_content(data, header_size, entry, file_path)
+        if ONLINE_LOCALE_LOCK_MARKER.encode("utf-8") in content:
+            marker_matches.append(file_path)
+            continue
+        if b"requestLocaleChange" not in content or b"dispatchLocaleChanged" not in content:
+            continue
+        try:
+            text = content.decode("utf-8")
+        except UnicodeDecodeError:
+            continue
+        _patched, changed = patch_online_locale_lock(text, lang_code)
+        if changed:
+            handler_matches.append(file_path)
+
+    matches = marker_matches or handler_matches
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) > 1:
+        raise SystemExit(
+            "Could not select DesktopIntl locale bundle: multiple candidates found: "
+            + ", ".join(matches)
+        )
+    raise SystemExit(
+        "Could not patch DesktopIntl locale persistence. "
+        "Claude's bundle format may have changed."
+    )
+
+
+def patch_online_locale_lock_in_asar(app: Path, lang_code: str) -> str:
+    path = app / APP_ASAR_REL
+    data = path.read_bytes()
+    header_size, _header_string, header = read_asar_header(data, path)
+    asar_target = find_online_locale_lock_asar_target(
+        data, header_size, header, lang_code
+    )
+    entry = get_asar_file_entry(header, asar_target)
+    text = read_asar_entry_content(data, header_size, entry, asar_target).decode("utf-8")
+    text, _had_existing = strip_online_locale_lock_patch(text)
+    patched_text, changed = patch_online_locale_lock(text, lang_code)
+    if not changed:
+        raise SystemExit(
+            f"Could not patch DesktopIntl locale persistence in {asar_target}."
+        )
+    replace_asar_file_content(app, asar_target, patched_text.encode("utf-8"))
+    return asar_target
+
+
 def find_main_view_dom_ready_handler(text: str) -> re.Match[str] | None:
     pattern = re.compile(
         r'(?P<web_contents>[A-Za-z_$][A-Za-z0-9_$]*\.webContents)'
-        r'\.on\("dom-ready",\(\)=>\{(?P<body>[^{}]*)\}\)(?P<terminator>[;,])'
+        r'\.on\((?P<quote>["\'`])dom-ready(?P=quote),\(\)=>\{'
+        r'(?P<body>[^{}]*)\}\)(?P<terminator>[;,])'
     )
     matches = [
         match
@@ -829,7 +893,7 @@ def find_main_process_asar_target(
         except UnicodeDecodeError:
             continue
         handler = find_main_view_dom_ready_handler(text)
-        if handler is not None and "main_view_dom_ready" in handler.group("body"):
+        if handler is not None:
             handler_matches.append(file_path)
 
     matches = marker_matches or handler_matches
@@ -884,24 +948,19 @@ def patch_online_locale_main_process(app: Path, lang_code: str) -> None:
         handler.group("web_contents"),
         handler.group("body"),
         handler.group("terminator"),
+        handler.group("quote"),
     )
     patched_text = text[: handler.start()] + injection + text[handler.end() :]
-    patched_text, locale_lock_patched = patch_online_locale_lock(patched_text, lang_code)
-    if not locale_lock_patched:
-        raise SystemExit(
-            "Could not patch DesktopIntl locale persistence. "
-            "Refusing to install a partial language patch."
-        )
 
     if patched_text == data[content_offset:content_end].decode("utf-8"):
         print("Online claude.ai locale main-process patch already applied")
-        return
-
-    replace_asar_file_content(app, asar_target, patched_text.encode("utf-8"))
+    else:
+        replace_asar_file_content(app, asar_target, patched_text.encode("utf-8"))
+    locale_lock_target = patch_online_locale_lock_in_asar(app, lang_code)
     action = "Refreshed" if (had_existing or had_existing_lock) else "Patched"
     print(
         f"{action} online claude.ai locale main-process hook: {len(mapping)} DOM strings; "
-        f"locked DesktopIntl locale to {lang_code}"
+        f"locked DesktopIntl locale to {lang_code} in {locale_lock_target}"
     )
 
 
@@ -935,27 +994,36 @@ def find_custom3p_validation_toggle(content: bytes, expr: bytes) -> re.Match[byt
 
 
 def find_custom3p_name_validator(content: bytes, *, patched: bool) -> re.Match[bytes] | None:
-    pattern = re.compile(
+    patterns = [
+        re.compile(
         rb"function ([A-Za-z_$][A-Za-z0-9_$]*)\(([A-Za-z_$][A-Za-z0-9_$]*)\)"
         rb"\{const ([A-Za-z_$][A-Za-z0-9_$]*)=\2\.toLowerCase\(\);return ([^{};]+)\}"
-    )
+        ),
+        # Claude 1.25927.0 moved this validator into lazy chunks and changed
+        # `const` to `let`; keep the same capture layout as the legacy form.
+        re.compile(
+            rb"function ([A-Za-z_$][A-Za-z0-9_$]*)\(([A-Za-z_$][A-Za-z0-9_$]*)\)"
+            rb"\{let ([A-Za-z_$][A-Za-z0-9_$]*)=\2\.toLowerCase\(\);return ([^{};]+)\}"
+        ),
+    ]
     matches: list[re.Match[bytes]] = []
-    for match in pattern.finditer(content):
-        expr = match.group(4).strip()
-        validation_window = content[max(0, match.start() - 1500) : match.start() + 3000]
-        if (
-            b"deepseek" in validation_window
-            and b"expected a gateway model route referencing an Anthropic model" in validation_window
-        ):
-            if patched and expr == b"!0":
-                matches.append(match)
-            elif (
-                not patched
-                and b".test(" in match.group(4)
-                and b".some(" in match.group(4)
-                and b".includes(" in match.group(4)
+    for pattern in patterns:
+        for match in pattern.finditer(content):
+            expr = match.group(4).strip()
+            validation_window = content[max(0, match.start() - 1500) : match.start() + 3000]
+            if (
+                b"deepseek" in validation_window
+                and b"expected a gateway model route referencing an Anthropic model" in validation_window
             ):
-                matches.append(match)
+                if patched and expr == b"!0":
+                    matches.append(match)
+                elif (
+                    not patched
+                    and b".test(" in match.group(4)
+                    and b".some(" in match.group(4)
+                    and b".includes(" in match.group(4)
+                ):
+                    matches.append(match)
 
     if len(matches) > 1:
         raise SystemExit("Could not patch custom 3P model validation: multiple matching validators found.")
@@ -1002,61 +1070,74 @@ def patch_custom3p_model_validation(app: Path) -> None:
     new_expr = b"false"
     replacement = new_expr + b" " * (len(old_expr) - len(new_expr))
 
-    data = bytearray(path.read_bytes())
+    data = path.read_bytes()
     header_size, _header_string, header = read_asar_header(data, path)
-    asar_target = find_main_process_asar_target(data, header_size, header)
-    entry = get_asar_file_entry(header, asar_target)
-    content_offset = 8 + header_size + int(entry["offset"])
-    content_size = int(entry["size"])
-    content_end = content_offset + content_size
-    if content_offset < 0 or content_end > len(data):
-        raise SystemExit(f"Unsupported app.asar file bounds for {asar_target}.")
+    targets = [
+        (file_path, entry)
+        for file_path, entry in iter_asar_files(header)
+        if file_path.startswith(".vite/build/") and file_path.endswith(".js")
+    ]
+    patched_files = 0
+    already_patched = 0
+    saw_validator_text = False
 
-    content = bytes(data[content_offset:content_end])
-    match = find_custom3p_validation_toggle(content, old_expr)
-    if match is None:
-        patched_match = find_custom3p_validation_toggle(content, replacement)
-        if patched_match is not None:
-            print("Custom 3P model-name validation already patched in app.asar")
-            return
-        if find_custom3p_name_validator(content, patched=True) is not None:
-            print("Custom 3P model-name validation already patched in app.asar")
-            return
-        patched_content = patch_custom3p_name_validator(content)
-        if patched_content is None:
-            if _custom3p_validation_removed(content):
-                print("Custom 3P model-name validation not present (removed in this Claude version)")
-                return
-            raise SystemExit(
-                "Could not patch custom 3P model validation. Claude bundle format may have changed."
+    for asar_target, _entry in targets:
+        data = path.read_bytes()
+        header_size, _header_string, header = read_asar_header(data, path)
+        entry = get_asar_file_entry(header, asar_target)
+        content = read_asar_entry_content(data, header_size, entry, asar_target)
+        if any(
+            needle in content
+            for needle in [
+                b"expected a gateway model route referencing an Anthropic model",
+                b"expected a Bedrock model ID",
+            ]
+        ):
+            saw_validator_text = True
+
+        match = find_custom3p_validation_toggle(content, old_expr)
+        if match is not None:
+            anchor = match.group(0)
+            patched = (
+                b"const "
+                + match.group(1)
+                + b"="
+                + replacement
+                + b"||!1,"
+                + match.group(2)
+                + b"="
             )
+            if len(anchor) != len(patched):
+                raise SystemExit("Internal patch error: custom 3P validation replacement changed length.")
+            patched_content = content[: match.start()] + patched + content[match.end() :]
+        elif (
+            find_custom3p_validation_toggle(content, replacement) is not None
+            or find_custom3p_name_validator(content, patched=True) is not None
+        ):
+            already_patched += 1
+            continue
+        else:
+            patched_content = patch_custom3p_name_validator(content)
+            if patched_content is None:
+                continue
+
+        replace_asar_file_content(app, asar_target, patched_content)
+        patched_files += 1
+
+    if patched_files:
+        print(f"Patched custom 3P model-name validation in app.asar: {patched_files} bundle(s)")
+    elif already_patched:
+        print("Custom 3P model-name validation already patched in app.asar")
+    elif not saw_validator_text:
+        print("Custom 3P model-name validation not present (removed in this Claude version)")
     else:
-        anchor = match.group(0)
-        patched = (
-            b"const "
-            + match.group(1)
-            + b"="
-            + replacement
-            + b"||!1,"
-            + match.group(2)
-            + b"="
+        # This optional 3P compatibility patch must not abort an otherwise
+        # valid official-account localization install when upstream changes
+        # its validator shape again.
+        print(
+            "Warning: could not patch custom 3P model validation; "
+            "continuing with official-account localization."
         )
-        if len(anchor) != len(patched):
-            raise SystemExit("Internal patch error: custom 3P validation replacement changed length.")
-        patched_content = content[: match.start()] + patched + content[match.end() :]
-
-    if len(patched_content) != len(content):
-        raise SystemExit("Internal patch error: app.asar length changed during custom 3P patch.")
-    data[content_offset:content_end] = patched_content
-
-    entry["integrity"] = calculate_file_integrity(patched_content)
-    updated_header_string = json.dumps(header, ensure_ascii=False, separators=(",", ":"))
-    updated_header = encode_asar_header(updated_header_string, header_size)
-    data[: len(updated_header)] = updated_header
-
-    path.write_bytes(data)
-    update_electron_asar_integrity(app, updated_header_string)
-    print("Patched custom 3P model-name validation in app.asar")
 
 
 def get_model_picker_replacements(lang_code: str) -> dict[str, str]:
@@ -2680,16 +2761,18 @@ def verify_online_locale_patch(app: Path, lang_code: str) -> None:
     entry = get_asar_file_entry(header, asar_target)
     text = read_asar_entry_content(data, header_size, entry, asar_target).decode("utf-8")
 
-    missing = [
-        marker
-        for marker in [ONLINE_LOCALE_MAIN_MARKER, ONLINE_LOCALE_LOCK_MARKER]
-        if marker not in text
-    ]
-    if missing:
+    if ONLINE_LOCALE_MAIN_MARKER not in text:
         raise SystemExit(
-            "Online locale patch verification failed; missing markers in "
-            f"{asar_target}: {', '.join(missing)}"
+            "Online locale patch verification failed; missing marker in "
+            f"{asar_target}: {ONLINE_LOCALE_MAIN_MARKER}"
         )
+    lock_target = find_online_locale_lock_asar_target(
+        data, header_size, header, lang_code
+    )
+    lock_entry = get_asar_file_entry(header, lock_target)
+    lock_text = read_asar_entry_content(
+        data, header_size, lock_entry, lock_target
+    ).decode("utf-8")
     lock_pattern = re.compile(
         r'requestLocaleChange\([A-Za-z_$][A-Za-z0-9_$]*\)'
         r'\{[A-Za-z_$][A-Za-z0-9_$]*\("'
@@ -2698,11 +2781,14 @@ def verify_online_locale_patch(app: Path, lang_code: str) -> None:
         + re.escape(ONLINE_LOCALE_LOCK_MARKER)
         + r"\*/"
     )
-    if lock_pattern.search(text) is None:
+    if lock_pattern.search(lock_text) is None:
         raise SystemExit(
-            f"Online locale lock verification failed for {lang_code} in {asar_target}."
+            f"Online locale lock verification failed for {lang_code} in {lock_target}."
         )
-    print(f"Verified online locale patch in {asar_target}: {lang_code}")
+    print(
+        f"Verified online locale patch in {asar_target}; "
+        f"DesktopIntl lock in {lock_target}: {lang_code}"
+    )
 
 
 def verify(app: Path, lang_code: str, *, expect_online_patch: bool = True) -> None:

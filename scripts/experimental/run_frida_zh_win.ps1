@@ -108,17 +108,19 @@ function Copy-FileBestEffort {
     if (-not (Test-Path -LiteralPath $Source)) { return $false }
     New-Item -ItemType Directory -Path $DestinationDir -Force | Out-Null
     $dest = Join-Path $DestinationDir (Split-Path -Leaf $Source)
-    try {
-        Copy-Item -LiteralPath $Source -Destination $dest -Force -ErrorAction Stop
-        return $true
-    }
-    catch {
-        if (Test-Path -LiteralPath $dest) {
-            Write-Warn "跳过复制（目标已存在或被占用）: $(Split-Path -Leaf $Source)"
+    for ($attempt = 1; $attempt -le 10; $attempt++) {
+        try {
+            Copy-Item -LiteralPath $Source -Destination $dest -Force -ErrorAction Stop
             return $true
         }
-        throw
+        catch {
+            if ($attempt -ge 10) {
+                throw "无法刷新 Frida 运行文件 $(Split-Path -Leaf $Source): $($_.Exception.Message)"
+            }
+            Start-Sleep -Milliseconds 150
+        }
     }
+    return $false
 }
 
 function Deploy-ToClaudeZh {

@@ -95,7 +95,7 @@ ACTION="${CLAUDE_ACTION:-}"
 SKIP_ASAR_PATCH="${CLAUDE_SKIP_ASAR_PATCH:-0}"
 if [ -z "$ACTION" ]; then
   echo "请选择操作："
-  echo "  [1] 安装中文补丁(官方订阅与第三方api均可使用：Cowork 沙箱/工作区不可用看群公告)"
+  echo "  [1] 安装中文补丁(官方订阅可用：Cowork 沙箱/工作区不可用看群公告)"
   echo "  [2] 安装中文补丁(第三方api可用：第三方模型需借助ccswitch映射(Cowork 沙箱/工作区不可用看群公告))"
   echo "  [3] Frida 运行时汉化（实验特性，可测试）"
   echo "  [4] 恢复原样 / 卸载补丁"

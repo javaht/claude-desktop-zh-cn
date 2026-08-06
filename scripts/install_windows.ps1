@@ -223,6 +223,21 @@ function Invoke-FridaRuntimeLaunch {
     }
 }
 
+function Disable-FridaResidentForDiskInstall {
+    $fridaCtl = Join-Path $PSScriptRoot "experimental\frida-zh-resident-ctl.ps1"
+    if (-not (Test-Path -LiteralPath $fridaCtl)) {
+        return
+    }
+
+    Write-Host "  正在停用 Frida 常驻，避免它接管磁盘补丁启动的 Claude..." -ForegroundColor DarkGray
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $fridaCtl -Action uninstall 2>&1 |
+        ForEach-Object { Write-Host ("  " + [string]$_) }
+    if ($LASTEXITCODE -ne 0) {
+        throw "无法停用 Frida 常驻（exit=$LASTEXITCODE）。请先卸载 Frida 常驻后重试。"
+    }
+    Write-Host "  Frida 常驻已停用；便携运行时已保留。" -ForegroundColor Green
+}
+
 function Test-OnlineAccountPatchEnabled {
     return $PatchMode -eq "official"
 }
@@ -3576,6 +3591,9 @@ function Install-WindowsLanguagePack {
 
         Write-Step "[2/8] 检查语言资源"
         $pack = Get-LanguageResources $LanguageCode
+
+        Write-Step "停用 Frida 常驻模式"
+        Disable-FridaResidentForDiskInstall
 
         Write-Step "关闭 Claude Desktop"
         Stop-ClaudeProcesses

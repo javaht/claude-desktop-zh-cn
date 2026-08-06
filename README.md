@@ -63,6 +63,7 @@ CC Switch skills 同步会扫描 `~/.cc-switch/skills` 下包含 `SKILL.md` 的�
    - `1` Cowork 兼容 / 第三方 API 模式：跳过 `app.asar` 和 `Claude.exe` 内嵌完整性哈希修改；仍会安装中文资源、注册中文语言并汉化前端 bundle。在线账号页面中依赖 DOM 注入的文本不会被覆盖，第三方模型需在网关或 CC Switch 中映射为 Claude/Anthropic 风格名称。
    - `2` 官方账号在线汉化模式：修改 `app.asar` 并同步改写 `Claude.exe` 内嵌完整性哈希，补充在线页面 DOM、主进程菜单和模型选择器汉化。该操作会使 `Claude.exe` 的 Authenticode 签名变为 `HashMismatch`，Cowork 沙箱/工作区可能拒绝启动。
    - `3` Frida 运行时汉化（实验）：**不修改**磁盘上的 `app.asar` / `Claude.exe`；用 Frida 内存补丁 + CDP 注入在线页 DOM 中文。若本机没有 Python+frida，会提示下载便携运行时到 `%LOCALAPPDATA%\claude-zh\runtime`（仅本工具使用，不改系统 Python）。可选注册/卸载用户登录常驻；卸载常驻时可选择同时删除便携运行时。需要本机允许 Frida 注入，**不能**当普通用户的通用安装方式。
+   - 在模式 `1`/`2` 与模式 `3` 之间切换时，安装器会先停用旧的 Frida 常驻任务，避免常驻 watcher 接管并重启磁盘补丁模式的 Claude；便携运行时会保留，之后重新选择模式 `3` 会刷新并复用。
    - `4` 恢复原样 / 卸载补丁。
    - `5` 自动更新设置：输入 `y` 禁止自动更新，输入 `n` 允许自动更新。
    - `6` CC Switch skills 同步：输入 `y` 开启同步，输入 `n` 删除之前的同步。

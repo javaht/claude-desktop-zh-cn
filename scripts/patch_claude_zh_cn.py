@@ -659,8 +659,14 @@ def build_online_dom_translation_script(lang_code: str, mapping: dict[str, str])
         'if(m)return t.replace("$1",m[1])}};'
         'const X=new Set(["SCRIPT","STYLE","NOSCRIPT"]),C="pre,code,kbd,samp,var,[data-language],[data-testid*=code],.cm-editor,.monaco-editor,.hljs";'
         'const SL=/^\\/?[a-z][a-z0-9_]*(?:-[a-z0-9_]+)+(?:\\s*(?:Custom command|Slash command))?$/i;'
+        # Stop climbing once an ancestor's text has whitespace it did not match on: an
+        # ancestor's text only grows as we climb, so once it carries surrounding prose no
+        # ancestor above it can be a slug either. (The one theoretical exception — a leaf
+        # like "X Custom" under a parent "X Custom command" — needs a translation key ending
+        # in " Custom"/" Slash", which the current map has none of.) Without the check every
+        # text node in a paragraph serialises up to five ancestors on every pass.
         'function K(n){let e=n.nodeType===1?n:n.parentElement;for(let i=0;e&&i<5;e=e.parentElement,i++){'
-        'if(SL.test(N(e.textContent)))return true}return false}'
+        'const t=N(e.textContent);if(SL.test(t))return true;if(/\\s/.test(t))break}return false}'
         "function T(){"
         "try{"
         "const b=document.body||document.documentElement;if(!b)return;"

@@ -636,6 +636,10 @@ def build_online_dom_translation_script(lang_code: str, mapping: dict[str, str])
     ))
     return (
         "(()=>{try{"
+        # This runs on every dom-ready, which fires again on navigation and SPA
+        # reloads. Without a guard each pass leaves another MutationObserver
+        # attached, so the observers -- and the work they schedule -- pile up.
+        'if(window.__claudeZhDomInit)return;window.__claudeZhDomInit=1;'
         f'const L="{lang_code}",M={mapping_json},D={weekday_initials_json};'
         'localStorage.setItem("spa:locale",L);'
         'document.documentElement&&document.documentElement.setAttribute("lang",L);'
@@ -694,7 +698,16 @@ def build_online_dom_translation_script(lang_code: str, mapping: dict[str, str])
         'if(txt==="Claude"&&r.left<100&&r.top<100)e.style.visibility="hidden"}catch{}});'
         "}catch{}}"
         "T();"
-        "new MutationObserver(()=>{clearTimeout(window.__claudeZhDomTimer);window.__claudeZhDomTimer=setTimeout(T,30)})"
+        # A plain debounce starves under a continuously mutating node: the context
+        # meter ticks faster than the 30ms delay, so the timer is reset forever and
+        # T() never runs. Keep the debounce for burst coalescing but cap how long a
+        # pending run may be deferred.
+        "const S=()=>{window.__claudeZhDomDue=0;T()};"
+        "new MutationObserver(()=>{"
+        "const now=Date.now();"
+        "if(!window.__claudeZhDomDue)window.__claudeZhDomDue=now+250;"
+        "clearTimeout(window.__claudeZhDomTimer);"
+        "window.__claudeZhDomTimer=setTimeout(S,Math.max(0,Math.min(30,window.__claudeZhDomDue-now)))})"
         ".observe(document.documentElement,{subtree:true,childList:true,characterData:true,attributes:true});"
         "}catch(e){}})()"
     )

@@ -143,10 +143,11 @@ def load_entitlements(path: Path) -> dict[str, Any]:
         stderr=subprocess.PIPE,
         check=False,
     )
-    if result.returncode != 0 or not result.stdout.strip():
+    stdout = result.stdout.rstrip(b"\x00")
+    if result.returncode != 0 or not stdout.strip():
         return {}
     try:
-        data = plistlib.loads(result.stdout)
+        data = plistlib.loads(stdout)
     except Exception:
         return {}
     return data if isinstance(data, dict) else {}

@@ -662,7 +662,7 @@ def build_online_dom_translation_script(lang_code: str, mapping: dict[str, str])
         f'{dynamic_rules}];'
         'const R=s=>{const n=N(s);if(M[n])return M[n];for(const [r,t] of G){const m=n.match(r);'
         'if(m)return t.replace("$1",m[1])}};'
-        'const X=new Set(["SCRIPT","STYLE","NOSCRIPT"]),C="pre,code,kbd,samp,var,[data-language],[data-testid*=code],.cm-editor,.monaco-editor,.hljs";'
+        'const X=new Set(["SCRIPT","STYLE","NOSCRIPT"]),C="pre,code,kbd,samp,var,[data-language],[data-testid*=code],.cm-editor,.monaco-editor,.hljs",P=\'[data-testid="user-message"],.standard-markdown,.progressive-markdown,[data-testid="chat-input"],[data-testid="conway-composer-input"],[data-testid="conway-user-message"] .user-bubble,[data-testid="conway-output-cell"]\';'
         'const SL=/^\\/?[a-z][a-z0-9_]*(?:-[a-z0-9_]+)+(?:\\s*(?:Custom command|Slash command))?$/i;'
         # Stop climbing once an ancestor's text has whitespace it did not match on: an
         # ancestor's text only grows as we climb, so once it carries surrounding prose no
@@ -672,29 +672,31 @@ def build_online_dom_translation_script(lang_code: str, mapping: dict[str, str])
         # text node in a paragraph serialises up to five ancestors on every pass.
         'function K(n){let e=n.nodeType===1?n:n.parentElement;for(let i=0;e&&i<5;e=e.parentElement,i++){'
         'const t=N(e.textContent);if(SL.test(t))return true;if(/\\s/.test(t))break}return false}'
+        'function Q(n){const e=n.nodeType===1?n:n.parentElement;return !!(e&&e.closest(P))}'
+        'function H(n){return Q(n)||!!(n&&n.nodeType===1&&n.querySelector(P))}'
         "function T(){"
         "try{"
         "const b=document.body||document.documentElement;if(!b)return;"
         "const w=document.createTreeWalker(b,NodeFilter.SHOW_TEXT,{acceptNode(n){"
-        "const p=n.parentElement;if(!p||X.has(p.tagName)||p.closest('[contenteditable],'+C)||K(n)||!R(n.nodeValue))return NodeFilter.FILTER_REJECT;"
+        "const p=n.parentElement;if(!p||X.has(p.tagName)||p.closest('[contenteditable],'+C)||Q(n)||K(n)||!R(n.nodeValue))return NodeFilter.FILTER_REJECT;"
         "return NodeFilter.FILTER_ACCEPT}});"
         "let n;while(n=w.nextNode()){const v=R(n.nodeValue);if(v)n.nodeValue=v}"
         'document.querySelectorAll("[role=dialog] p,[role=dialog] div,[role=dialog] span").forEach(e=>{try{'
-        'if(e.closest("button,[contenteditable],"+C)||K(e))return;'
+        'if(e.closest("button,[contenteditable],"+C)||H(e)||K(e))return;'
         'const t=R(e.textContent);'
         'if(t&&N(e.textContent)!==N(t))e.textContent=t'
         '}catch{}});'
         'document.querySelectorAll("[aria-label],[title],[placeholder],input,textarea").forEach(e=>{'
         '["aria-label","title","placeholder","value"].forEach(a=>{'
-        'try{if(e.closest(C)||K(e))return;if(a==="value"&&!(e.matches("input[type=button],input[type=submit]")))return;'
+        'try{if(e.closest(C)||Q(e)||K(e))return;if(a==="value"&&!(e.matches("input[type=button],input[type=submit]")))return;'
         "let v=e.getAttribute?e.getAttribute(a):void 0;if(v==null&&a in e)v=e[a];const t=R(v);"
         "if(t){if(e.setAttribute)e.setAttribute(a,t);try{if(a in e)e[a]=t}catch{}}}catch{}})});"
-        'document.querySelectorAll("div,fieldset").forEach(e=>{try{'
+        'document.querySelectorAll("div,fieldset").forEach(e=>{try{if(Q(e))return;'
         'const c=Array.from(e.children);if(c.length!==7||c.map(x=>N(x.textContent)).join("")!=="SMTWTFS")return;'
         'c.forEach((x,i)=>{const w=document.createTreeWalker(x,NodeFilter.SHOW_TEXT);let n;while(n=w.nextNode()){'
-        'if(/^[SMTWF]$/.test(N(n.nodeValue))){n.nodeValue=D[i];break}}})'
+        'if(!Q(n)&&/^[SMTWF]$/.test(N(n.nodeValue))){n.nodeValue=D[i];break}}})'
         '}catch{}});'
-        'document.querySelectorAll("a").forEach(e=>{try{'
+        'document.querySelectorAll("a").forEach(e=>{try{if(H(e))return;'
         'const r=e.getBoundingClientRect(),txt=N(e.textContent);'
         'if(txt==="Claude"&&r.left<100&&r.top<100)e.style.visibility="hidden"}catch{}});'
         "}catch{}}"

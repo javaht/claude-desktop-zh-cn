@@ -636,6 +636,10 @@ def build_online_dom_translation_script(lang_code: str, mapping: dict[str, str])
     ))
     return (
         "(()=>{try{"
+        # This runs on every dom-ready, which fires again on navigation and SPA
+        # reloads. Without a guard each pass leaves another MutationObserver
+        # attached, so the observers -- and the work they schedule -- pile up.
+        'if(window.__claudeZhDomInit)return;window.__claudeZhDomInit=1;'
         f'const L="{lang_code}",M={mapping_json},D={weekday_initials_json};'
         'localStorage.setItem("spa:locale",L);'
         'document.documentElement&&document.documentElement.setAttribute("lang",L);'
@@ -659,8 +663,14 @@ def build_online_dom_translation_script(lang_code: str, mapping: dict[str, str])
         'if(m)return t.replace("$1",m[1])}};'
         'const X=new Set(["SCRIPT","STYLE","NOSCRIPT"]),C="pre,code,kbd,samp,var,[data-language],[data-testid*=code],.cm-editor,.monaco-editor,.hljs";'
         'const SL=/^\\/?[a-z][a-z0-9_]*(?:-[a-z0-9_]+)+(?:\\s*(?:Custom command|Slash command))?$/i;'
+        # Stop climbing once an ancestor's text has whitespace it did not match on: an
+        # ancestor's text only grows as we climb, so once it carries surrounding prose no
+        # ancestor above it can be a slug either. (The one theoretical exception — a leaf
+        # like "X Custom" under a parent "X Custom command" — needs a translation key ending
+        # in " Custom"/" Slash", which the current map has none of.) Without the check every
+        # text node in a paragraph serialises up to five ancestors on every pass.
         'function K(n){let e=n.nodeType===1?n:n.parentElement;for(let i=0;e&&i<5;e=e.parentElement,i++){'
-        'if(SL.test(N(e.textContent)))return true}return false}'
+        'const t=N(e.textContent);if(SL.test(t))return true;if(/\\s/.test(t))break}return false}'
         "function T(){"
         "try{"
         "const b=document.body||document.documentElement;if(!b)return;"
@@ -688,7 +698,16 @@ def build_online_dom_translation_script(lang_code: str, mapping: dict[str, str])
         'if(txt==="Claude"&&r.left<100&&r.top<100)e.style.visibility="hidden"}catch{}});'
         "}catch{}}"
         "T();"
-        "new MutationObserver(()=>{clearTimeout(window.__claudeZhDomTimer);window.__claudeZhDomTimer=setTimeout(T,30)})"
+        # A plain debounce starves under a continuously mutating node: the context
+        # meter ticks faster than the 30ms delay, so the timer is reset forever and
+        # T() never runs. Keep the debounce for burst coalescing but cap how long a
+        # pending run may be deferred.
+        "const S=()=>{window.__claudeZhDomDue=0;T()};"
+        "new MutationObserver(()=>{"
+        "const now=Date.now();"
+        "if(!window.__claudeZhDomDue)window.__claudeZhDomDue=now+250;"
+        "clearTimeout(window.__claudeZhDomTimer);"
+        "window.__claudeZhDomTimer=setTimeout(S,Math.max(0,Math.min(30,window.__claudeZhDomDue-now)))})"
         ".observe(document.documentElement,{subtree:true,childList:true,characterData:true,attributes:true});"
         "}catch(e){}})()"
     )

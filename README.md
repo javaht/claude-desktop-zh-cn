@@ -151,8 +151,6 @@ CC Switch skills 同步会扫描 `~/.cc-switch/skills` 下包含 `SKILL.md` 的�
 
 ## Star History
 
-## Star History
-
 <a href="https://www.star-history.com/?type=date&repos=javaht%2Fclaude-desktop-zh-cn">
  <picture>
    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=javaht/claude-desktop-zh-cn&type=date&theme=dark&legend=top-left&sealed_token=tECHT08L-yVivX4_99O4nbW-GXbTd4TKgJgk_G-hPSmrHUsskPdhhzIcbaiSHdlNbIp8nKrL830FovuAd818XDQX5LTSh5JGJUWWbpoTG-6lqNTLbW4LbA" />

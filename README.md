@@ -151,8 +151,15 @@ CC Switch skills 同步会扫描 `~/.cc-switch/skills` 下包含 `SKILL.md` 的�
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=javaht/claude-desktop-zh-cn&type=Date)](https://www.star-history.com/#javaht/claude-desktop-zh-cn&Date)
+## Star History
 
+<a href="https://www.star-history.com/?type=date&repos=javaht%2Fclaude-desktop-zh-cn">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=javaht/claude-desktop-zh-cn&type=date&theme=dark&legend=top-left&sealed_token=tECHT08L-yVivX4_99O4nbW-GXbTd4TKgJgk_G-hPSmrHUsskPdhhzIcbaiSHdlNbIp8nKrL830FovuAd818XDQX5LTSh5JGJUWWbpoTG-6lqNTLbW4LbA" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=javaht/claude-desktop-zh-cn&type=date&legend=top-left&sealed_token=tECHT08L-yVivX4_99O4nbW-GXbTd4TKgJgk_G-hPSmrHUsskPdhhzIcbaiSHdlNbIp8nKrL830FovuAd818XDQX5LTSh5JGJUWWbpoTG-6lqNTLbW4LbA" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=javaht/claude-desktop-zh-cn&type=date&legend=top-left&sealed_token=tECHT08L-yVivX4_99O4nbW-GXbTd4TKgJgk_G-hPSmrHUsskPdhhzIcbaiSHdlNbIp8nKrL830FovuAd818XDQX5LTSh5JGJUWWbpoTG-6lqNTLbW4LbA" />
+ </picture>
+</a>
 ## 免责声明
 
 本项目为非官方中文补丁，会修改本机 Claude Desktop 的资源文件及相关本地配置，不会修改 Claude 服务端账号数据。Claude Desktop 更新后资源结构可能变化；若补丁失败，请先恢复原版应用并更新本项目，不要在安装未完成的状态下反复运行脚本。

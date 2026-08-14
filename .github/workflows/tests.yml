@@ -1,0 +1,46 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dom-translation-guards:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run DOM translation guard tests
+        run: python3 -m unittest -v tests.test_dom_translation_guards
+
+      - name: Compile patcher and tests
+        run: python3 -m py_compile scripts/patch_claude_zh_cn.py tests/test_dom_translation_guards.py
+
+      - name: Syntax-check generated macOS DOM script
+        run: |
+          python3 -c "import tests.test_dom_translation_guards as t; print(t.load_python_patcher().build_online_dom_translation_script('zh-CN', {'Settings': '设置'}))" | node --check
+
+      - name: Syntax-check materialized Windows DOM script
+        run: |
+          python3 -c "import tests.test_dom_translation_guards as t; print(t.materialize_windows_dom_script(t.extract_windows_dom_template()))" | node --check
+
+      - name: Validate resource JSON files
+        run: |
+          python3 - <<'PY'
+          import json, re, sys
+          from pathlib import Path
+          for path in sorted(Path("resources").glob("*.json")):
+              raw = path.read_text(encoding="utf-8")
+              keys = re.findall(r'^  "((?:[^"\\]|\\.)+)":', raw, re.M)
+              dupes = {k for k in keys if keys.count(k) > 1}
+              if dupes:
+                  sys.exit(f"{path}: duplicate keys {dupes}")
+              json.loads(raw)
+          print("All resource JSON files are valid with no duplicate keys.")
+          PY

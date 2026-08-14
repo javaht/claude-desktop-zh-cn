@@ -151,7 +151,13 @@ CC Switch skills 同步会扫描 `~/.cc-switch/skills` 下包含 `SKILL.md` 的�
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/chart?repos=javaht/claude-desktop-zh-cn&type=date&legend=top-left&sealed_token=EknvBitVKiE5KvQr6AHCNU3-EFiDgn951UfWcMsllhKaF8TMsHJhlLWmkvYoR6HXUnC5vHqfUhvfNCtbaZHDzDEN1GsFXsXc5F6aH5Ffs89ROkG8siqh8w)](https://www.star-history.com/?type=date&repos=javaht%2Fclaude-desktop-zh-cn)
+<a href="https://www.star-history.com/?type=date&repos=javaht%2Fclaude-desktop-zh-cn">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=javaht/claude-desktop-zh-cn&type=date&theme=dark&legend=top-left&sealed_token=nC4gK9npC6J22iJX6ySvcDb9bLLzJi92ny-y20orz28GWvjXDHLZDuo0vqfJ7odAe7h_TdxZVOFEAXl290Auc3da0o8fLzdK6F6vAbUoM1d3_L0A7tklYQ" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=javaht/claude-desktop-zh-cn&type=date&legend=top-left&sealed_token=nC4gK9npC6J22iJX6ySvcDb9bLLzJi92ny-y20orz28GWvjXDHLZDuo0vqfJ7odAe7h_TdxZVOFEAXl290Auc3da0o8fLzdK6F6vAbUoM1d3_L0A7tklYQ" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=javaht/claude-desktop-zh-cn&type=date&legend=top-left&sealed_token=nC4gK9npC6J22iJX6ySvcDb9bLLzJi92ny-y20orz28GWvjXDHLZDuo0vqfJ7odAe7h_TdxZVOFEAXl290Auc3da0o8fLzdK6F6vAbUoM1d3_L0A7tklYQ" />
+ </picture>
+</a>
 
 ## 免责声明
 

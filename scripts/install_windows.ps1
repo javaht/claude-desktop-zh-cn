@@ -1600,7 +1600,8 @@ function Find-OnlineDomTranslationHook {
     )
 
     $readyNeedle = "main_view_dom_ready"
-    $eventPattern = [System.Text.RegularExpressions.Regex]::new('\.webContents\.on\((?<quote>["''`])dom-ready\k<quote>,\(\)=>\{')
+    # 1.32 起 bundle 里 handler 写成 ((...))，旧版为 (...)，括号层数可选
+    $eventPattern = [System.Text.RegularExpressions.Regex]::new('\.webContents\.on\((?<quote>["''`])dom-ready\k<quote>,(?<paren>\(?)\(\)=>\{')
     $handlerCloseNeedle = "})"
 
     if (-not $Quiet) {
@@ -1630,6 +1631,10 @@ function Find-OnlineDomTranslationHook {
 
         $body = $Text.Substring($bodyStart, $handlerClose - $bodyStart).TrimEnd(";")
         $terminatorIndex = $handlerClose + $handlerCloseNeedle.Length
+        if (($eventMatch.Groups["paren"].Value -eq "(") -and ($terminatorIndex -lt $Text.Length) -and ([string]$Text[$terminatorIndex] -eq ")")) {
+            # 新版 bundle 用 ((...)) 包裹 handler，跳过外层右括号，链式分隔符在其后
+            $terminatorIndex += 1
+        }
         if (($body.Contains("{")) -or ($body.Contains("}")) -or ($terminatorIndex -ge $Text.Length)) {
             if (-not $Quiet) {
                 Write-Host "  [进度] 第 $checked 个 dom-ready handler 含嵌套代码或缺少结束分隔符，继续查找下一个..." -ForegroundColor DarkGray

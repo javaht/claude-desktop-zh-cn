@@ -19,8 +19,11 @@ jobs:
       - name: Run DOM translation guard tests
         run: python3 -m unittest -v tests.test_dom_translation_guards
 
+      - name: Run Windows DOM hook scan tests
+        run: python3 -m unittest -v tests.test_windows_dom_hook
+
       - name: Compile patcher and tests
-        run: python3 -m py_compile scripts/patch_claude_zh_cn.py tests/test_dom_translation_guards.py
+        run: python3 -m py_compile scripts/patch_claude_zh_cn.py tests/test_dom_translation_guards.py tests/test_windows_dom_hook.py
 
       - name: Syntax-check generated macOS DOM script
         run: |

@@ -66,19 +66,28 @@ def find_function_region(source: str) -> str:
 
 
 def run_hook_scan(fixture: str) -> dict:
+    import tempfile
+
     pwsh = shutil.which("pwsh")
     if pwsh is None:
         raise unittest.SkipTest("pwsh not available")
     source = WINDOWS_PATCHER.read_text(encoding="utf-8-sig")
     functions = find_function_region(source)
     harness = HARNESS.replace("{PARAMS_AND_FUNCTIONS}", functions).replace("{FIXTURE}", fixture)
-    proc = subprocess.run(
-        [pwsh, "-NoProfile", "-NonInteractive", "-Command", harness],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        timeout=120,
-    )
+    # 脚本体远大于单参数长度上限（Linux MAX_ARG_STRLEN），必须写文件用 -File 执行
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".ps1", encoding="utf-8", delete=False) as tmp:
+        tmp.write(harness)
+        harness_path = tmp.name
+    try:
+        proc = subprocess.run(
+            [pwsh, "-NoProfile", "-NonInteractive", "-File", harness_path],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=120,
+        )
+    finally:
+        Path(harness_path).unlink(missing_ok=True)
     if proc.returncode != 0:
         raise AssertionError(
             f"pwsh failed ({proc.returncode}):\nstdout: {proc.stdout}\nstderr: {proc.stderr}"

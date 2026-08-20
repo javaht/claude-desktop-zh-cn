@@ -44,3 +44,6 @@ jobs:
               json.loads(raw)
           print("All resource JSON files are valid with no duplicate keys.")
           PY
+
+      - name: Run macOS DOM hook scan tests
+        run: python3 -m unittest -v tests.test_macos_dom_hook

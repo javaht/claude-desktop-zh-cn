@@ -868,8 +868,11 @@ def patch_online_locale_lock_in_asar(app: Path, lang_code: str) -> str:
 def find_main_view_dom_ready_handler(text: str) -> re.Match[str] | None:
     pattern = re.compile(
         r'(?P<web_contents>[A-Za-z_$][A-Za-z0-9_$]*\.webContents)'
-        r'\.on\((?P<quote>["\'`])dom-ready(?P=quote),\(\)=>\{'
-        r'(?P<body>[^{}]*)\}\)(?P<terminator>[;,])'
+        r'\.on\((?P<quote>["\'`])dom-ready(?P=quote),'
+        # Newer bundles wrap the arrow function in an extra pair of parens:
+        # .on(`dom-ready`,(()=>{...})). Accept both shapes, keeping them balanced.
+        r'(?P<wrap>\()?\(\)=>\{(?P<body>[^{}]*)\}\)(?(wrap)\))'
+        r'(?P<terminator>[;,])'
     )
     matches = [
         match

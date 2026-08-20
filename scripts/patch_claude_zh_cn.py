@@ -493,14 +493,6 @@ def replace_asar_file_content(app: Path, file_path: str, patched_content: bytes)
     return True
 
 
-def build_online_locale_injection(lang_code: str) -> str:
-    return (
-        f';(()=>{{const l="{lang_code}",s=()=>{{try{{localStorage.setItem("spa:locale",l);'
-        'document.documentElement&&document.documentElement.setAttribute("lang",l)}}catch{{}}}};'
-        f's();addEventListener("DOMContentLoaded",s)}})();/*{ONLINE_LOCALE_MARKER}*/'
-    )
-
-
 def strip_online_locale_injection(text: str) -> tuple[str, bool]:
     pattern = re.compile(
         rf';\(\(\)=>\{{const l="[^"]+".*?/\*{ONLINE_LOCALE_MARKER}\*/',
@@ -723,6 +715,7 @@ def build_online_locale_main_process_script(
     existing_dom_ready_body: str,
     handler_terminator: str,
     event_quote: str = '"',
+    callback_wrapped: bool = False,
 ) -> str:
     if handler_terminator not in {";", ","}:
         raise ValueError(f"Unsupported dom-ready handler terminator: {handler_terminator!r}")
@@ -733,20 +726,23 @@ def build_online_locale_main_process_script(
         'if(localStorage.getItem("spa:locale")!==l){localStorage.setItem("spa:locale",l)}}catch(e){}})();'
         + build_online_dom_translation_script(lang_code, mapping)
     )
+    callback_open = "(()=>{" if callback_wrapped else "()=>{"
+    callback_close = "}))" if callback_wrapped else "})"
     return (
-        f"{web_contents_expr}.on({event_quote}dom-ready{event_quote},()=>{{{existing_dom_ready_body};"
+        f"{web_contents_expr}.on({event_quote}dom-ready{event_quote},{callback_open}"
+        f"{existing_dom_ready_body};"
         f"{web_contents_expr}.executeJavaScript({json.dumps(script)}).catch(()=>{{}})"
-        f"}}){handler_terminator}/*{ONLINE_LOCALE_MAIN_MARKER}*/"
+        f"{callback_close}{handler_terminator}/*{ONLINE_LOCALE_MAIN_MARKER}*/"
     )
 
 
 def strip_online_locale_main_process_patch(text: str) -> tuple[str, bool]:
     pattern = re.compile(
         r'(?P<web_contents>[A-Za-z_$][A-Za-z0-9_$]*\.webContents)'
-        r'\.on\((?P<quote>["\'`])dom-ready(?P=quote),\(\)=>\{'
+        r'\.on\((?P<quote>["\'`])dom-ready(?P=quote),(?P<outer>\()?\(\)=>\{'
         r'(?P<body>.*?);'
         r'(?P=web_contents)\.executeJavaScript\("(?:\\.|[^"])*"\)\.catch\(\(\)=>\{\}\)'
-        rf'\}}\)(?P<terminator>[;,])/\*{ONLINE_LOCALE_MAIN_MARKER}\*/'
+        rf'\}}(?(outer)\))\)(?P<terminator>[;,])/\*{ONLINE_LOCALE_MAIN_MARKER}\*/'
     )
 
     def restore(match: re.Match[str]) -> str:
@@ -754,6 +750,8 @@ def strip_online_locale_main_process_patch(text: str) -> tuple[str, bool]:
         quote = match.group("quote")
         body = match.group("body")
         terminator = match.group("terminator")
+        if match.group("outer"):
+            return f"{web_contents}.on({quote}dom-ready{quote},(()=>{{{body}}})){terminator}"
         return f"{web_contents}.on({quote}dom-ready{quote},()=>{{{body}}}){terminator}"
 
     patched, count = pattern.subn(restore, text)
@@ -868,8 +866,8 @@ def patch_online_locale_lock_in_asar(app: Path, lang_code: str) -> str:
 def find_main_view_dom_ready_handler(text: str) -> re.Match[str] | None:
     pattern = re.compile(
         r'(?P<web_contents>[A-Za-z_$][A-Za-z0-9_$]*\.webContents)'
-        r'\.on\((?P<quote>["\'`])dom-ready(?P=quote),\(\)=>\{'
-        r'(?P<body>[^{}]*)\}\)(?P<terminator>[;,])'
+        r'\.on\((?P<quote>["\'`])dom-ready(?P=quote),(?P<outer>\()?\(\)=>\{'
+        r'(?P<body>[^{}]*)\}(?(outer)\))\)(?P<terminator>[;,])'
     )
     matches = [
         match
@@ -971,6 +969,7 @@ def patch_online_locale_main_process(app: Path, lang_code: str) -> None:
         handler.group("body"),
         handler.group("terminator"),
         handler.group("quote"),
+        bool(handler.group("outer")),
     )
     patched_text = text[: handler.start()] + injection + text[handler.end() :]
 
@@ -983,13 +982,6 @@ def patch_online_locale_main_process(app: Path, lang_code: str) -> None:
     print(
         f"{action} online claude.ai locale main-process hook: {len(mapping)} DOM strings; "
         f"locked DesktopIntl locale to {lang_code} in {locale_lock_target}"
-    )
-
-
-def _custom3p_validation_removed(content: bytes) -> bool:
-    return (
-        b"expected a gateway model route referencing an Anthropic model" not in content
-        and b"Bedrock model" not in content
     )
 
 
@@ -1233,14 +1225,6 @@ def patch_model_picker_strings(app: Path, lang_code: str) -> None:
 
     replace_asar_file_content(app, asar_target, patched.encode("utf-8"))
     print(f"Patched hardcoded model picker strings in app.asar: {count} replacements")
-
-
-def pad_utf8_replacement(source: str, target: str) -> str:
-    source_len = len(source.encode("utf-8"))
-    target_len = len(target.encode("utf-8"))
-    if target_len > source_len:
-        raise SystemExit(f"Internal patch error: replacement is longer than source: {source}")
-    return target + (" " * (source_len - target_len))
 
 
 def get_main_process_menu_replacements(lang_code: str) -> dict[str, str]:
@@ -2202,6 +2186,11 @@ def set_user_locale(user_home: Path, lang_code: str) -> None:
     ]
     sudo_uid = os.environ.get("SUDO_UID")
     sudo_gid = os.environ.get("SUDO_GID")
+    if not (sudo_uid and sudo_gid) and os.geteuid() == 0:
+        # macOS `do shell script ... with administrator privileges` does not
+        # provide SUDO_UID/GID; preserve the owner of the requested home.
+        owner = user_home.stat()
+        sudo_uid, sudo_gid = str(owner.st_uid), str(owner.st_gid)
 
     for config in targets:
         if config.name.startswith("Claude-3p") and not config.parent.exists():

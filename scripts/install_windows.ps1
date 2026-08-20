@@ -1600,8 +1600,11 @@ function Find-OnlineDomTranslationHook {
     )
 
     $readyNeedle = "main_view_dom_ready"
-    $eventPattern = [System.Text.RegularExpressions.Regex]::new('\.webContents\.on\((?<quote>["''`])dom-ready\k<quote>,\(\)=>\{')
-    $handlerCloseNeedle = "})"
+    # Claude 1.1xxxx moved the main-view handler into a nested callback. A
+    # regex that stops at the first `})` can select no handler (or truncate it),
+    # so we locate the callback and balance braces while honoring JS strings.
+    $eventPattern = [System.Text.RegularExpressions.Regex]::new('\.webContents\.on\((?<quote>["''`])dom-ready\k<quote>,(?<outer>\()?\(\)=>\{')
+        $handlerCloseNeedle = "})"
 
     if (-not $Quiet) {
         Write-Host "  [进度] 正在快速扫描 dom-ready handler..." -ForegroundColor DarkGray
@@ -1619,7 +1622,29 @@ function Find-OnlineDomTranslationHook {
         $checked += 1
 
         $bodyStart = $anchorIndex + $eventMatch.Length
-        $handlerClose = $Text.IndexOf($handlerCloseNeedle, $bodyStart, [System.StringComparison]::Ordinal)
+        $bodyStart = $bodyStart
+        $depth = 1
+        $quote = $null
+        $escaped = $false
+        $handlerClose = -1
+        for ($i = $bodyStart; $i -lt $Text.Length; $i++) {
+            $ch = $Text[$i]
+            if ($quote) {
+                if ($escaped) { $escaped = $false; continue }
+                if ($ch -eq '\\') { $escaped = $true; continue }
+                if ($ch -eq $quote) { $quote = $null }
+                continue
+            }
+            if (($ch -eq '"') -or ($ch -eq "'") -or ($ch -eq '`')) { $quote = $ch; continue }
+            if ($ch -eq '{') { $depth++; continue }
+            if ($ch -eq '}') {
+                $depth--
+                if ($depth -eq 0 -and ($i + 1 -lt $Text.Length) -and $Text[$i + 1] -eq ')') {
+                    $handlerClose = $i
+                    break
+                }
+            }
+        }
         if ($handlerClose -lt $bodyStart) {
             if (-not $Quiet) {
                 Write-Host "  [进度] 第 $checked 个 dom-ready handler 结束位置异常，继续查找下一个..." -ForegroundColor DarkGray
@@ -1629,8 +1654,9 @@ function Find-OnlineDomTranslationHook {
         }
 
         $body = $Text.Substring($bodyStart, $handlerClose - $bodyStart).TrimEnd(";")
-        $terminatorIndex = $handlerClose + $handlerCloseNeedle.Length
-        if (($body.Contains("{")) -or ($body.Contains("}")) -or ($terminatorIndex -ge $Text.Length)) {
+        $closeLength = if ($eventMatch.Groups["outer"].Success) { 3 } else { 2 }
+        $terminatorIndex = $handlerClose + $closeLength
+        if ($terminatorIndex -ge $Text.Length) {
             if (-not $Quiet) {
                 Write-Host "  [进度] 第 $checked 个 dom-ready handler 含嵌套代码或缺少结束分隔符，继续查找下一个..." -ForegroundColor DarkGray
             }
@@ -1673,6 +1699,7 @@ function Find-OnlineDomTranslationHook {
             Body = $body
             Terminator = $terminator
             EventQuote = $eventMatch.Groups["quote"].Value
+            CallbackWrapped = $eventMatch.Groups["outer"].Success
         }
         if ($body.Contains($readyNeedle)) {
             if (-not $Quiet) {
@@ -1713,7 +1740,7 @@ function Resolve-MainProcessAsarTarget {
     )
 
     $markerMatches = [System.Collections.Generic.List[string]]::new()
-    $hookMatches = [System.Collections.Generic.List[string]]::new()
+    $hookMatches = [System.Collections.Generic.List[object]]::new()
     $legacyMatches = [System.Collections.Generic.List[string]]::new()
     $fallbackExists = $false
 
@@ -1722,7 +1749,11 @@ function Resolve-MainProcessAsarTarget {
         if ($filePath -eq $AsarPatchTargetFallback) {
             $fallbackExists = $true
         }
-        if ((-not $filePath.StartsWith(".vite/build/", [System.StringComparison]::Ordinal)) -or (-not $filePath.EndsWith(".js", [System.StringComparison]::Ordinal))) {
+        # Recent Windows builds no longer keep the main process under
+        # `.vite/build/`; it may be emitted beside the frame-shell bundles.
+        # Inspect every JavaScript entry and use the semantic hook/path filters
+        # below to avoid selecting the tiny bootstrap index.js.
+        if (-not $filePath.EndsWith(".js", [System.StringComparison]::OrdinalIgnoreCase)) {
             continue
         }
 
@@ -1732,10 +1763,13 @@ function Resolve-MainProcessAsarTarget {
             $markerMatches.Add($filePath)
             continue
         }
-        if ($text.Contains("main_view_dom_ready")) {
+        if ($text.Contains("main_view_dom_ready") -or $text.Contains('.webContents.on("dom-ready"')) {
             $hookMatch = Find-OnlineDomTranslationHook $text -Quiet
             if ($hookMatch["Success"]) {
-                $hookMatches.Add($filePath)
+                # Prefer bundles whose path identifies the desktop main view;
+                # keep other valid candidates as a fallback for renamed builds.
+                $score = if ($filePath -match '(?i)(main|window|frame|shell|index)') { 0 } else { 1 }
+                $hookMatches.Add([pscustomobject]@{ Path = $filePath; Score = $score })
                 continue
             }
         }
@@ -1752,12 +1786,13 @@ function Resolve-MainProcessAsarTarget {
         throw "Could not select main-process app.asar bundle: multiple existing online patch markers found: $($markerMatches -join ', ')"
     }
 
-    if ($hookMatches.Count -eq 1) {
-        Write-Host "  selected main-process ASAR bundle: $($hookMatches[0])" -ForegroundColor DarkGray
-        return $hookMatches[0]
-    }
-    if ($hookMatches.Count -gt 1) {
-        throw "Could not select main-process app.asar bundle: multiple main_view_dom_ready handlers found: $($hookMatches -join ', ')"
+    if ($hookMatches.Count -ge 1) {
+        $best = @($hookMatches | Sort-Object Score, Path)
+        if (($best | Where-Object Score -eq $best[0].Score).Count -gt 1) {
+            throw "Could not select main-process app.asar bundle: multiple dom-ready candidates found: $((($best | Where-Object Score -eq $best[0].Score).Path) -join ', ')"
+        }
+        Write-Host "  selected main-process ASAR bundle: $($best[0].Path)" -ForegroundColor DarkGray
+        return $best[0].Path
     }
 
     if ($legacyMatches.Count -eq 1) {
@@ -1970,7 +2005,9 @@ function Patch-OnlineDomTranslation {
         $terminator = $hookMatch["Terminator"]
         $eventQuote = $hookMatch["EventQuote"]
         $injectedBody = $body + ";" + $receiver + ".webContents.executeJavaScript(" + $scriptLiteral + ").catch(()=>{})"
-        $injection = $receiver + ".webContents.on(" + $eventQuote + "dom-ready" + $eventQuote + ",()=>{" + $injectedBody + '})' + $terminator + '/*' + $OnlineLocaleMainMarker + '*/'
+        $callbackOpen = if ([bool]$hookMatch["CallbackWrapped"]) { "(()=>{" } else { "()=>{" }
+        $callbackClose = if ([bool]$hookMatch["CallbackWrapped"]) { "}))" } else { "})" }
+        $injection = $receiver + ".webContents.on(" + $eventQuote + "dom-ready" + $eventQuote + "," + $callbackOpen + $injectedBody + $callbackClose + $terminator + '/*' + $OnlineLocaleMainMarker + '*/'
         if ($text.Contains($injection)) {
             Write-Host "  online claude.ai DOM translation already patched" -ForegroundColor Green
         } else {

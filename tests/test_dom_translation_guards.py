@@ -53,6 +53,20 @@ def extract_windows_dom_template() -> str:
 
 
 def materialize_windows_dom_script(template: str) -> str:
+    # Keep in sync with the placeholders emitted by the Windows template.
+    # The "ago" / "added" suffixes (__AGO_*__, __ADDED_*) were added in 1.4.7;
+    # without them the materialized script references bare identifiers and the
+    # whole IIFE throws, so nothing gets translated.
+    month_names = [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ]
+    added_month_rules = ",".join(
+        '[/^added {0} (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,{1}]'.format(
+            name, json.dumps(f"{i + 1}月$1日添加", ensure_ascii=False, separators=(",", ":"))
+        )
+        for i, name in enumerate(month_names)
+    )
     values = {
         "__LANGUAGE__": "zh-CN",
         "__MAPPING__": {"Settings": "设置", "deploy-command": "部署命令"},
@@ -64,12 +78,27 @@ def materialize_windows_dom_script(template: str) -> str:
         "__UPDATED_WEEK_TEXT__": "$1 周前更新",
         "__UPDATED_MONTH_TEXT__": "$1 个月前更新",
         "__UPDATED_YEAR_TEXT__": "$1 年前更新",
+        "__AGO_SECOND__": "$1 秒前",
+        "__AGO_MINUTE__": "$1 分钟前",
+        "__AGO_HOUR__": "$1 小时前",
+        "__AGO_DAY__": "$1 天前",
+        "__AGO_WEEK__": "$1 周前",
+        "__ADDED_MINUTE__": "$1 分钟前添加",
+        "__ADDED_HOUR__": "$1 小时前添加",
+        "__ADDED_DAY__": "$1 天前添加",
+        "__ADDED_WEEK__": "$1 周前添加",
+        "__ADDED_MONTH__": "$1 个月前添加",
+        "__ADDED_YEAR__": "$1 年前添加",
     }
     script = template
     for placeholder, value in values.items():
         script = script.replace(
             placeholder, json.dumps(value, ensure_ascii=False, separators=(",", ":"))
         )
+    # __ADDED_MONTH_RULES__ sits inside the G=[...] array literal; inject the
+    # flat comma-joined rule elements (NOT a JSON-quoted string), same as the
+    # Windows template and the Python patcher do.
+    script = script.replace("__ADDED_MONTH_RULES__", added_month_rules)
     return script
 
 

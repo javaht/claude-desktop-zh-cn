@@ -19,8 +19,11 @@ jobs:
       - name: Run DOM translation guard tests
         run: python3 -m unittest -v tests.test_dom_translation_guards
 
+      - name: Run shortcut repair tests
+        run: python3 -m unittest -v tests.test_shortcut_repair
+
       - name: Compile patcher and tests
-        run: python3 -m py_compile scripts/patch_claude_zh_cn.py tests/test_dom_translation_guards.py
+        run: python3 -m py_compile scripts/patch_claude_zh_cn.py tests/test_dom_translation_guards.py tests/test_shortcut_repair.py
 
       - name: Syntax-check generated macOS DOM script
         run: |

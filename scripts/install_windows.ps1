@@ -3102,6 +3102,219 @@ function Set-ClaudeAutoUpdates {
     }
 }
 
+function Get-ClaudeAppUserModelId {
+    param([string]$ShortcutPath)
+
+    # 优先从原快捷方式字节中提取 AUMID，如 Claude_pzs8sxrjxfjjc!Claude
+    if (Test-Path -LiteralPath $ShortcutPath) {
+        try {
+            $data = [System.IO.File]::ReadAllBytes($ShortcutPath)
+            $text = [System.Text.Encoding]::Unicode.GetString($data)
+            $match = [regex]::Match($text, 'Claude_[A-Za-z0-9]+![A-Za-z0-9]+')
+            if ($match.Success) {
+                return $match.Value
+            }
+        } catch {
+        }
+    }
+
+    # 回退：从 AppX 包推导 PackageFamilyName + AppId
+    try {
+        $package = Get-AppxPackage -Name "Claude" -ErrorAction SilentlyContinue
+        if ($package) {
+            $manifest = Join-Path $package.InstallLocation "AppxManifest.xml"
+            $appId = "Claude"
+            if (Test-Path -LiteralPath $manifest) {
+                try {
+                    $xml = New-Object System.Xml.XmlDocument
+                    $xml.Load($manifest)
+                    $ns = New-Object System.Xml.XmlNamespaceManager($xml.NameTable)
+                    $ns.AddNamespace("d", "http://schemas.microsoft.com/appx/manifest/foundation/windows10")
+                    $appNode = $xml.SelectSingleNode("//d:Application", $ns)
+                    if ($appNode -and $appNode.Id) {
+                        $appId = [string]$appNode.Id
+                    }
+                } catch {
+                }
+            }
+            return "$($package.PackageFamilyName)!$appId"
+        }
+    } catch {
+    }
+
+    return ""
+}
+
+function Rebuild-ClaudeDesktopShortcut {
+    param(
+        [string]$ShortcutPath,
+        [string]$ClaudePath
+    )
+
+    $aumid = Get-ClaudeAppUserModelId $ShortcutPath
+    if (-not $aumid) {
+        Write-Host "  [警告] 无法确定 AppUserModelID，跳过快捷方式重建: $ShortcutPath" -ForegroundColor Yellow
+        return $false
+    }
+
+    $backup = "$ShortcutPath.broken.bak"
+    if (-not (Test-Path -LiteralPath $backup)) {
+        Copy-Item -LiteralPath $ShortcutPath $backup -Force
+        Write-Host "  已备份原快捷方式: $backup" -ForegroundColor DarkGray
+    }
+
+    try {
+        $iconCandidates = @(
+            (Join-Path $ClaudePath "Assets\Square44x44Logo.png"),
+            (Join-Path $ClaudePath "Assets\Square150x150Logo.png"),
+            (Join-Path $ClaudePath "Assets\icon.png"),
+            (Join-Path $ClaudePath "app\claude.exe")
+        )
+        $iconLocation = ""
+        foreach ($candidate in $iconCandidates) {
+            if (Test-Path -LiteralPath $candidate) {
+                $iconLocation = $candidate
+                break
+            }
+        }
+
+        $ws = New-Object -ComObject WScript.Shell
+        $shellShortcut = $ws.CreateShortcut($ShortcutPath)
+        $shellShortcut.TargetPath = (Join-Path $env:WINDIR "explorer.exe")
+        $shellShortcut.Arguments = "shell:AppsFolder\$aumid"
+        $shellShortcut.WorkingDirectory = $env:WINDIR
+        $shellShortcut.Description = "Claude Desktop"
+        if ($iconLocation) {
+            $shellShortcut.IconLocation = $iconLocation
+        }
+        $shellShortcut.Save()
+
+        Write-Host "  [重建] 快捷方式已按当前版本重建，AUMID: $aumid" -ForegroundColor Green
+        return $true
+    }
+    catch {
+        Write-Host "  [警告] 快捷方式重建失败: $ShortcutPath - $($_.Exception.Message)" -ForegroundColor Yellow
+        return $false
+    }
+}
+
+function Repair-ClaudeDesktopShortcut {
+    param([string]$ClaudePath)
+
+    if (-not $ClaudePath) {
+        return
+    }
+
+    # 从安装路径提取当前 AppX 版本号，如 Claude_1.40609.0.0_x64__pzs8sxrjxfjjc
+    $currentVersion = ""
+    if ($ClaudePath -match 'Claude_(\d+\.\d+\.\d+\.\d+)_') {
+        $currentVersion = $Matches[1]
+    }
+    if (-not $currentVersion) {
+        Write-Host "  [跳过] 无法从安装路径识别版本号: $ClaudePath" -ForegroundColor DarkYellow
+        return
+    }
+
+    # 查找桌面（用户桌面 + 公共桌面）上的 Claude 快捷方式
+    $shortcutPaths = @()
+    foreach ($folderName in @("Desktop", "CommonDesktopDirectory")) {
+        $folder = [Environment]::GetFolderPath($folderName)
+        if ($folder -and (Test-Path -LiteralPath $folder)) {
+            $shortcutPaths += @(Get-ChildItem -LiteralPath $folder -Filter "Claude*.lnk" -Force -ErrorAction SilentlyContinue |
+                ForEach-Object { $_.FullName })
+        }
+    }
+    $shortcutPaths = @($shortcutPaths | Where-Object { $_ } | Select-Object -Unique)
+    if ($shortcutPaths.Count -eq 0) {
+        Write-Host "  未找到桌面 Claude 快捷方式，跳过修复。" -ForegroundColor DarkGray
+        return
+    }
+
+    $needleUtf16 = [System.Text.Encoding]::Unicode.GetBytes("Claude_")
+    $needleAscii = [System.Text.Encoding]::ASCII.GetBytes("Claude_")
+    $newVersionUtf16 = [System.Text.Encoding]::Unicode.GetBytes($currentVersion)
+    $newVersionAscii = [System.Text.Encoding]::ASCII.GetBytes($currentVersion)
+
+    foreach ($shortcutPath in $shortcutPaths) {
+        try {
+            $data = [System.IO.File]::ReadAllBytes($shortcutPath)
+        } catch {
+            Write-Host "  [警告] 无法读取快捷方式: $shortcutPath" -ForegroundColor DarkYellow
+            continue
+        }
+
+        # 第一遍：找出所有版本号，判断是否有不等长（需要整文件重建）
+        $needsRebuild = $false
+        $versionRefs = [System.Collections.Generic.List[object]]::new()
+        foreach ($mode in @('utf16', 'ascii')) {
+            $needle = if ($mode -eq 'utf16') { $needleUtf16 } else { $needleAscii }
+            foreach ($index in Find-BytePattern $data $needle) {
+                $verStart = $index + $needle.Length
+                $chars = New-Object System.Collections.Generic.List[char]
+                $pos = $verStart
+                if ($mode -eq 'utf16') {
+                    while (($pos + 1) -lt $data.Length -and $data[$pos + 1] -eq 0 -and
+                        ((($data[$pos] -ge 0x30) -and ($data[$pos] -le 0x39)) -or ($data[$pos] -eq 0x2E))) {
+                        $chars.Add([char]$data[$pos])
+                        $pos += 2
+                    }
+                } else {
+                    while ($pos -lt $data.Length -and
+                        ((($data[$pos] -ge 0x30) -and ($data[$pos] -le 0x39)) -or ($data[$pos] -eq 0x2E))) {
+                        $chars.Add([char]$data[$pos])
+                        $pos += 1
+                    }
+                }
+                $oldVersion = -join $chars
+                if (($oldVersion -notmatch '^\d+\.\d+\.\d+\.\d+$') -or ($oldVersion -eq $currentVersion)) {
+                    continue
+                }
+                $versionRefs.Add([pscustomobject]@{
+                    Mode = $mode
+                    Offset = $verStart
+                    OldVersion = $oldVersion
+                })
+                if ($oldVersion.Length -ne $currentVersion.Length) {
+                    $needsRebuild = $true
+                }
+            }
+        }
+
+        if ($versionRefs.Count -eq 0) {
+            Write-Host "  快捷方式版本已是最新: $shortcutPath" -ForegroundColor DarkGray
+            continue
+        }
+
+        # 等长：原地字节替换，保留 .lnk 原始结构
+        if (-not $needsRebuild) {
+            $repaired = $false
+            foreach ($ref in $versionRefs) {
+                if ($ref.Mode -eq 'utf16') {
+                    [System.Array]::Copy($newVersionUtf16, 0, $data, [int]$ref.Offset, $newVersionUtf16.Length)
+                } else {
+                    [System.Array]::Copy($newVersionAscii, 0, $data, [int]$ref.Offset, $newVersionAscii.Length)
+                }
+                Write-Host "  快捷方式版本号: $($ref.OldVersion) -> $currentVersion" -ForegroundColor Green
+                $repaired = $true
+            }
+            if ($repaired) {
+                $backup = "$shortcutPath.broken.bak"
+                if (-not (Test-Path -LiteralPath $backup)) {
+                    Copy-Item -LiteralPath $shortcutPath $backup -Force
+                    Write-Host "  已备份原快捷方式: $backup" -ForegroundColor DarkGray
+                }
+                [System.IO.File]::WriteAllBytes($shortcutPath, $data)
+                Write-Host "  已更新快捷方式: $shortcutPath" -ForegroundColor Green
+            }
+            continue
+        }
+
+        # 版本号长度不一致：.lnk 是二进制结构，直接增删字节会破坏文件，改为整文件重建
+        Write-Host "  [重建] $shortcutPath 内版本号长度不一致（$($(($versionRefs | ForEach-Object { $_.OldVersion }) -join ', '))），改为按当前版本重建快捷方式..." -ForegroundColor Yellow
+        [void](Rebuild-ClaudeDesktopShortcut $shortcutPath $ClaudePath)
+    }
+}
+
 function Start-CoworkVMService {
     $serviceName = "CoworkVMService"
     $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
@@ -3702,6 +3915,13 @@ function Install-WindowsLanguagePack {
         $installKind = $paths["InstallKind"]
         Write-Host "  app: $claudePath" -ForegroundColor Green
         Write-Host "  resources: $resourcesPath" -ForegroundColor Green
+
+        Write-Step "修复桌面 Claude 快捷方式"
+        if ($PatchMode -eq "safe") {
+            Repair-ClaudeDesktopShortcut $claudePath
+        } else {
+            Write-Host "  skipping desktop shortcut repair (official mode)" -ForegroundColor DarkGray
+        }
 
         Write-Step "[4/8] 准备写入权限"
         Enable-WriteAccess $resourcesPath

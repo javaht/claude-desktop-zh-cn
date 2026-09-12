@@ -140,7 +140,7 @@ for arg in "$@"; do
 done
 
 if [ "$ACTION" = "install" ]; then
-  echo "安装前清理旧中文补丁..."
+  echo "安装前检查旧中文补丁..."
   if [ "$(id -u)" -ne 0 ] && [ "$DRY_RUN" -eq 0 ]; then
     sudo "$PYTHON" "$PATCHER" --user-home "$HOME" --restore-if-backup-exists "$@"
   else

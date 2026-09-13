@@ -66,13 +66,6 @@ macOS 双击 `install-mac.command`；Windows 双击 `install-windows.bat` 后按
 
 CC Switch skills 同步会扫描 `~/.cc-switch/skills` 下包含 `SKILL.md` 的目录，只为 Claude Desktop 中不存在的同名 skill 创建软链接并更新 skills manifest。取消同步只删除由该目录同步出的软链接和对应记录，不删除 CC Switch 源目录。
 
-### macOS 汉化后的自动更新
-
-汉化会对应用做本机 ad-hoc 重签名。从 2026-08 版本起，重签时会显式写入 `identifier` 级别的 designated requirement（替代默认的 cdhash 级别），因此 Claude Desktop 的官方自动更新**下载后可以正常安装**，不会再卡在“下载完成但版本不变”。注意两点：
-
-- 更新安装成功后，`/Applications/Claude.app` 会被官方英文版覆盖，重新运行本补丁即可恢复中文。
-- 如果之前打过旧版补丁（默认 ad-hoc DR），需重新打一次补丁才会获得新签名行为。
-
 ### Windows
 
 1. 退出 Claude Desktop。
@@ -80,8 +73,9 @@ CC Switch skills 同步会扫描 `~/.cc-switch/skills` 下包含 `SKILL.md` 的�
 3. 双击 `install-windows.bat`；脚本会复制安装文件到当前用户的临时目录，并弹出 UAC 管理员授权窗口。
 4. 先选择安装模式：
    - `1` Cowork 兼容 / 第三方 API 模式：跳过 `app.asar` 和 `Claude.exe` 内嵌完整性哈希修改；仍会安装中文资源、注册中文语言并汉化前端 bundle。在线账号页面中依赖 DOM 注入的文本不会被覆盖，第三方模型需在网关或 CC Switch 中映射为 Claude/Anthropic 风格名称。
-   - `2` 官方账号在线汉化模式：修改 `app.asar` 并同步改写 `Claude.exe` 内嵌完整性哈希，补充在线页面 DOM、主进程菜单和模型选择器汉化。该操作会使 `Claude.exe` 的 Authenticode 签名变为 `HashMismatch`，Cowork 沙箱/工作区可能拒绝启动。
+   - `2` 官方账号在线汉化模式：修改 `app.asar` 并同步改写 `Claude.exe` 内嵌完整性哈希，补充在线页面 DOM、主进程菜单和模型选择器汉化。该操作会使 `Claude.exe` 的 Authenticode 签名变为 `HashMismatch`；安装器会随后给 `cowork-svc.exe` 打 Cowork 兼容补丁（通过 Go pclntab 符号定位，停用其对客户端的签名校验），使 Cowork 沙箱/工作区在本模式下仍可使用；若补丁定位失败（Claude 新版格式变化），请通过开始菜单/AppX 方式启动，或改用模式 1。
    - `3` Frida 运行时汉化（实验）：**不修改**磁盘上的 `app.asar` / `Claude.exe`；用 Frida 内存补丁 + CDP 注入在线页 DOM 中文。若本机没有 Python+frida，会提示下载便携运行时到 `%LOCALAPPDATA%\claude-zh\runtime`（仅本工具使用，不改系统 Python）。可选注册/卸载用户登录常驻；卸载常驻时可选择同时删除便携运行时。需要本机允许 Frida 注入，**不能**当普通用户的通用安装方式。
+   - 附加工具：安装器菜单 `7` 可手动下载/续传 Cowork 沙箱镜像（`rootfs.vhdx`）。适用场景：Cowork 长时间显示 "Workspace still starting"。原理是从 `downloads.claude.ai` 按 `app.asar` 内嵌清单断点续传镜像并校验解压，支持 `-ProxyUri` 代理参数；镜像缺失与汉化无关，通常是国内网络直连 CDN 中断所致。
    - 在模式 `1`/`2` 与模式 `3` 之间切换时，安装器会先停用旧的 Frida 常驻任务，避免常驻 watcher 接管并重启磁盘补丁模式的 Claude；便携运行时会保留，之后重新选择模式 `3` 会刷新并复用。
    - `4` 恢复原样 / 卸载补丁。
    - `5` 自动更新设置：输入 `y` 禁止自动更新，输入 `n` 允许自动更新。
@@ -139,7 +133,7 @@ CC Switch skills 同步会扫描 `~/.cc-switch/skills` 下包含 `SKILL.md` 的�
 - 给前端语言白名单加入当前选择的中文变体。
 - 汉化前端 bundle 中未走 i18n JSON 的硬编码界面文本，例如侧边栏入口、配置页标签和模型选择项。
 - 模式 2 会在在线账号登录 / 聊天页面注入显示层 DOM 翻译，覆盖聊天、项目、Artifacts 等远程页面；模式 1 会跳过此项，因为它需要修改 `app.asar`。
-- Windows 的模式 2 会直接改写当前 Claude 的 `app.asar` 并同步改写 `Claude.exe` 内嵌完整性哈希，导致 Authenticode 签名 `HashMismatch`；Cowork VM 服务可能拒绝客户端并报 `RPC pipe closed`。如果需要 Cowork 沙箱/截图工作区，请使用模式 1，并通过网关或 CC Switch 模型别名映射解决第三方模型名校验。
+- Windows 的模式 2 会直接改写当前 Claude 的 `app.asar` 并同步改写 `Claude.exe` 内嵌完整性哈希（Authenticode 签名变为 `HashMismatch`），并附带给 `cowork-svc.exe` 打 Cowork 兼容补丁（停用其客户端签名校验），因此 exe 直接启动也可使用 Cowork。若补丁定位失败，请使用模式 1 或 AppX 方式启动，并通过网关或 CC Switch 模型别名映射解决第三方模型名校验。
 - 写入 Windows 用户配置，将语言设置为所选语言代码（`zh-CN`、`zh-TW` 或 `zh-HK`）。
 - 可选菜单项 `4` 用 `y/n` 控制 Claude Desktop 自动更新：`y` 禁止自动更新，`n` 允许自动更新。若当前存在有效的 Claude-3p `configLibrary`，脚本会写入当前 applied 配置；否则写入 `HKCU\SOFTWARE\Policies\Claude` policy。
 - 可选菜单项 `5` 用 `y/n` 控制 CC Switch skills 同步：`y` 会把 `%USERPROFILE%\.cc-switch\skills` 中缺失的 skill 以软链接加入 Claude Desktop 的本地 skills 目录，并把 `SKILL.md` frontmatter 里的 `name` 和 `description` 写入对应 `manifest.json`；`n` 只删除之前同步产生、且指向 CC Switch skills 目录内的软链接和对应 manifest 记录。脚本会从当前用户的 AppData 动态扫描 Claude-3p skills plugin，不写死 session UUID，不覆盖同名 skill，也不删除 CC Switch 源目录。
@@ -158,13 +152,7 @@ CC Switch skills 同步会扫描 `~/.cc-switch/skills` 下包含 `SKILL.md` 的�
 
 ## Star History
 
-<a href="https://www.star-history.com/?type=date&repos=javaht%2Fclaude-desktop-zh-cn">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=javaht/claude-desktop-zh-cn&type=date&theme=dark&legend=top-left&sealed_token=nC4gK9npC6J22iJX6ySvcDb9bLLzJi92ny-y20orz28GWvjXDHLZDuo0vqfJ7odAe7h_TdxZVOFEAXl290Auc3da0o8fLzdK6F6vAbUoM1d3_L0A7tklYQ" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=javaht/claude-desktop-zh-cn&type=date&legend=top-left&sealed_token=nC4gK9npC6J22iJX6ySvcDb9bLLzJi92ny-y20orz28GWvjXDHLZDuo0vqfJ7odAe7h_TdxZVOFEAXl290Auc3da0o8fLzdK6F6vAbUoM1d3_L0A7tklYQ" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=javaht/claude-desktop-zh-cn&type=date&legend=top-left&sealed_token=nC4gK9npC6J22iJX6ySvcDb9bLLzJi92ny-y20orz28GWvjXDHLZDuo0vqfJ7odAe7h_TdxZVOFEAXl290Auc3da0o8fLzdK6F6vAbUoM1d3_L0A7tklYQ" />
- </picture>
-</a>
+[![Star History Chart](https://api.star-history.com/svg?repos=javaht/claude-desktop-zh-cn&type=Date)](https://www.star-history.com/#javaht/claude-desktop-zh-cn&Date)
 
 ## 免责声明
 

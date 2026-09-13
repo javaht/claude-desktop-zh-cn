@@ -5,7 +5,7 @@
     [string]$PatchMode = "safe",
 
     [Parameter(Position = 0)]
-    [ValidateSet("install", "uninstall", "disable-updates", "enable-updates", "sync-skills", "unsync-skills", "frida-launch")]
+    [ValidateSet("install", "uninstall", "disable-updates", "enable-updates", "sync-skills", "unsync-skills", "frida-launch", "vm-bundle")]
     [string]$Action = "install",
 
     [Parameter(Position = 1)]
@@ -127,12 +127,13 @@ Test-GitHubReleaseUpdate
 function Read-InteractiveSelection {
     Write-Host "=== Claude Desktop Windows 中文补丁 ==="
     Write-Host ""
-    Write-Host "[1] 安装中文补丁(第三方API登陆模式(例DeepSeek)：（Cowork 沙箱/工作区不可用(看群公告))"
-    Write-Host "[2] 安装中文补丁(官方账号登录模式：Cowork 沙箱/工作区不可用(看群公告))"
+    Write-Host "[1] 安装中文补丁(第三方API登陆模式(例DeepSeek)：（Cowork 沙箱/工作区可用）)"
+    Write-Host "[2] 安装中文补丁(官方账号登录模式：完整汉化，附带 Cowork 兼容补丁)"
     Write-Host "[3] Frida 运行时汉化（实验中，有问题请反馈，不保证成功）"
     Write-Host "[4] 恢复原样 / 卸载补丁"
     Write-Host "[5] 自动更新设置（y=禁止自动更新，n=允许自动更新）"
     Write-Host "[6] 同步 CC Switch skills（y=开启同步，n=删除同步）"
+    Write-Host "[7] 下载/续传 Cowork 沙箱镜像（Workspace 一直 starting 时用）"
     Write-Host "[Q] 退出"
     Write-Host ""
 
@@ -140,12 +141,13 @@ function Read-InteractiveSelection {
     $actionSelected = $false
     $selectedAction = "install"
     while (-not $actionSelected) {
-        $actionSelection = (Read-Host "请选择操作 [1/2/3/4/5/6/Q]").Trim()
+        $actionSelection = (Read-Host "请选择操作 [1/2/3/4/5/6/7/Q]").Trim()
         switch -Regex ($actionSelection) {
             '^[1]$' { $patchModeForInstall = "safe"; $selectedAction = "install"; $actionSelected = $true }
             '^[2]$' { $patchModeForInstall = "official"; $selectedAction = "install"; $actionSelected = $true }
             '^[3]$' { $selectedAction = "frida-launch"; $actionSelected = $true }
             '^[4]$' { return @{ Action = "uninstall"; Language = "zh-CN"; PatchMode = "safe" } }
+            '^[7]$' { return @{ Action = "vm-bundle"; Language = "zh-CN"; PatchMode = "safe" } }
             '^[5]$' {
                 $updateChoice = (Read-Host "是否禁止自动更新？[y=禁止 / n=允许]").Trim()
                 switch -Regex ($updateChoice) {
@@ -169,7 +171,7 @@ function Read-InteractiveSelection {
                 }
             }
             '^[Qq]$' { exit 0 }
-            default { Write-Host "请输入 1、2、3、4、5、6 或 Q。" -ForegroundColor Yellow }
+            default { Write-Host "请输入 1、2、3、4、5、6、7 或 Q。" -ForegroundColor Yellow }
         }
     }
 
@@ -329,8 +331,9 @@ function Write-MultipleClaudeFailureHint {
 function Write-AsarCoworkSignatureWarning {
     Write-Host ""
     Write-Host "[重要] 当前选择会修改 app.asar，并同步改写 Claude.exe 内嵌的 asar 完整性哈希。" -ForegroundColor Yellow
-    Write-Host "[重要] 这会让 Claude.exe 的 Authenticode 签名变为 HashMismatch；Cowork VM 服务会拒绝未通过签名验证的客户端。" -ForegroundColor Yellow
-    Write-Host "[重要] 如果需要 Cowork/截图工作区，请改用模式 1，并在第三方网关或 ccswitch 中把 claude/anthropic 风格模型名映射到实际模型。" -ForegroundColor Yellow
+    Write-Host "[重要] 这会让 Claude.exe 的 Authenticode 签名变为 HashMismatch。" -ForegroundColor Yellow
+    Write-Host "[重要] 安装器会随后给 cowork-svc.exe 打 Cowork 兼容补丁（关闭其客户端签名校验），使 Cowork 在此模式下仍可使用。" -ForegroundColor Yellow
+    Write-Host "[重要] 若补丁定位失败（Claude 新版格式变化），Cowork 需通过开始菜单/AppX 方式启动，或改用模式 1。" -ForegroundColor Yellow
     Write-Host ""
 }
 
@@ -1196,6 +1199,628 @@ function Sync-ClaudeExeAsarIntegrity {
     Write-Host "  updated Claude.exe app.asar integrity: $currentHash -> $headerHash" -ForegroundColor Green
 }
 
+function Find-GoPclntabOffset {
+    param(
+        [byte[]]$Bytes,
+        [string]$Latin1Text,
+        [bool]$IsArm64,
+        [uint64]$ExpectedTextStart
+    )
+
+    # Go 1.20+ pclntab 魔数: F1 FF FF FF 00 00 <quantum> <ptrSize>
+    $quantum = if ($IsArm64) { 4 } else { 1 }
+    $magicBytes = [byte[]](0xF1, 0xFF, 0xFF, 0xFF, 0x00, 0x00, $quantum, 0x08)
+    $magic = [System.Text.Encoding]::GetEncoding(28591).GetString($magicBytes)
+    $searchFrom = 0
+    while ($true) {
+        $i = $Latin1Text.IndexOf($magic, $searchFrom, [System.StringComparison]::Ordinal)
+        if ($i -lt 0) { return -1 }
+        $nfunc = [BitConverter]::ToUInt64($Bytes, $i + 8)
+        $textStart = [BitConverter]::ToUInt64($Bytes, $i + 24)
+        $pclnOff = [BitConverter]::ToUInt64($Bytes, $i + 64)
+        $functabEnd = [uint64]$i + $pclnOff + $nfunc * 8 + 8
+        if ($nfunc -gt 0 -and $nfunc -lt 500000 -and
+            $textStart -eq $ExpectedTextStart -and
+            $pclnOff -gt 0 -and
+            $functabEnd -lt [uint64]$Bytes.Length) {
+            return $i
+        }
+        $searchFrom = $i + 1
+    }
+}
+
+function Disable-CoworkSvcClientVerification {
+    <#
+    .SYNOPSIS
+    Cowork 服务兼容补丁: 让 cowork-svc.exe 跳过对客户端(claude.exe)的签名校验。
+
+    .DESCRIPTION
+    原理(基于对 cowork-svc.exe 的反汇编分析):
+      - main.runService 以 main.isWindowsService() 的返回值作为 strict 标志传入
+        pipe.(*Server).InitSignatureVerification;
+      - strict=false 时, 服务自身签名自检失败只会告警并禁用客户端校验(继续运行);
+      - strict=true(真实 SCM 服务)时, 自检失败会导致服务启动失败。
+    补丁内容:
+      1. 把 runService 内对 isWindowsService 的调用改写为固定返回 false(ARM64: movz w0,#0;
+         x64: xor eax,eax + nop), 使服务走非 strict 路径;
+      2. 该改写本身会破坏 cowork-svc.exe 的 Authenticode 签名, 服务自检随之失败,
+         从而走 "Client signature verification is DISABLED" 分支, 放行所有本地客户端
+         (包括已打补丁、签名变为 HashMismatch 的 claude.exe)。
+    定位通过 Go pclntab 符号表完成, 不依赖固定偏移, 兼容 ARM64 / x64。
+    -ScanOnly 只定位不写入, 用于验证。
+    #>
+    param(
+        [string]$ResourcesPath,
+        [switch]$ScanOnly
+    )
+
+    $svcPath = Join-Path $ResourcesPath "cowork-svc.exe"
+    if (-not (Test-Path -LiteralPath $svcPath)) {
+        Write-Host "  [提示] 未找到 cowork-svc.exe，跳过 Cowork 兼容补丁。" -ForegroundColor DarkYellow
+        return
+    }
+
+    $bytes = [System.IO.File]::ReadAllBytes($svcPath)
+    $latin1 = [System.Text.Encoding]::GetEncoding(28591)
+    # 重复安装时文件可能已含补丁，定位始终基于备份中的原始字节
+    $originalBytes = Read-OriginalCoworkSvcBytes $ResourcesPath $svcPath
+    $originalLatin1Text = $latin1.GetString($originalBytes)
+
+    $peOff = [BitConverter]::ToUInt32($bytes, 0x3c)
+    $machine = [BitConverter]::ToUInt16($bytes, $peOff + 4)
+    $isArm64 = ($machine -eq 0xAA64)
+    $isX64 = ($machine -eq 0x8664)
+    if (-not ($isArm64 -or $isX64)) {
+        Write-Host "  [警告] 无法识别 cowork-svc.exe 架构(machine=0x$($machine.ToString('X4')))，跳过 Cowork 兼容补丁。" -ForegroundColor Yellow
+        return
+    }
+
+    $numSections = [BitConverter]::ToUInt16($bytes, $peOff + 6)
+    $optSize = [BitConverter]::ToUInt16($bytes, $peOff + 20)
+    $optOff = $peOff + 24
+    $optMagic = [BitConverter]::ToUInt16($bytes, $optOff)
+    if ($optMagic -eq 0x20B) {
+        $imageBase = [BitConverter]::ToUInt64($bytes, $optOff + 24)
+    } else {
+        $imageBase = [BitConverter]::ToUInt32($bytes, $optOff + 28)
+    }
+    $textVAddr = [uint32]0
+    $textRAddr = [uint32]0
+    $textVSize = [uint32]0
+    for ($i = 0; $i -lt $numSections; $i++) {
+        $s = $peOff + 24 + $optSize + $i * 40
+        $name = [System.Text.Encoding]::ASCII.GetString($bytes, $s, 8).TrimEnd([char]0)
+        if ($name -eq ".text") {
+            $textVSize = [BitConverter]::ToUInt32($bytes, $s + 8)
+            $textVAddr = [BitConverter]::ToUInt32($bytes, $s + 12)
+            $textRAddr = [BitConverter]::ToUInt32($bytes, $s + 20)
+            break
+        }
+    }
+    if ($textRAddr -eq 0) {
+        Write-Host "  [警告] 未找到 cowork-svc.exe 的 .text 节，跳过 Cowork 兼容补丁。" -ForegroundColor Yellow
+        return
+    }
+
+    if ($originalBytes.Length -ne $bytes.Length) {
+        Write-Host "  [警告] cowork-svc.exe 与备份副本大小不一致，跳过 Cowork 兼容补丁。" -ForegroundColor Yellow
+        return
+    }
+
+    $expectedTextStart = [uint64]$imageBase + [uint64]$textVAddr
+    $pt = Find-GoPclntabOffset -Bytes $originalBytes -Latin1Text $originalLatin1Text -IsArm64 $isArm64 -ExpectedTextStart $expectedTextStart
+    if ($pt -lt 0) {
+        Write-Host "  [警告] 未在 cowork-svc.exe 中找到 Go pclntab，跳过 Cowork 兼容补丁。" -ForegroundColor Yellow
+        return
+    }
+    $nfunc = [BitConverter]::ToUInt64($originalBytes, $pt + 8)
+    $funcnameOff = [BitConverter]::ToUInt64($originalBytes, $pt + 32)
+    $pclnOff = [BitConverter]::ToUInt64($originalBytes, $pt + 64)
+
+    # 在 funcnametab 中精确匹配函数名(含终止符, 避免命中闭包名)
+    $nameTabStart = [int64]($pt + $funcnameOff)
+    $nameTabEnd = [int64]($pt + $pclnOff)
+    if ($nameTabEnd -gt $bytes.Length) { $nameTabEnd = $bytes.Length }
+    $nameTab = $originalLatin1Text.Substring($nameTabStart, [int]($nameTabEnd - $nameTabStart))
+
+    $targets = @{}
+    foreach ($funcName in @("main.runService", "main.isWindowsService")) {
+        $idx = $nameTab.IndexOf($funcName + [char]0, [System.StringComparison]::Ordinal)
+        if ($idx -lt 0) {
+            Write-Host "  [警告] cowork-svc.exe 符号表中未找到 $funcName，跳过 Cowork 兼容补丁。" -ForegroundColor Yellow
+            return
+        }
+        $targets[$funcName] = $idx
+    }
+
+    # 定位函数入口: 直接在 pclntab 区域搜索 _func 结构头 8 字节 [entryoff(u32)][nameOff(i32)],
+    # 再用 (entryoff, funcoff) 对在 functab 中验证索引。避免解释器遍历上万条函数表。
+    $functabStart = [int64]($pt + $pclnOff)
+    $functabEnd = [int64]($functabStart + $nfunc * 8)
+    $textEndVAddr = [uint64]$textVAddr + [uint64]$textVSize
+
+    $resolved = @{}
+    foreach ($funcName in @("main.runService", "main.isWindowsService")) {
+        $nameOff = [int32]$targets[$funcName]
+        $namePat = $latin1.GetString([BitConverter]::GetBytes($nameOff))
+        $found = $false
+        $searchFrom = $functabStart
+        $candidates = @()
+        while ($true) {
+            $x = $originalLatin1Text.IndexOf($namePat, [int]$searchFrom, [System.StringComparison]::Ordinal)
+            if ($x -lt 0 -or $x -ge $originalBytes.Length - 8) { break }
+            if ($x -ge ($functabStart + 4)) {
+                $fdStart = [int64]($x - 4)
+                $entryoff = [BitConverter]::ToUInt32($originalBytes, $fdStart)
+                $funcoff = [int64]($fdStart - $functabStart)
+                if ($entryoff -ge $textVAddr -and [uint64]$entryoff -lt $textEndVAddr -and $funcoff -ge 0) {
+                    # 在 functab 中验证 (entryoff, funcoff) 相邻对, 确认这是真实函数条目
+                    $pairBytes = New-Object byte[] 8
+                    [BitConverter]::GetBytes([uint32]$entryoff).CopyTo($pairBytes, 0)
+                    [BitConverter]::GetBytes([uint32]$funcoff).CopyTo($pairBytes, 4)
+                    $pairPat = $latin1.GetString($pairBytes)
+                    $pairIdx = $originalLatin1Text.IndexOf($pairPat, [int]$functabStart, [System.StringComparison]::Ordinal)
+                    if ($pairIdx -ge $functabStart -and $pairIdx -lt $functabEnd -and ((($pairIdx - $functabStart) % 8) -eq 0)) {
+                        $candidates += ,@([uint32]$entryoff, [int64](($pairIdx - $functabStart) / 8))
+                        $found = $true
+                    }
+                }
+            }
+            $searchFrom = $x + 1
+        }
+        if (-not $found -or $candidates.Count -ne 1) {
+            Write-Host "  [警告] 未能唯一定位 $funcName(候选 $($candidates.Count) 个)，跳过 Cowork 兼容补丁。" -ForegroundColor Yellow
+            return
+        }
+        $resolved[$funcName] = $candidates[0]
+    }
+
+    $runEntry = [uint32]$resolved["main.runService"][0]
+    $runIdx = [int64]$resolved["main.runService"][1]
+    $wsEntry = [uint32]$resolved["main.isWindowsService"][0]
+    if (($runIdx + 1) -lt $nfunc) {
+        $runEnd = [BitConverter]::ToUInt32($originalBytes, $functabStart + ($runIdx + 1) * 8)
+    } else {
+        $runEnd = [uint64]$textVAddr + [uint64]$textVSize
+    }
+
+    $runStartFile = [int64]($runEntry + $textRAddr)
+    $runEndFile = [int64]($runEnd + $textRAddr)
+
+    # 在 runService 函数体内扫描对 isWindowsService 的调用指令(基于原始字节)
+    $sites = @()
+    if ($isArm64) {
+        for ($f = $runStartFile; ($f + 4) -le $runEndFile; $f += 4) {
+            $w = [BitConverter]::ToUInt32($originalBytes, $f)
+            if ((($w -shr 26) -band 0x3F) -ne 0x25) { continue }  # BL: 100101b
+            $imm = $w -band 0x03FFFFFF
+            if ($imm -ge 0x02000000) { $imm -= 0x04000000 }
+            $insnEntry = [int64]($f - $textRAddr)
+            if (($insnEntry + $imm * 4) -eq $wsEntry) { $sites += $f }
+        }
+    } else {
+        for ($f = $runStartFile; ($f + 5) -le $runEndFile; $f++) {
+            if ($originalBytes[$f] -ne 0xE8) { continue }
+            $rel = [BitConverter]::ToInt32($originalBytes, $f + 1)
+            $insnEntry = [int64]($f - $textRAddr)
+            if (($insnEntry + 5 + $rel) -eq $wsEntry) { $sites += $f }
+        }
+    }
+
+    $archLabel = if ($isArm64) { "ARM64" } else { "x64" }
+    if ($sites.Count -ne 1) {
+        Write-Host "  [警告] 在 runService 中找到 $($sites.Count) 处 isWindowsService 调用(预期 1 处)，跳过 Cowork 兼容补丁。" -ForegroundColor Yellow
+        Write-Host "  [提示] Cowork 如需使用，请通过开始菜单/AppX 方式启动 Claude，或改用模式 1。" -ForegroundColor Yellow
+        return
+    }
+
+    $patch = if ($isArm64) { [byte[]](0x00, 0x00, 0x80, 0x52) } else { [byte[]](0x31, 0xC0, 0x90, 0x90, 0x90) }
+    $site = $sites[0]
+
+    # 判断当前文件在补丁位点的状态(重复安装时可能已打过)
+    $alreadyPatched = $true
+    $matchesOriginal = $true
+    for ($k = 0; $k -lt $patch.Length; $k++) {
+        if ($bytes[$site + $k] -ne $patch[$k]) { $alreadyPatched = $false }
+        if ($bytes[$site + $k] -ne $originalBytes[$site + $k]) { $matchesOriginal = $false }
+    }
+    if (-not $matchesOriginal -and -not $alreadyPatched) {
+        Write-Host "  [警告] cowork-svc.exe 补丁位点内容与预期不符，跳过 Cowork 兼容补丁。" -ForegroundColor Yellow
+        return
+    }
+    if ($alreadyPatched) {
+        Write-Host "  cowork-svc.exe 已处于补丁状态，无需重复处理" -ForegroundColor Green
+        return
+    }
+
+    if ($ScanOnly) {
+        Write-Host "  [ScanOnly] 定位成功(arch=$archLabel): runService@0x$($runEntry.ToString('x8')) isWindowsService@0x$($wsEntry.ToString('x8')) callSite@file 0x$($site.ToString('x'))" -ForegroundColor Green
+        Write-Host "  [ScanOnly] 待写入 $($patch.Length) 字节，未修改文件。" -ForegroundColor Green
+        return
+    }
+
+    # 服务运行时 exe 被锁定，先停服
+    $service = Get-Service -Name "CoworkVMService" -ErrorAction SilentlyContinue
+    $needRestart = $false
+    if ($service -and $service.Status -eq "Running") {
+        try {
+            Stop-Service -Name "CoworkVMService" -Force -ErrorAction Stop
+            $needRestart = $true
+            Start-Sleep -Seconds 1
+        } catch {
+            Write-Host "  [警告] 停止 CoworkVMService 失败: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
+    }
+
+    Backup-ModifiedFile $ResourcesPath $svcPath
+
+    # 供自愈用的临时原始副本
+    $tempOriginal = Join-Path ([System.IO.Path]::GetTempPath()) "cowork-svc.original.$PID.tmp"
+    [System.IO.File]::WriteAllBytes($tempOriginal, $originalBytes)
+
+    $stream = [System.IO.File]::Open($svcPath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::Read)
+    try {
+        $stream.Seek($site, [System.IO.SeekOrigin]::Begin) | Out-Null
+        $stream.Write($patch, 0, $patch.Length)
+    } finally {
+        $stream.Dispose()
+    }
+
+    $verify = [System.IO.File]::ReadAllBytes($svcPath)
+    $patchedOk = $true
+    for ($k = 0; $k -lt $patch.Length; $k++) {
+        if ($verify[$site + $k] -ne $patch[$k]) { $patchedOk = $false; break }
+    }
+    if (-not $patchedOk) {
+        Write-Host "  [错误] cowork-svc.exe 补丁写回校验失败，已尝试还原。" -ForegroundColor Red
+        [System.IO.File]::WriteAllBytes($svcPath, [System.IO.File]::ReadAllBytes($tempOriginal))
+        Remove-Item $tempOriginal -Force -ErrorAction SilentlyContinue
+        return
+    }
+
+    Write-Host "  Cowork 兼容补丁已写入 cowork-svc.exe ($archLabel, callSite@0x$($site.ToString('x'))): 客户端签名校验将停用" -ForegroundColor Green
+
+    if ($needRestart) {
+        try {
+            Start-Service -Name "CoworkVMService" -ErrorAction Stop
+            Start-Sleep -Seconds 2
+            $service = Get-Service -Name "CoworkVMService" -ErrorAction SilentlyContinue
+            if ($service -and $service.Status -eq "Running") {
+                Write-Host "  CoworkVMService 已重启并运行(校验已停用, 兼容已打补丁的客户端)" -ForegroundColor Green
+            } else {
+                throw "服务状态: $($service.Status)"
+            }
+        } catch {
+            Write-Host "  [警告] 补丁后 CoworkVMService 启动异常($($_.Exception.Message))，已还原原始文件。" -ForegroundColor Yellow
+            [System.IO.File]::WriteAllBytes($svcPath, [System.IO.File]::ReadAllBytes($tempOriginal))
+            try {
+                Start-Service -Name "CoworkVMService" -ErrorAction Stop
+                Write-Host "  已还原 cowork-svc.exe 并重新启动服务；Cowork 请通过 AppX 方式启动。" -ForegroundColor Yellow
+            } catch {
+                Write-Host "  [警告] 服务还原启动失败，请重启电脑或重新运行安装器。" -ForegroundColor Yellow
+            }
+        }
+    }
+    Remove-Item $tempOriginal -Force -ErrorAction SilentlyContinue
+}
+
+function Read-OriginalCoworkSvcBytes {
+    # 若备份集中已有原始副本则优先使用，保证重复安装/重复打补丁不会把补丁版再备份回去。
+    # 返回值用逗号包裹，防止 PowerShell 把 byte[] 展开成逐元素对象流。
+    param(
+        [string]$ResourcesPath,
+        [string]$SvcPath
+    )
+
+    $backupRoot = Get-BackupRoot $ResourcesPath
+    $relative = Get-RelativeResourcePath $ResourcesPath $SvcPath
+    $candidate = Get-ChildItem -Path $backupRoot -Recurse -Filter "cowork-svc.exe" -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -like "*$relative" } |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -First 1
+    if ($candidate) {
+        $bytes = [System.IO.File]::ReadAllBytes($candidate.FullName)
+    } else {
+        $bytes = [System.IO.File]::ReadAllBytes($SvcPath)
+    }
+    return ,$bytes
+}
+
+function Get-CoworkVMBundleManifest {
+    # 从 app.asar 内嵌的 VM 清单解析当前版本的文件列表与版本 sha
+    param(
+        [string]$AsarPath,
+        [string]$Arch,   # arm64 | x64
+        [string]$AppDir  # claude.exe 所在目录, 仅用于失败时的诊断输出
+    )
+
+    $bytes = [System.IO.File]::ReadAllBytes($AsarPath)
+    $latin1 = [System.Text.Encoding]::GetEncoding(28591)
+    $text = $latin1.GetString($bytes)
+
+    # 候选标记按优先级: 标准结构 → 无平台前缀结构
+    $markers = @("win32:{${Arch}:[", "{${Arch}:[")
+    $arrStart = -1
+    foreach ($mk in $markers) {
+        $i = $text.IndexOf($mk, [System.StringComparison]::Ordinal)
+        if ($i -ge 0) {
+            $arrStart = $i + $mk.Length
+            break
+        }
+    }
+
+    if ($arrStart -lt 0) {
+        # 诊断: 列出 asar 中实际存在的平台/架构清单, 便于定位版本差异
+        $foundArchs = @()
+        foreach ($a in @('arm64', 'x64', 'universal', 'ia32')) {
+            if ($text.IndexOf("{${a}:[", [System.StringComparison]::Ordinal) -ge 0) { $foundArchs += $a }
+        }
+        $win32Count = [regex]::Matches($text, 'win32:\{').Count
+        $darwinCount = [regex]::Matches($text, 'darwin:\{').Count
+        $appVer = 'unknown'
+        $verFile = Join-Path $AppDir 'version'
+        if (Test-Path -LiteralPath $verFile) {
+            $appVer = (Get-Content -LiteralPath $verFile -Raw -ErrorAction SilentlyContinue).Trim()
+        }
+        Write-Host "  [诊断] Claude 版本: $appVer" -ForegroundColor Yellow
+        Write-Host "  [诊断] asar 内存在的架构清单: [$($foundArchs -join ', ')]；win32 块: $win32Count 个；darwin 块: $darwinCount 个" -ForegroundColor Yellow
+        if ($foundArchs.Count -gt 0 -and $foundArchs -notcontains $Arch) {
+            Write-Host "  [诊断] 清单中没有 $Arch 的镜像列表(仅有: $($foundArchs -join ', '))，说明该 Claude 版本不提供此架构的沙箱镜像。" -ForegroundColor Yellow
+        }
+        return $null
+    }
+
+    $depth = 1
+    $k = $arrStart
+    while ($k -lt $text.Length -and $depth -gt 0) {
+        $c = $text[$k]
+        if ($c -eq '[') { $depth++ } elseif ($c -eq ']') { $depth-- }
+        $k++
+    }
+    if ($depth -ne 0) { return $null }
+    $arrText = $text.Substring($arrStart, [int]($k - 1 - $arrStart))
+
+    # 版本 sha = 清单之前最近的 sha:"40hex"
+    $shaMatches = [regex]::Matches($text.Substring(0, $arrStart), 'sha:"([0-9a-f]{40})"')
+    if ($shaMatches.Count -eq 0) { return $null }
+    $sha = $shaMatches[$shaMatches.Count - 1].Groups[1].Value
+
+    $files = @()
+    foreach ($part in ($arrText -split '\{name:"' | Select-Object -Skip 1)) {
+        if ($part -match '^([^"]+)",checksum:"([0-9a-f]{64})",size:(\d+),progressStart:\d+,progressEnd:\d+,rawChecksum:"([0-9a-f]{64})",rawSize:(\d+)') {
+            $files += @{
+                Name         = $Matches[1]
+                Checksum     = $Matches[2]
+                Size         = [uint64]$Matches[3]
+                RawChecksum  = $Matches[4]
+                RawSize      = [uint64]$Matches[5]
+            }
+        }
+    }
+    if ($files.Count -eq 0) { return $null }
+    return @{ Sha = $sha; Files = $files }
+}
+
+function Resolve-CoworkVMBundleDir {
+    param([bool]$CreateIfMissing)
+
+    $candidates = @(
+        (Join-Path $env:LOCALAPPDATA "Claude-3p\vm_bundles\claudevm.bundle"),
+        (Join-Path $env:LOCALAPPDATA "Claude\vm_bundles\claudevm.bundle"),
+        (Join-Path $env:APPDATA "Claude\vm_bundles\claudevm.bundle")
+    )
+    Get-ChildItem (Join-Path $env:LOCALAPPDATA "Packages") -Directory -Filter "Claude_*" -ErrorAction SilentlyContinue |
+        ForEach-Object { $candidates += (Join-Path $_.FullName "LocalCache\Roaming\Claude\vm_bundles\claudevm.bundle") }
+
+    foreach ($c in $candidates) {
+        if (Test-Path -LiteralPath $c) { return $c }
+    }
+    if ($CreateIfMissing) {
+        $def = $candidates[0]
+        New-Item -ItemType Directory -Path $def -Force | Out-Null
+        return $def
+    }
+    return $null
+}
+
+function Get-CoworkZstdExe {
+    # 获取 zstd.exe 用于解压 .zst 镜像(优先本地, 其次 GitHub release)
+    param([string]$ProxyUri)
+
+    $searchDirs = @($PSScriptRoot, (Join-Path $env:LOCALAPPDATA "claude-zh\tools"))
+    foreach ($d in $searchDirs) {
+        if (-not $d) { continue }
+        $p = Join-Path $d "zstd.exe"
+        if (Test-Path -LiteralPath $p) { return $p }
+    }
+
+    $toolsDir = Join-Path $env:LOCALAPPDATA "claude-zh\tools"
+    New-Item -ItemType Directory -Path $toolsDir -Force | Out-Null
+    $zipPath = Join-Path $toolsDir "zstd-win64.zip"
+    $zipUrl = "https://github.com/facebook/zstd/releases/download/v1.5.6/zstd-v1.5.6-win64.zip"
+    Write-Host "  正在下载 zstd 解压工具($zipUrl)..." -ForegroundColor DarkGray
+    $iwrArgs = @{ Uri = $zipUrl; OutFile = $zipPath; UseBasicParsing = $true }
+    if ($ProxyUri) { $iwrArgs.Proxy = $ProxyUri }
+    Invoke-WebRequest @iwrArgs
+    Expand-Archive -Path $zipPath -DestinationPath $toolsDir -Force
+    $exe = Get-ChildItem $toolsDir -Recurse -Filter "zstd.exe" | Select-Object -First 1
+    if (-not $exe) { throw "zstd 压缩包中未找到 zstd.exe" }
+    if ($exe.FullName -ne (Join-Path $toolsDir "zstd.exe")) {
+        Copy-Item $exe.FullName (Join-Path $toolsDir "zstd.exe") -Force
+    }
+    return (Join-Path $toolsDir "zstd.exe")
+}
+
+function Invoke-CoworkVMBundleDownload {
+    # 手动下载/续传 Cowork 沙箱镜像(rootfs.vhdx 等)。
+    # 用途: Cowork 长时间显示 "Workspace still starting"、内置下载器卡住时,
+    # 用 curl 断点续传直接从 downloads.claude.ai 拉取, 校验后解压到位。
+    param([string]$ProxyUri)
+
+    Write-Step "定位 Claude 安装"
+    $paths = Get-ClaudeResourcesPath
+    $resourcesPath = $paths["Resources"]
+    $asarPath = Join-Path $resourcesPath "app.asar"
+    if (-not (Test-Path -LiteralPath $asarPath)) {
+        throw "未找到 app.asar: $asarPath"
+    }
+    $claudeExe = Get-ClaudeAppPathFromResources $resourcesPath | Join-Path -ChildPath "claude.exe"
+    if (-not (Test-Path -LiteralPath $claudeExe)) {
+        $claudeExe = Get-ClaudeAppPathFromResources $resourcesPath | Join-Path -ChildPath "Claude.exe"
+    }
+    Require-File $claudeExe
+
+    $fs = [System.IO.File]::Open($claudeExe, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+    try {
+        $br = New-Object System.IO.BinaryReader($fs)
+        $null = $br.BaseStream.Seek([int64]0x3c, [System.IO.SeekOrigin]::Begin)
+        $peOff = $br.ReadInt32()
+        $null = $br.BaseStream.Seek([int64]($peOff + 4), [System.IO.SeekOrigin]::Begin)
+        $machine = $br.ReadUInt16()
+    } finally {
+        $fs.Dispose()
+    }
+    $arch = if ($machine -eq 0xAA64) { "arm64" } elseif ($machine -eq 0x8664) { "x64" } else { throw "无法识别 claude.exe 架构: 0x$($machine.ToString('X4'))" }
+
+    Write-Step "解析 VM 镜像清单($arch)"
+    $appDir = Get-ClaudeAppPathFromResources $resourcesPath
+    $manifest = Get-CoworkVMBundleManifest -AsarPath $asarPath -Arch $arch -AppDir $appDir
+    if (-not $manifest) {
+        throw "未能从 app.asar 解析出 $arch 的 VM 镜像清单（多为 Claude 版本过旧，asar 内没有 Windows 沙箱镜像列表）。请先把 Claude Desktop 升级到最新版再重试；升级后仍失败请改用 Cowork 界面触发下载。"
+    }
+    Write-Host "  VM 版本: $($manifest.Sha)" -ForegroundColor Green
+    foreach ($e in $manifest.Files) {
+        Write-Host ("  - {0}: 压缩 {1:N0} 字节 / 解压 {2:N0} 字节" -f $e.Name, $e.Size, $e.RawSize) -ForegroundColor DarkGray
+    }
+
+    Write-Step "定位沙箱镜像目录"
+    $bundleDir = Resolve-CoworkVMBundleDir -CreateIfMissing $true
+    Write-Host "  $bundleDir" -ForegroundColor Green
+
+    # 下载会写 bundle 目录，先关闭 Claude 避免与内置下载器冲突
+    Stop-ClaudeProcesses
+
+    $curlExe = (Get-Command curl.exe -ErrorAction SilentlyContinue).Source
+    if (-not $curlExe) { $curlExe = "curl" }
+    $zstdExe = $null
+
+    # curl 不读 Windows 系统代理，这里自动检测一次
+    $script:CoworkProxy = $ProxyUri
+    if (-not $script:CoworkProxy) {
+        $reg = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings' -ErrorAction SilentlyContinue
+        if ($reg -and $reg.ProxyEnable -eq 1 -and $reg.ProxyServer) {
+            $srv = [string]$reg.ProxyServer
+            if ($srv -match '(?:^|;)https=([^;]+)') { $srv = $Matches[1] }
+            elseif ($srv -match '(?:^|;)http=([^;]+)') { $srv = $Matches[1] }
+            if ($srv) {
+                if ($srv -notmatch '^https?://') { $srv = "http://$srv" }
+                $script:CoworkProxy = $srv
+                Write-Host "  检测到系统代理，下载将使用: $srv" -ForegroundColor Green
+            }
+        }
+    }
+
+    foreach ($entry in $manifest.Files) {
+        $rawPath = Join-Path $bundleDir $entry.Name
+        $zstPath = Join-Path $bundleDir ($entry.Name + ".zst")
+
+        # 1) 原始文件已就绪(大小+SHA256 校验; 通过后写标记, 重复运行秒过)
+        if ((Test-Path -LiteralPath $rawPath) -and (Get-Item -LiteralPath $rawPath).Length -eq $entry.RawSize) {
+            $verifiedMarker = "$rawPath.zh-verified"
+            if ((Test-Path -LiteralPath $verifiedMarker) -and ((Get-Content -LiteralPath $verifiedMarker -ErrorAction SilentlyContinue) -eq $entry.RawChecksum)) {
+                Write-Host "  $($entry.Name) 已就绪(此前已校验通过)，跳过" -ForegroundColor Green
+                continue
+            }
+            Write-Host ("  校验 {0} (SHA256, {1:N0} 字节)..." -f $entry.Name, $entry.RawSize) -ForegroundColor DarkGray
+            $hash = (Get-FileHash -LiteralPath $rawPath -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($hash -eq $entry.RawChecksum) {
+                Set-Content -LiteralPath $verifiedMarker -Value $entry.RawChecksum -Encoding ASCII
+                Write-Host "  $($entry.Name) 已就绪，跳过" -ForegroundColor Green
+                continue
+            }
+            Write-Host "  $($entry.Name) 校验不符，重新下载" -ForegroundColor Yellow
+            Remove-Item -LiteralPath $rawPath -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $verifiedMarker -Force -ErrorAction SilentlyContinue
+        }
+
+        # 2) 下载压缩包(断点续传)
+        $needDownload = $true
+        if ((Test-Path -LiteralPath $zstPath) -and (Get-Item -LiteralPath $zstPath).Length -eq $entry.Size) {
+            $zstHash = (Get-FileHash -LiteralPath $zstPath -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($zstHash -eq $entry.Checksum) { $needDownload = $false }
+        }
+        if ($needDownload) {
+            # 本地残留压缩包比目标大(旧版本遗留)时无法续传, 删除重下
+            if (Test-Path -LiteralPath $zstPath) {
+                $zlen = (Get-Item -LiteralPath $zstPath).Length
+                if ($zlen -gt $entry.Size) {
+                    Write-Host "  检测到旧版本遗留的 $($entry.Name).zst($zlen 字节 > 目标 $entry.Size 字节)，已删除" -ForegroundColor Yellow
+                    Remove-Item -LiteralPath $zstPath -Force -ErrorAction SilentlyContinue
+                }
+            }
+            # 复用内置下载器遗留的断点(.partial 是同一文件的前缀), curl -C - 从断点续传
+            if (-not (Test-Path -LiteralPath $zstPath) -or (Get-Item -LiteralPath $zstPath).Length -eq 0) {
+                $legacy = Get-ChildItem $bundleDir -Filter "$($entry.Name).zst.*.partial" -ErrorAction SilentlyContinue |
+                    Sort-Object Length -Descending | Select-Object -First 1
+                if ($legacy -and $legacy.Length -gt 0 -and $legacy.Length -lt $entry.Size) {
+                    Move-Item -LiteralPath $legacy.FullName -Destination $zstPath -Force
+                    Write-Host ("  已复用内置下载器断点: {0:N0} 字节" -f $legacy.Length) -ForegroundColor Green
+                }
+            }
+            $url = "https://downloads.claude.ai/vms/linux/$arch/$($manifest.Sha)/$($entry.Name).zst"
+            Write-Host ("  下载 {0} ({1:N0} 字节)..." -f $url, $entry.Size) -ForegroundColor DarkGray
+            $currentProxy = $script:CoworkProxy
+            while ($true) {
+                $curlArgs = @('-L', '--fail', '--retry', '8', '--retry-delay', '3', '--retry-all-errors', '-C', '-', '-o', $zstPath, $url)
+                if ($currentProxy) { $curlArgs += @('-x', $currentProxy) }
+                & $curlExe @curlArgs
+                if ($LASTEXITCODE -eq 0) { break }
+                Write-Host "  下载失败(curl exit=$LASTEXITCODE)，已下载部分保留用于续传。" -ForegroundColor Yellow
+                $answer = (Read-Host "  输入代理地址后重试(例 http://127.0.0.1:7897)，直接回车则放弃").Trim()
+                if (-not $answer) {
+                    throw "下载已取消。已下载部分会保留，可再次运行本功能续传。"
+                }
+                if ($answer -notmatch '^https?://') { $answer = "http://$answer" }
+                $currentProxy = $answer
+                $script:CoworkProxy = $answer
+            }
+            $zstHash = (Get-FileHash -LiteralPath $zstPath -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($zstHash -ne $entry.Checksum) {
+                Remove-Item -LiteralPath $zstPath -Force -ErrorAction SilentlyContinue
+                throw "$($entry.Name).zst 校验不符，已删除损坏文件，请重新运行本功能。"
+            }
+        } else {
+            Write-Host "  $($entry.Name).zst 已存在且校验通过，跳过下载" -ForegroundColor Green
+        }
+
+        # 3) 解压 + 校验原始文件
+        if (-not $zstdExe) { $zstdExe = Get-CoworkZstdExe -ProxyUri $ProxyUri }
+        $tmpRaw = "$rawPath.downloading"
+        Write-Host "  解压 $($entry.Name).zst ..." -ForegroundColor DarkGray
+        & $zstdExe -d -q -f $zstPath -o $tmpRaw
+        if ($LASTEXITCODE -ne 0) { throw "zstd 解压失败(exit=$LASTEXITCODE)" }
+        if ((Get-Item -LiteralPath $tmpRaw).Length -ne $entry.RawSize) {
+            Remove-Item -LiteralPath $tmpRaw -Force -ErrorAction SilentlyContinue
+            throw "$($entry.Name) 解压后大小不符，请重新运行本功能。"
+        }
+        $rawHash = (Get-FileHash -LiteralPath $tmpRaw -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($rawHash -ne $entry.RawChecksum) {
+            Remove-Item -LiteralPath $tmpRaw -Force -ErrorAction SilentlyContinue
+            throw "$($entry.Name) 解压后校验不符，请重新运行本功能。"
+        }
+        Move-Item -LiteralPath $tmpRaw -Destination $rawPath -Force
+        Set-Content -LiteralPath "$rawPath.zh-verified" -Value $entry.RawChecksum -Encoding ASCII
+        Write-Host "  $($entry.Name) 就绪 ($([Math]::Round($entry.RawSize / 1GB, 2)) GB)" -ForegroundColor Green
+    }
+
+    # 清理内置下载器遗留的半成品
+    Get-ChildItem $bundleDir -Filter "*.partial" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+    Get-ChildItem $bundleDir -Filter "*.tmp" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+
+    Write-Host ""
+    Write-Host "Cowork 沙箱镜像已就绪。请启动 Claude Desktop 并进入 Cowork，工作区即可启动。" -ForegroundColor Green
+}
+
 function Register-Language {
     param(
         [string]$ResourcesPath,
@@ -1476,18 +2101,6 @@ function Get-OnlineDomTranslationScript {
         $updatedWeekText = "`$1 周前更新"
         $updatedMonthText = "`$1 个月前更新"
         $updatedYearText = "`$1 年前更新"
-        $agoSecondText = "`$1 秒前"
-        $agoMinuteText = "`$1 分钟前"
-        $agoHourText = "`$1 小时前"
-        $agoDayText = "`$1 天前"
-        $agoWeekText = "`$1 周前"
-        $addedMinuteText = "`$1 分钟前添加"
-        $addedHourText = "`$1 小时前添加"
-        $addedDayText = "`$1 天前添加"
-        $addedWeekText = "`$1 周前添加"
-        $addedMonthText = "`$1 个月前添加"
-        $addedYearText = "`$1 年前添加"
-        $addedOnSuffix = "添加"
     } else {
         $selectedText = "已選擇 `$1 項"
         $deleteSelectedText = "刪除 `$1 個所選項目"
@@ -1497,18 +2110,6 @@ function Get-OnlineDomTranslationScript {
         $updatedWeekText = "`$1 週前更新"
         $updatedMonthText = "`$1 個月前更新"
         $updatedYearText = "`$1 年前更新"
-        $agoSecondText = "`$1 秒前"
-        $agoMinuteText = "`$1 分鐘前"
-        $agoHourText = "`$1 小時前"
-        $agoDayText = "`$1 天前"
-        $agoWeekText = "`$1 週前"
-        $addedMinuteText = "`$1 分鐘前新增"
-        $addedHourText = "`$1 小時前新增"
-        $addedDayText = "`$1 天前新增"
-        $addedWeekText = "`$1 週前新增"
-        $addedMonthText = "`$1 個月前新增"
-        $addedYearText = "`$1 年前新增"
-        $addedOnSuffix = "新增"
     }
     $selectedTextJson = $selectedText | ConvertTo-Json -Compress
     $deleteSelectedTextJson = $deleteSelectedText | ConvertTo-Json -Compress
@@ -1518,29 +2119,9 @@ function Get-OnlineDomTranslationScript {
     $updatedWeekTextJson = $updatedWeekText | ConvertTo-Json -Compress
     $updatedMonthTextJson = $updatedMonthText | ConvertTo-Json -Compress
     $updatedYearTextJson = $updatedYearText | ConvertTo-Json -Compress
-    $agoSecondTextJson = $agoSecondText | ConvertTo-Json -Compress
-    $agoMinuteTextJson = $agoMinuteText | ConvertTo-Json -Compress
-    $agoHourTextJson = $agoHourText | ConvertTo-Json -Compress
-    $agoDayTextJson = $agoDayText | ConvertTo-Json -Compress
-    $agoWeekTextJson = $agoWeekText | ConvertTo-Json -Compress
-    $addedMinuteTextJson = $addedMinuteText | ConvertTo-Json -Compress
-    $addedHourTextJson = $addedHourText | ConvertTo-Json -Compress
-    $addedDayTextJson = $addedDayText | ConvertTo-Json -Compress
-    $addedWeekTextJson = $addedWeekText | ConvertTo-Json -Compress
-    $addedMonthTextJson = $addedMonthText | ConvertTo-Json -Compress
-    $addedYearTextJson = $addedYearText | ConvertTo-Json -Compress
-    $addedMonthNames = @("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec")
-    $addedMonthRuleParts = for ($i = 0; $i -lt 12; $i++) {
-        $addedOnLabel = ('' + ($i + 1) + '月$1日') + $addedOnSuffix
-        '[/^added ' + $addedMonthNames[$i] + ' (\d\d?)(?:, \d\d\d\d)?$/,' + ($addedOnLabel | ConvertTo-Json -Compress) + ']'
-    }
-    # __ADDED_MONTH_RULES__ sits inside the G=[...] array literal, so inject the
-    # flat comma-joined rule elements -- wrapping them in [ ] would nest them as
-    # a single G entry and never match.
-    $addedMonthRulesJson = $addedMonthRuleParts -join ','
     $template = @'
 (()=>{try{
-const L=__LANGUAGE__,M=__MAPPING__,ST=__SELECTED_TEXT__,DST=__DELETE_SELECTED_TEXT__,UMI=__UPDATED_MINUTE_TEXT__,UH=__UPDATED_HOUR_TEXT__,UD=__UPDATED_DAY_TEXT__,UW=__UPDATED_WEEK_TEXT__,UMO=__UPDATED_MONTH_TEXT__,UY=__UPDATED_YEAR_TEXT__,AS=__AGO_SECOND__,AMN=__AGO_MINUTE__,AH=__AGO_HOUR__,ADY=__AGO_DAY__,AWK=__AGO_WEEK__,ADDMI=__ADDED_MINUTE__,ADDH=__ADDED_HOUR__,ADDD=__ADDED_DAY__,ADDW=__ADDED_WEEK__,ADDMO=__ADDED_MONTH__,ADDY=__ADDED_YEAR__;
+const L=__LANGUAGE__,M=__MAPPING__,ST=__SELECTED_TEXT__,DST=__DELETE_SELECTED_TEXT__,UMI=__UPDATED_MINUTE_TEXT__,UH=__UPDATED_HOUR_TEXT__,UD=__UPDATED_DAY_TEXT__,UW=__UPDATED_WEEK_TEXT__,UMO=__UPDATED_MONTH_TEXT__,UY=__UPDATED_YEAR_TEXT__;
 localStorage.setItem("spa:locale",L);
 document.documentElement&&document.documentElement.setAttribute("lang",L);
 const N=s=>(s||"").replace(/\s+/g," ").trim();
@@ -1568,32 +2149,16 @@ const G=[
 [/^Updated (\d+) weeks? ago$/,UW],
 [/^Updated (\d+) months? ago$/,UMO],
 [/^Updated (\d+) years? ago$/,UY],
-[/^(\d+)s ago$/,AS],
-[/^(\d+)m ago$/,AMN],
-[/^(\d+)h ago$/,AH],
-[/^(\d+)d ago$/,ADY],
-[/^(\d+)w ago$/,AWK],
-[/^added (\d+) minutes? ago$/,ADDMI],
-[/^added (\d+) hours? ago$/,ADDH],
-[/^added (\d+) days? ago$/,ADDD],
-[/^added (\d+) weeks? ago$/,ADDW],
-[/^added (\d+) months? ago$/,ADDMO],
-[/^added (\d+) years? ago$/,ADDY],
-__ADDED_MONTH_RULES__,
 [/^Mon$/,"周一"],[/^Tue$/,"周二"],[/^Wed$/,"周三"],[/^Thu$/,"周四"],[/^Fri$/,"周五"],[/^Sat$/,"周六"],[/^Sun$/,"周日"]
 ];
 const R=s=>{const n=N(s);if(M[n])return M[n];for(const [r,t] of G){const m=n.match(r);if(m)return t.replace("$1",m[1])}};
-const X=new Set(["SCRIPT","STYLE","NOSCRIPT"]),C="pre,code,kbd,samp,var,[data-language],[data-testid*=code],.cm-editor,.monaco-editor,.hljs",P='[data-testid="user-message"],.standard-markdown,.progressive-markdown,[data-testid="chat-input"],[data-testid="conway-composer-input"],[data-testid="conway-user-message"] .user-bubble,[data-testid="conway-output-cell"]';
-const SL=/^\/?[a-z][a-z0-9_]*(?:-[a-z0-9_]+)+(?:\s*(?:Custom command|Slash command))?$/i;
-function K(n){let e=n.nodeType===1?n:n.parentElement;for(let i=0;e&&i<5;e=e.parentElement,i++){const t=N(e.textContent);if(SL.test(t))return true;if(/\s/.test(t))break}return false}
-function Q(n){const e=n.nodeType===1?n:n.parentElement;return !!(e&&e.closest(P))}
-function H(n){return Q(n)||!!(n&&n.nodeType===1&&n.querySelector(P))}
-function T(){try{const b=document.body||document.documentElement;if(!b)return;const w=document.createTreeWalker(b,NodeFilter.SHOW_TEXT,{acceptNode(n){const p=n.parentElement;if(!p||X.has(p.tagName)||p.closest('[contenteditable],'+C)||Q(n)||K(n)||!R(n.nodeValue))return NodeFilter.FILTER_REJECT;return NodeFilter.FILTER_ACCEPT}});let n;while(n=w.nextNode()){const v=R(n.nodeValue);if(v)n.nodeValue=v}document.querySelectorAll("[role=dialog] p,[role=dialog] div,[role=dialog] span").forEach(e=>{try{if(e.closest("button,[contenteditable],"+C)||H(e)||K(e))return;const t=R(e.textContent);if(t&&N(e.textContent)!==N(t))e.textContent=t}catch{}});document.querySelectorAll("[aria-label],[title],[placeholder],input,textarea").forEach(e=>{["aria-label","title","placeholder","value"].forEach(a=>{try{if(e.closest(C)||Q(e)||K(e))return;if(a==="value"&&!(e.matches("input[type=button],input[type=submit]")))return;let v=e.getAttribute?e.getAttribute(a):void 0;if(v==null&&a in e)v=e[a];const t=R(v);if(t){if(e.setAttribute)e.setAttribute(a,t);try{if(a in e)e[a]=t}catch{}}}catch{}})});document.querySelectorAll("a").forEach(e=>{try{if(H(e))return;const r=e.getBoundingClientRect(),txt=N(e.textContent);if(txt==="Claude"&&r.left<100&&r.top<100)e.style.visibility="hidden"}catch{}})}catch{}}
+const X=new Set(["SCRIPT","STYLE","NOSCRIPT"]);
+function T(){try{const b=document.body||document.documentElement;if(!b)return;const w=document.createTreeWalker(b,NodeFilter.SHOW_TEXT,{acceptNode(n){const p=n.parentElement;if(!p||X.has(p.tagName)||!R(n.nodeValue))return NodeFilter.FILTER_REJECT;return NodeFilter.FILTER_ACCEPT}});let n;while(n=w.nextNode()){const v=R(n.nodeValue);if(v)n.nodeValue=v}document.querySelectorAll("[role=dialog] p,[role=dialog] div,[role=dialog] span").forEach(e=>{try{if(e.closest("button,[contenteditable]"))return;const t=R(e.textContent);if(t&&N(e.textContent)!==N(t))e.textContent=t}catch{}});document.querySelectorAll("[aria-label],[title],[placeholder],input,textarea").forEach(e=>{["aria-label","title","placeholder","value"].forEach(a=>{try{if(a==="value"&&!(e.matches("input[type=button],input[type=submit]")))return;let v=e.getAttribute?e.getAttribute(a):void 0;if(v==null&&a in e)v=e[a];const t=R(v);if(t){if(e.setAttribute)e.setAttribute(a,t);try{if(a in e)e[a]=t}catch{}}}catch{}})});document.querySelectorAll("a").forEach(e=>{try{const r=e.getBoundingClientRect(),txt=N(e.textContent);if(txt==="Claude"&&r.left<100&&r.top<100)e.style.visibility="hidden"}catch{}})}catch{}}
 T();
 new MutationObserver(()=>{clearTimeout(window.__claudeZhDomTimer);window.__claudeZhDomTimer=setTimeout(T,30)}).observe(document.documentElement,{subtree:true,childList:true,characterData:true,attributes:true});
 }catch(e){}})()
 '@
-    return $template.Replace("__LANGUAGE__", $languageJson).Replace("__MAPPING__", $mappingJson).Replace("__SELECTED_TEXT__", $selectedTextJson).Replace("__DELETE_SELECTED_TEXT__", $deleteSelectedTextJson).Replace("__UPDATED_MINUTE_TEXT__", $updatedMinuteTextJson).Replace("__UPDATED_HOUR_TEXT__", $updatedHourTextJson).Replace("__UPDATED_DAY_TEXT__", $updatedDayTextJson).Replace("__UPDATED_WEEK_TEXT__", $updatedWeekTextJson).Replace("__UPDATED_MONTH_TEXT__", $updatedMonthTextJson).Replace("__UPDATED_YEAR_TEXT__", $updatedYearTextJson).Replace("__AGO_SECOND__", $agoSecondTextJson).Replace("__AGO_MINUTE__", $agoMinuteTextJson).Replace("__AGO_HOUR__", $agoHourTextJson).Replace("__AGO_DAY__", $agoDayTextJson).Replace("__AGO_WEEK__", $agoWeekTextJson).Replace("__ADDED_MINUTE__", $addedMinuteTextJson).Replace("__ADDED_HOUR__", $addedHourTextJson).Replace("__ADDED_DAY__", $addedDayTextJson).Replace("__ADDED_WEEK__", $addedWeekTextJson).Replace("__ADDED_MONTH__", $addedMonthTextJson).Replace("__ADDED_YEAR__", $addedYearTextJson).Replace("__ADDED_MONTH_RULES__", $addedMonthRulesJson)
+    return $template.Replace("__LANGUAGE__", $languageJson).Replace("__MAPPING__", $mappingJson).Replace("__SELECTED_TEXT__", $selectedTextJson).Replace("__DELETE_SELECTED_TEXT__", $deleteSelectedTextJson).Replace("__UPDATED_MINUTE_TEXT__", $updatedMinuteTextJson).Replace("__UPDATED_HOUR_TEXT__", $updatedHourTextJson).Replace("__UPDATED_DAY_TEXT__", $updatedDayTextJson).Replace("__UPDATED_WEEK_TEXT__", $updatedWeekTextJson).Replace("__UPDATED_MONTH_TEXT__", $updatedMonthTextJson).Replace("__UPDATED_YEAR_TEXT__", $updatedYearTextJson)
 }
 
 function Remove-ExistingOnlineDomTranslationPatch {
@@ -3865,10 +4430,25 @@ function Restart-Claude {
 
     Stop-ClaudeProcesses
 
+    # AppX(MSIX) 安装优先用包激活启动: 进程带包身份, 更新检查走 msix 路径
+    # (直接启动 exe 会被更新器误判为 Squirrel 解包安装而报 "Can not find Squirrel",
+    #  Cowork 客户端校验也只能靠签名回退)
+    try {
+        $app = Get-StartApps -ErrorAction Stop | Where-Object { $_.AppID -like "Claude_*!*" } | Select-Object -First 1
+        if ($app -and $app.AppID) {
+            Start-Process -FilePath "explorer.exe" -ArgumentList "shell:AppsFolder\$($app.AppID)"
+            Write-Host "  已通过 AppX 激活重启 Claude Desktop ($($app.AppID))" -ForegroundColor Green
+            return
+        }
+    } catch {
+        Write-Host "  [提示] AppX 激活不可用($($_.Exception.Message))，改用直接启动。" -ForegroundColor DarkYellow
+    }
+
     $exe = Get-ClaudeExePath $ClaudePath
     if ($exe) {
         Start-Process -FilePath "explorer.exe" -ArgumentList "`"$exe`""
         Write-Host "  restarted Claude Desktop" -ForegroundColor Green
+        Write-Host "  [提示] MSIX 安装建议从开始菜单启动 Claude，以获得完整功能(自动更新/Cowork)。" -ForegroundColor DarkYellow
         return
     }
 
@@ -3941,6 +4521,7 @@ function Install-WindowsLanguagePack {
             Patch-OnlineDomTranslation $resourcesPath $pack $LanguageCode
             Patch-HardcodedMainProcessMenuLabels $resourcesPath $LanguageCode
             Patch-ModelPickerStrings $resourcesPath $LanguageCode
+            Disable-CoworkSvcClientVerification -ResourcesPath $resourcesPath
         } else {
             Write-Host "  skipping online claude.ai DOM translation patch (app.asar) due to patch mode: $PatchMode" -ForegroundColor DarkYellow
             Write-Host "  skipping main-process menu label patch (app.asar) due to patch mode: $PatchMode" -ForegroundColor DarkYellow
@@ -4083,6 +4664,7 @@ try {
         "sync-skills" { Sync-CCSwitchSkills }
         "unsync-skills" { Unsync-CCSwitchSkills }
         "frida-launch" { Invoke-FridaRuntimeLaunch -Lang $LanguageCode }
+        "vm-bundle" { Invoke-CoworkVMBundleDownload }
     }
 
     Stop-InstallLog

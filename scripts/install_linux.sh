@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
-# Claude Desktop (Linux) 中文补丁安装/卸载脚本
-# 用法:
-#   ./install_linux.sh install [zh-CN|zh-TW|zh-HK]   安装（默认 zh-CN）
-#   ./install_linux.sh uninstall                      恢复原样
+# Claude Desktop（Linux，官方 deb 包安装）中文补丁安装/卸载脚本
+# 推荐从项目根目录的 install-linux.sh 进入（带菜单）；也可直接调用：
+#   ./scripts/install_linux.sh install [zh-CN|zh-TW|zh-HK]   安装（默认 zh-CN）
+#   ./scripts/install_linux.sh uninstall                      恢复原样
 # 说明:
-#   - 需要 sudo 权限写入 /usr/lib/claude-desktop
-#   - 不修改 app.asar（相当于 Windows 的 Cowork 兼容模式）：
-#     只安装语言资源、注册语言白名单、写入用户 locale 配置
+#   - 需要 sudo 权限写入 Claude Desktop 安装目录（默认 /usr/lib/claude-desktop）
+#   - 会修改 app.asar（在线 claude.ai 页面 DOM 汉化 + 锁定 locale），并安装语言资源、
+#     注册语言白名单、写入用户 locale 配置；修改前自动备份，卸载时还原
 #   - Claude Desktop 更新后需重新运行本脚本
 
 set -euo pipefail
 
 APP_RES="${CLAUDE_RESOURCES:-/usr/lib/claude-desktop/resources}"
+APP_DIR="$(dirname "$APP_RES")"
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RES_DIR="$REPO_DIR/resources"
 BACKUP_DIR="$RES_DIR/.zh-cn-backups-linux"
@@ -36,9 +37,14 @@ die() { echo "错误: $*" >&2; exit 1; }
 [ -d "$APP_RES" ] || die "未找到 Claude Desktop 资源目录 $APP_RES（可用 CLAUDE_RESOURCES 环境变量指定）"
 [ "$(id -u)" -eq 0 ] && die "请以普通用户运行本脚本（需要时会自动调用 sudo）"
 
-if pgrep -f "claude-desktop" >/dev/null 2>&1; then
+# 关闭正在运行的 Claude Desktop：只匹配安装目录下的进程（主程序、各子进程、
+# crashpad、cowork helper）。不能用 pkill -f "claude-desktop"：-f 匹配完整命令行，
+# 本项目目录名 claude-desktop-zh-cn 也会被命中，从绝对路径运行时会误杀本脚本自身
+# 或打开该目录的编辑器。
+APP_PROC_PATTERN="^$(printf '%s' "$APP_DIR" | sed 's/[][\.*^$()+?{}|]/\\&/g')/"
+if pgrep -f "$APP_PROC_PATTERN" >/dev/null 2>&1; then
   echo "Claude Desktop 正在运行，尝试关闭…"
-  pkill -f "claude-desktop" || true
+  pkill -f "$APP_PROC_PATTERN" || true
   sleep 2
 fi
 
@@ -47,7 +53,7 @@ find_bundle_files() {
 }
 
 app_version() {
-  cat /usr/lib/claude-desktop/version 2>/dev/null \
+  cat "$APP_DIR/version" 2>/dev/null \
     || dpkg-query -W -f='${Version}' claude-desktop 2>/dev/null \
     || echo "unknown"
 }
@@ -175,7 +181,7 @@ PY
 }
 
 uninstall() {
-  echo "[1/3] 移除语言文件"
+  echo "[1/4] 移除语言文件"
   for lang in zh-CN zh-TW zh-HK; do
     sudo rm -f "$APP_RES/ion-dist/i18n/$lang.json" "$APP_RES/ion-dist/i18n/$lang.overrides.json" "$APP_RES/$lang.json"
   done

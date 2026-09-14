@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Claude Desktop 中文补丁 — 一键汉化 · 双平台 · 可恢复</title>
-  <meta name="description" content="免费开源的 Claude Desktop 中文汉化补丁：macOS 与 Windows 一键安装，支持简体、繁体（中国台湾）、繁体（中国香港），安装前自动备份、随时可恢复，官方更新后持续跟进。">
+  <title>Claude Desktop 中文补丁 — 一键汉化 · 三平台 · 可恢复</title>
+  <meta name="description" content="免费开源的 Claude Desktop 中文汉化补丁：macOS、Windows 与 Linux 一键安装，支持简体、繁体（中国台湾）、繁体（中国香港），安装前自动备份、随时可恢复，官方更新后持续跟进。">
   <meta property="og:title" content="Claude Desktop 中文补丁">
-  <meta property="og:description" content="一键把 Claude Desktop 翻成中文。双平台、三种中文变体、自动备份可恢复、持续维护。">
+  <meta property="og:description" content="一键把 Claude Desktop 翻成中文。三平台、三种中文变体、自动备份可恢复、持续维护。">
   <style>
     :root {
       color-scheme: light;
@@ -376,7 +376,7 @@
     @media (max-width: 640px) { .gallery { grid-template-columns: 1fr; } }
 
     /* ── 安装 ───────────────────────────── */
-    .install-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+    .install-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 22px; }
     .os-card {
       position: relative; background: var(--card); border: 1px solid var(--rule);
       border-radius: 16px; padding: 28px 28px 26px;
@@ -569,14 +569,14 @@
           <span class="stamp-word">翻成中文。</span>
         </h1>
         <p class="hero-lead" data-reveal style="--delay:140ms">
-          免费、开源、持续维护的 <span class="term">Claude Desktop</span> 汉化补丁。<b>一条脚本装上，界面即刻变中文</b> —— macOS 与 Windows 双平台，简体、繁体（中国台湾）、繁体（中国香港）任你选。官方更新后同步跟进，遇到漏翻随时反馈、随时修。
+          免费、开源、持续维护的 <span class="term">Claude Desktop</span> 汉化补丁。<b>一条脚本装上，界面即刻变中文</b> —— macOS、Windows、Linux 三平台，简体、繁体（中国台湾）、繁体（中国香港）任你选。官方更新后同步跟进，遇到漏翻随时反馈、随时修。
         </p>
         <div class="hero-cta" data-reveal style="--delay:210ms">
           <a class="btn btn-primary" href="https://github.com/javaht/claude-desktop-zh-cn/releases/latest">立即下载补丁 <span class="arrow">→</span></a>
           <a class="btn btn-ghost" href="https://github.com/javaht/claude-desktop-zh-cn">在 GitHub 查看</a>
         </div>
         <dl class="vprops" data-reveal style="--delay:280ms">
-          <div><dt>双平台</dt><dd>macOS + Windows</dd></div>
+          <div><dt>三平台</dt><dd>macOS · Windows · Linux</dd></div>
           <div><dt>三种中文</dt><dd>简体 · 繁·中国台湾 · 繁·中国香港</dd></div>
           <div><dt>安全可逆</dt><dd>自动备份 · 一键恢复</dd></div>
           <div><dt>持续维护</dt><dd>跟随官方更新</dd></div>
@@ -623,8 +623,8 @@
       <div class="features" data-reveal>
         <article class="feature">
           <span class="fno">01</span>
-          <h3>一键安装，双平台通吃</h3>
-          <p>macOS 双击 <code>install-mac.command</code>，Windows 右键以管理员身份运行 <code>install-windows.bat</code>，跟着菜单走完即可，不用手动改文件。</p>
+          <h3>一键安装，三平台通吃</h3>
+          <p>macOS 双击 <code>install-mac.command</code>，Windows 右键以管理员身份运行 <code>install-windows.bat</code>，Linux 在终端运行 <code>./install-linux.sh</code>，跟着菜单走完即可，不用手动改文件。</p>
         </article>
         <article class="feature">
           <span class="fno">02</span>
@@ -692,7 +692,7 @@
         <span class="shead-no" aria-hidden="true">03</span>
         <span class="shead-label">安装 · Install</span>
         <h2 class="shead-title" data-reveal>两步装上，随时退得回去。</h2>
-        <p class="shead-desc" data-reveal style="--delay:60ms">退出 Claude Desktop，跑一次入口脚本，按菜单选语言就行。两个平台分别看 ——</p>
+        <p class="shead-desc" data-reveal style="--delay:60ms">退出 Claude Desktop，跑一次入口脚本，按菜单选语言就行。各平台分别看 ——</p>
       </header>
 
       <div class="install-grid">
@@ -722,6 +722,20 @@
             <li>脚本自动备份资源、写入中文并重启 Claude。</li>
           </ol>
           <p class="os-note"><b>三种模式：</b> ① Cowork 兼容（跳过 <span class="term">app.asar</span>）② 官方账号登录 ③ 第三方 API 实验。需要 Cowork 沙箱 / 截图工作区请选 ①。</p>
+        </article>
+
+        <article class="os-card" data-reveal style="--delay:160ms">
+          <div class="os-head">
+            <span class="os-glyph" aria-hidden="true">$</span>
+            <div><b>Linux</b><span>install-linux.sh</span></div>
+          </div>
+          <ol class="steps">
+            <li>退出 Claude Desktop（官方 deb 包安装）。</li>
+            <li>在项目目录打开终端，运行 <code>./install-linux.sh</code>，选择「安装中文补丁」。</li>
+            <li>选语言（<b>1</b> 简体 / <b>2</b> 繁体·中国台湾 / <b>3</b> 繁体·中国香港），按提示输入 <span class="term">sudo</span> 密码。</li>
+            <li>重新打开 Claude 即生效；若没切换，到左下角账号菜单 <span class="term">Language</span> 里手动选。</li>
+          </ol>
+          <p class="os-note"><b>升级之后：</b> apt 更新 Claude Desktop 会覆盖补丁，<code>git pull</code> 后再运行一次安装即可；脚本会自动识别版本变化并重新备份。</p>
         </article>
       </div>
 

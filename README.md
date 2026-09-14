@@ -41,10 +41,11 @@ macOS 双击 `install-mac.command`；Windows 双击 `install-windows.bat` 后按
 
 ## 适用环境
 
-- macOS 或 Windows
+- macOS、Windows 或 Linux（deb 包安装）
 - 已安装 Claude Desktop
 - macOS 需要可用的 Python 3；脚本优先使用 `/usr/bin/python3`，不存在时从 `PATH` 查找 `python3`
 - Windows 需要系统自带的 Windows PowerShell（`powershell.exe`）；批处理入口会自动请求管理员权限
+- Linux 需要 Python 3 和 `sudo` 权限，且为官方 deb 包安装的 Claude Desktop（资源目录 `/usr/lib/claude-desktop/resources`，可用环境变量 `CLAUDE_RESOURCES` 覆盖）
 
 ## 使用方式
 
@@ -90,11 +91,25 @@ CC Switch skills 同步会扫描 `~/.cc-switch/skills` 下包含 `SKILL.md` 的�
 6. 选择语言：`1`=简体中文，`2`=繁体中文（中国台湾），`3`=繁体中文（中国香港）。
 7. 脚本会备份被修改的文件、写入中文资源并重启 Claude Desktop。如果没有自动切换，打开左下角账号菜单，选择 `Language` -> 对应的中文选项。
 
+### Linux（deb 包安装）
+
+1. 退出 Claude Desktop。
+2. 下载或克隆本项目。
+3. 运行 `./scripts/install_linux.sh install zh-CN`（可选 `zh-TW` / `zh-HK`），按提示输入 `sudo` 密码。
+4. 重新打开 Claude Desktop。如果没有自动切换，打开左下角账号菜单，选择 `Language` -> 对应的中文选项。
+5. 恢复原样 / 卸载：`./scripts/install_linux.sh uninstall`。
+
+Linux 脚本会：把随包中文翻译与当前版本的英文语言文件合并后装入资源目录（新增字段保留英文）、给前端 bundle 的语言白名单注册所选中文变体、复用 `patch_claude_zh_cn.py` 的逻辑修补 `app.asar`（在线 claude.ai 页面 DOM 汉化 + 锁定 locale）、写入用户 `locale`。相当于官方账号在线汉化模式，仅面向 deb 包安装。
+
+关于**升级后恢复**：Claude Desktop 更新会覆盖补丁，重新运行一次 `install zh-CN` 即可。脚本用 `.zh-orig-version` 版本标记感知升级——检测到版本变化会丢弃过时备份、从升级后的新文件重新备份，避免拿旧版 `app.asar` 重打。补丁若因新版结构变化而失败，脚本会显式报错而非静默跳过。
+
 ## 文件说明
 
 - `install-mac.command`：macOS 双击运行入口。
 - `install-windows.bat`：Windows 安装 / 恢复菜单入口。
 - `scripts/install_windows.ps1`：Windows 汉化安装和卸载脚本。
+- `scripts/install_linux.sh`：Linux（deb 包）汉化安装 / 卸载脚本。
+- `scripts/patch_linux_asar.py`：Linux 下复用 `patch_claude_zh_cn.py` 的 asar 补丁逻辑（伪造 macOS 目录布局 + 跳过 codesign/完整性），并在补丁后校验标记防止静默失败。
 - `scripts/patch_claude_zh_cn.py`：真正执行补丁的 Python 脚本。
 - `install-mac.command` 选项 `3` / `scripts/experimental/frida_launch_zh.py`：macOS Frida 实验启动入口（自动 venv + 依赖）。
 - `scripts/experimental/run_frida_zh_win.ps1` / `bootstrap_frida_runtime_win.ps1` / `frida_launch_zh_win.py` / `frida_cdp_gate_win.js` / `frida-zh-resident-ctl.ps1`：Windows Frida 实验入口、便携 Python 自举、启动器、Agent 与常驻计划任务。

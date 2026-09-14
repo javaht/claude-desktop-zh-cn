@@ -25,6 +25,12 @@ jobs:
       - name: Compile patcher and tests
         run: python3 -m py_compile scripts/patch_claude_zh_cn.py tests/test_dom_translation_guards.py tests/test_shortcut_repair.py
 
+      - name: Syntax-check Linux installer
+        run: |
+          bash -n install-linux.sh
+          bash -n scripts/install_linux.sh
+          python3 -m py_compile scripts/patch_linux_asar.py
+
       - name: Syntax-check generated macOS DOM script
         run: |
           python3 -c "import tests.test_dom_translation_guards as t; print(t.load_python_patcher().build_online_dom_translation_script('zh-CN', {'Settings': '设置'}))" | node --check

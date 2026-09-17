@@ -57,6 +57,8 @@ jobs:
       - name: Validate scripts
         run: |
           bash -n install-mac.command
+          bash -n install-linux.sh
+          bash -n scripts/install_linux.sh
           git diff --check
 
       - name: Commit and tag

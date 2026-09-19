@@ -12,8 +12,11 @@ macOS 双击 `install-mac.command`；Windows 双击 `install-windows.bat` 后按
 <summary>点击折叠</summary>
 <table>
 <tr>
-<td width="180"><a href="https://api.weaves.cn/sign-up?aff=xH6D"><img src="docs/images/weaves-api.png" alt="Weaves API" width="150"></a></td>
-<td>感谢 Weaves API 对本项目提供的赞助！Weaves API 是一家可靠高效的 API 服务提供商，为 Claude Code、Codex 等平台提供中转服务。Weaves API 为我们的软件用户提供专属折扣：使用<a href="https://api.weaves.cn/sign-up?aff=xH6D">此链接</a>注册并加入用户服务群，即可赠送 5 刀体验金。</td>
+<td width="180"><a href="https://tokenmetro.com"><img src="docs/images/tokenmetro.png" alt="TokenMetro" width="150"></a></td>
+<td><strong>TokenMetro</strong> - 一家计费透明、自建号池的中转站。<br>
+相对官方价格：GPT 1 折，Gemini 一次 5分，DeepSeek0.1折。<br>
+明码标价，显示多少扣多少，不玩汇率魔术；自建号池，拒绝掺水。<br>
+本群群友限时注册就送 5 块，一键上车：<a href="https://tokenmetro.com">https://tokenmetro.com</a></td>
 </tr>
 </table>
 

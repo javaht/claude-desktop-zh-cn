@@ -10,10 +10,10 @@ macOS 双击 `install-mac.command`；Windows 双击 `install-windows.bat` 后按
 
 <details open>
 <summary>点击折叠</summary>
-<table>
+<table width="100%">
 <tr>
-<td width="180"><a href="https://tokenmetro.com"><img src="docs/images/tokenmetro.png" alt="TokenMetro" width="150"></a></td>
-<td><strong>TokenMetro</strong> - 一家计费透明、自建号池的中转站。<br>
+<td width="130" valign="middle"><a href="https://tokenmetro.com"><img src="docs/images/tokenmetro.png" alt="TokenMetro" width="100"></a></td>
+<td valign="middle"><strong>TokenMetro</strong> - 一家计费透明、自建号池的中转站。<br>
 相对官方价格：GPT 1 折，Gemini 一次 5分，DeepSeek0.1折。<br>
 明码标价，显示多少扣多少，不玩汇率魔术；自建号池，拒绝掺水。<br>
 本群群友限时注册就送 5 块，一键上车：<a href="https://tokenmetro.com">https://tokenmetro.com</a></td>

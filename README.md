@@ -12,13 +12,18 @@ macOS 双击 `install-mac.command`；Windows 双击 `install-windows.bat` 后按
 <summary>点击折叠</summary>
 <table width="100%">
 <tr>
-<td width="250" valign="middle"><a href="https://tokenmetro.com"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/tokenmetro-dark.png"><img src="docs/images/tokenmetro-light.png" alt="TokenMetro" width="216"></picture></a></td>
+<td width="250" align="center" valign="middle"><a href="https://tokenmetro.com"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/tokenmetro-dark.png"><img src="docs/images/tokenmetro-light.png" alt="TokenMetro" width="216"></picture></a></td>
 <td valign="middle"><strong>TokenMetro</strong> - 一家计费透明、自建号池的中转站。<br>
 相对官方价格：GPT 1 折，Gemini 一次 5分，DeepSeek0.1折。<br>
 明码标价，显示多少扣多少，不玩汇率魔术；自建号池，拒绝掺水。<br>
 限时福利 - 注册就送 5 ¥，一键上车：<a href="https://tokenmetro.com">https://tokenmetro.com</a></td>
 </tr>
+<tr>
+<td width="250" align="center" valign="middle"><a href="https://www.oxoapi.com"><img src="docs/images/oxoapi.png" alt="OXOAPI" width="151"></a></td>
+<td valign="middle"><strong>OXOAPI</strong> - 高质量国模自部署资源，AI 模型统一接口入口。热门国产模型 DeepSeek、Kimi、GLM 低至 4.5-6 折，海外模型低至 2.5 折；官网实时公开报价，价格自动刷新、通道状态透明可见；支持开具发票，企业采购更省心。注册即用：<a href="https://www.oxoapi.com">www.oxoapi.com</a>，完整价格表：<a href="https://www.oxoapi.com/pricing">www.oxoapi.com/pricing</a></td>
+</tr>
 </table>
+
 
 </details>
 

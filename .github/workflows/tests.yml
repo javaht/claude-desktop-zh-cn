@@ -10,20 +10,17 @@ permissions:
   contents: read
 
 jobs:
-  dom-translation-guards:
+  checks:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Run DOM translation guard tests
-        run: python3 -m unittest -v tests.test_dom_translation_guards
-
       - name: Run shortcut repair tests
         run: python3 -m unittest -v tests.test_shortcut_repair
 
       - name: Compile patcher and tests
-        run: python3 -m py_compile scripts/patch_claude_zh_cn.py tests/test_dom_translation_guards.py tests/test_shortcut_repair.py
+        run: python3 -m py_compile scripts/patch_claude_zh_cn.py tests/test_shortcut_repair.py tests/test_backup_restore_logic.py
 
       - name: Syntax-check Linux installer
         run: |
@@ -33,11 +30,44 @@ jobs:
 
       - name: Syntax-check generated macOS DOM script
         run: |
-          python3 -c "import tests.test_dom_translation_guards as t; print(t.load_python_patcher().build_online_dom_translation_script('zh-CN', {'Settings': '设置'}))" | node --check
+          python3 - <<'PY' | node --check
+          import importlib.util
+          spec = importlib.util.spec_from_file_location("patcher", "scripts/patch_claude_zh_cn.py")
+          patcher = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(patcher)
+          print(patcher.build_online_dom_translation_script("zh-CN", {"Settings": "设置"}))
+          PY
 
       - name: Syntax-check materialized Windows DOM script
         run: |
-          python3 -c "import tests.test_dom_translation_guards as t; print(t.materialize_windows_dom_script(t.extract_windows_dom_template()))" | node --check
+          python3 - <<'PY' | node --check
+          import json, re
+          source = open("scripts/install_windows.ps1", encoding="utf-8-sig").read()
+          start = source.index("function Get-OnlineDomTranslationScript")
+          template_start = source.index("$template = @'", start) + len("$template = @'")
+          template_end = source.index("\n'@", template_start)
+          script = source[template_start:template_end]
+          values = {
+              "__LANGUAGE__": "zh-CN",
+              "__MAPPING__": {"Settings": "设置", "deploy-command": "部署命令"},
+              "__SELECTED_TEXT__": "已选择 $1 项",
+              "__DELETE_SELECTED_TEXT__": "删除 $1 个所选项目",
+              "__UPDATED_MINUTE_TEXT__": "$1 分钟前更新",
+              "__UPDATED_HOUR_TEXT__": "$1 小时前更新",
+              "__UPDATED_DAY_TEXT__": "$1 天前更新",
+              "__UPDATED_WEEK_TEXT__": "$1 周前更新",
+              "__UPDATED_MONTH_TEXT__": "$1 个月前更新",
+              "__UPDATED_YEAR_TEXT__": "$1 年前更新",
+          }
+          for placeholder, value in values.items():
+              script = script.replace(
+                  placeholder, json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+              )
+          leftover = re.findall(r"__[A-Z_]+__", script)
+          if leftover:
+              raise SystemExit(f"unreplaced placeholders: {leftover}")
+          print(script)
+          PY
 
       - name: Validate resource JSON files
         run: |

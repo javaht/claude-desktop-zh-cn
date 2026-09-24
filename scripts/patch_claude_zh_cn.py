@@ -42,13 +42,7 @@ APP_ASAR_REL = Path("Contents/Resources/app.asar")
 FRONTEND_I18N_REL = Path("Contents/Resources/ion-dist/i18n")
 FRONTEND_ASSETS_REL = Path("Contents/Resources/ion-dist/assets/v1")
 DESKTOP_RESOURCES_REL = Path("Contents/Resources")
-ASAR_PATCH_TARGET = ".vite/build/index.js"
 ASAR_INTEGRITY_BLOCK_SIZE = 4 * 1024 * 1024
-ONLINE_LOCALE_PRELOAD_TARGETS = [
-    ".vite/build/mainView.js",
-    ".vite/build/mainWindow.js",
-]
-ONLINE_LOCALE_MARKER = "__claudeZhOnlineLocale"
 ONLINE_LOCALE_MAIN_MARKER = "__claudeZhOnlineLocaleMain"
 ONLINE_LOCALE_LOCK_MARKER = "__claudeZhLocaleLock"
 MENU_RUNTIME_MARKER = "__claudeZhMenuRuntimePatch"
@@ -493,50 +487,6 @@ def replace_asar_file_content(app: Path, file_path: str, patched_content: bytes)
     return True
 
 
-def strip_online_locale_injection(text: str) -> tuple[str, bool]:
-    pattern = re.compile(
-        rf';\(\(\)=>\{{const l="[^"]+".*?/\*{ONLINE_LOCALE_MARKER}\*/',
-        re.DOTALL,
-    )
-    patched, count = pattern.subn("", text)
-    return patched, count > 0
-
-
-def remove_online_locale_preload(content: bytes) -> tuple[bytes, bool]:
-    text = content.decode("utf-8")
-    text, had_existing = strip_online_locale_injection(text)
-    return text.encode("utf-8"), had_existing
-
-
-def patch_online_locale_preload(app: Path, lang_code: str) -> None:
-    path = app / APP_ASAR_REL
-    require_file(path)
-    data = path.read_bytes()
-    header_size, _header_string, header = read_asar_header(data, path)
-
-    removed_count = 0
-    for file_path in ONLINE_LOCALE_PRELOAD_TARGETS:
-        entry = get_asar_file_entry(header, file_path)
-        content_offset = 8 + header_size + int(entry["offset"])
-        content_size = int(entry["size"])
-        content_end = content_offset + content_size
-        if content_offset < 0 or content_end > len(data):
-            raise SystemExit(f"Unsupported app.asar file bounds for {file_path}.")
-
-        content = data[content_offset:content_end]
-        patched_content, changed = remove_online_locale_preload(content)
-        if changed:
-            if replace_asar_file_content(app, file_path, patched_content):
-                removed_count += 1
-            data = path.read_bytes()
-            header_size, _header_string, header = read_asar_header(data, path)
-
-    if removed_count:
-        print(f"Removed stale online claude.ai locale preload: {removed_count} files")
-    else:
-        print("Online claude.ai locale preload not present")
-
-
 def is_online_dom_translation_entry(source: str, target: str) -> bool:
     if not source or not target or source == target:
         return False
@@ -602,6 +552,18 @@ def build_online_dom_translation_script(lang_code: str, mapping: dict[str, str])
         added_month_text = "$1 个月前添加"
         added_year_text = "$1 年前添加"
         added_on_suffix = "添加"
+        legacy_memory_migration_text = "我们已迁移至新的记忆系统。如果你想导出旧版记忆，还剩 $1 天时间。"
+        legacy_memory_prefix_text = "我们已迁移至新的记忆系统。剩余 $1 天可"
+        past_hour_text = "过去 $1 小时"
+        past_day_text = "过去 $1 天"
+        past_week_text = "过去 $1 周"
+        past_month_text = "过去 $1 个月"
+        past_year_text = "过去 $1 年"
+        hide_sidebar_shortcut_text = "隐藏侧边栏 ⌘ B"
+        show_sidebar_shortcut_text = "显示侧边栏 ⌘ B"
+        delete_items_permanently_text = "$1 项内容将被永久删除。此操作无法撤消。"
+        delete_selected_title = "删除所选项？"
+        delete_chat_title = "删除聊天？"
     else:
         selected_text = "已選擇 $1 項"
         delete_selected_text = "刪除 $1 個所選項目"
@@ -627,11 +589,26 @@ def build_online_dom_translation_script(lang_code: str, mapping: dict[str, str])
         added_month_text = "$1 個月前新增"
         added_year_text = "$1 年前新增"
         added_on_suffix = "新增"
+        legacy_memory_migration_text = "我們已遷移至新的記憶系統。如果您想匯出舊版記憶，還剩 $1 天時間。"
+        legacy_memory_prefix_text = "我們已遷移至新的記憶系統。剩餘 $1 天可"
+        past_hour_text = "過去 $1 小時"
+        past_day_text = "過去 $1 天"
+        past_week_text = "過去 $1 週"
+        past_month_text = "過去 $1 個月"
+        past_year_text = "過去 $1 年"
+        hide_sidebar_shortcut_text = "隱藏側邊欄 ⌘ B"
+        show_sidebar_shortcut_text = "顯示側邊欄 ⌘ B"
+        delete_items_permanently_text = "$1 項內容將被永久刪除。此操作無法復原。"
+        delete_selected_title = "刪除所選項？"
+        delete_chat_title = "刪除聊天？"
     dynamic_rules = "".join((
+        f'[/^Delete selected\\?$/,"{delete_selected_title}"],'
+        f'[/^Delete chat\\?$/,"{delete_chat_title}"],'
         f'[/^(\\d+) selected$/,"{selected_text}"],'
         f'[/^Delete (\\d+) selected item$/,"{delete_selected_text}"],'
         f'[/^Delete (\\d+) selected items$/,"{delete_selected_text}"],'
         f'[/^Delete (\\d+) sessions?\\?$/,"{delete_sessions_text}"],'
+        f'[/^(\\d+) items? will be permanently deleted\\.\\s*This can(?:not|[’\\\']t) be undone\\.$/,"{delete_items_permanently_text}"],'
         f'[/^[“\\"](.+?)[”\\"] will be permanently deleted\\. This can[’\\\']t be undone\\.$/,"{delete_named_session_text}"],'
         f'[/^Archive selected task\\?$/,"{archive_selected_tasks_text}"],'
         f'[/^Archive selected tasks\\?$/,"{archive_selected_tasks_text}"],'
@@ -648,6 +625,18 @@ def build_online_dom_translation_script(lang_code: str, mapping: dict[str, str])
         '[/^Updated Jul (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"已更新 7月$1日"],[/^Updated Aug (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"已更新 8月$1日"],'
         '[/^Updated Sep (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"已更新 9月$1日"],[/^Updated Oct (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"已更新 10月$1日"],'
         '[/^Updated Nov (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"已更新 11月$1日"],[/^Updated Dec (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"已更新 12月$1日"],'
+        '[/^Jan (\\d\\d?), (\\d{4})$/,"$2年1月$1日"],[/^Jan (\\d\\d?)$/,"1月$1日"],'
+        '[/^Feb (\\d\\d?), (\\d{4})$/,"$2年2月$1日"],[/^Feb (\\d\\d?)$/,"2月$1日"],'
+        '[/^Mar (\\d\\d?), (\\d{4})$/,"$2年3月$1日"],[/^Mar (\\d\\d?)$/,"3月$1日"],'
+        '[/^Apr (\\d\\d?), (\\d{4})$/,"$2年4月$1日"],[/^Apr (\\d\\d?)$/,"4月$1日"],'
+        '[/^May (\\d\\d?), (\\d{4})$/,"$2年5月$1日"],[/^May (\\d\\d?)$/,"5月$1日"],'
+        '[/^Jun (\\d\\d?), (\\d{4})$/,"$2年6月$1日"],[/^Jun (\\d\\d?)$/,"6月$1日"],'
+        '[/^Jul (\\d\\d?), (\\d{4})$/,"$2年7月$1日"],[/^Jul (\\d\\d?)$/,"7月$1日"],'
+        '[/^Aug (\\d\\d?), (\\d{4})$/,"$2年8月$1日"],[/^Aug (\\d\\d?)$/,"8月$1日"],'
+        '[/^Sep (\\d\\d?), (\\d{4})$/,"$2年9月$1日"],[/^Sep (\\d\\d?)$/,"9月$1日"],'
+        '[/^Oct (\\d\\d?), (\\d{4})$/,"$2年10月$1日"],[/^Oct (\\d\\d?)$/,"10月$1日"],'
+        '[/^Nov (\\d\\d?), (\\d{4})$/,"$2年11月$1日"],[/^Nov (\\d\\d?)$/,"11月$1日"],'
+        '[/^Dec (\\d\\d?), (\\d{4})$/,"$2年12月$1日"],[/^Dec (\\d\\d?)$/,"12月$1日"],'
         f'[/^(\\d+)s ago$/,"{ago_second_text}"],'
         f'[/^(\\d+)m ago$/,"{ago_minute_text}"],'
         f'[/^(\\d+)h ago$/,"{ago_hour_text}"],'
@@ -666,7 +655,12 @@ def build_online_dom_translation_script(lang_code: str, mapping: dict[str, str])
         f'[/^added Sep (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"9月$1日{added_on_suffix}"],[/^added Oct (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"10月$1日{added_on_suffix}"],'
         f'[/^added Nov (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"11月$1日{added_on_suffix}"],[/^added Dec (\\d\\d?)(?:, \\d\\d\\d\\d)?$/,"12月$1日{added_on_suffix}"],'
         '[/^Mon$/,"周一"],[/^Tue$/,"周二"],[/^Wed$/,"周三"],[/^Thu$/,"周四"],'
-        '[/^Fri$/,"周五"],[/^Sat$/,"周六"],[/^Sun$/,"周日"]'
+        '[/^Fri$/,"周五"],[/^Sat$/,"周六"],[/^Sun$/,"周日"],'
+        f'[/^Past (\\d+) hours?$/,"{past_hour_text}"],'
+        f'[/^Past (\\d+) days?$/,"{past_day_text}"],'
+        f'[/^Past (\\d+) weeks?$/,"{past_week_text}"],'
+        f'[/^Past (\\d+) months?$/,"{past_month_text}"],'
+        f'[/^Past (\\d+) years?$/,"{past_year_text}"]'
     ))
     return (
         "(()=>{try{"
@@ -692,10 +686,14 @@ def build_online_dom_translation_script(lang_code: str, mapping: dict[str, str])
         '[/^Are you sure you want to permanently delete these chats\\? This cannot be undone\\.$/,"你确定要永久删除这些聊天吗？此操作无法撤消。"],'
         '[/^Archive (\\d+) task\\? You can find it in the Archived tab\\.$/,"要归档 $1 个任务吗？你可以在“已归档”标签页中找到它。"],'
         '[/^Archive (\\d+) tasks\\? You can find them in the Archived tab\\.$/,"要归档 $1 个任务吗？你可以在“已归档”标签页中找到它们。"],'
+        f'[/^We[’\']ve migrated to a new memory system\\. You have (\\d+) days? left if you[’\']d like to\\s*$/,"{legacy_memory_prefix_text}"],'
+        f'[/^We[’\']ve migrated to a new memory system\\. You have (\\d+) days? left if you[’\']d like to export legacy memory\\.?$/,"{legacy_memory_migration_text}"],'
+        f'[/^Hide sidebar\\s*(?:⌘|Ctrl\\+?)\\s*B$/i,"{hide_sidebar_shortcut_text}"],'
+        f'[/^Show sidebar\\s*(?:⌘|Ctrl\\+?)\\s*B$/i,"{show_sidebar_shortcut_text}"],'
         f'{dynamic_rules}];'
         'const R=s=>{const n=N(s);if(M[n])return M[n];for(const [r,t] of G){const m=n.match(r);'
         'if(m)return t.replace("$1",m[1])}};'
-        'const X=new Set(["SCRIPT","STYLE","NOSCRIPT"]),C="pre,code,kbd,samp,var,[data-language],[data-testid*=code],.cm-editor,.monaco-editor,.hljs",P=\'[data-testid="user-message"],.standard-markdown,.progressive-markdown,[data-testid="chat-input"],[data-testid="conway-composer-input"],[data-testid="conway-user-message"] .user-bubble,[data-testid="conway-output-cell"]\';'
+        'const X=new Set(["SCRIPT","STYLE","NOSCRIPT"]),C="pre,code,kbd,samp,var,[data-language],[data-testid*=code-block],[data-testid*=code-cell],[data-testid*=code-snippet],.cm-editor,.monaco-editor,.hljs",P=\'[data-testid="user-message"],.standard-markdown,.progressive-markdown,[data-testid="chat-input"],[data-testid="conway-composer-input"],[data-testid="conway-user-message"] .user-bubble,[data-testid="conway-output-cell"]\';'
         'const SL=/^\\/?[a-z][a-z0-9_]*(?:-[a-z0-9_]+)+(?:\\s*(?:Custom command|Slash command))?$/i;'
         # Stop climbing once an ancestor's text has whitespace it did not match on: an
         # ancestor's text only grows as we climb, so once it carries surrounding prose no
@@ -966,14 +964,6 @@ def find_main_process_asar_target(
             + ", ".join(matches)
         )
 
-    # Compatibility fallback for older Claude builds. The caller will still
-    # require the expected anchor, so this cannot silently report success.
-    try:
-        get_asar_file_entry(header, ASAR_PATCH_TARGET)
-    except SystemExit:
-        pass
-    else:
-        return ASAR_PATCH_TARGET
     raise SystemExit("Could not locate Claude's main-process app.asar bundle.")
 
 
@@ -1051,14 +1041,8 @@ def find_custom3p_validation_toggle(content: bytes, expr: bytes) -> re.Match[byt
 def find_custom3p_name_validator(content: bytes, *, patched: bool) -> re.Match[bytes] | None:
     patterns = [
         re.compile(
-        rb"function ([A-Za-z_$][A-Za-z0-9_$]*)\(([A-Za-z_$][A-Za-z0-9_$]*)\)"
-        rb"\{const ([A-Za-z_$][A-Za-z0-9_$]*)=\2\.toLowerCase\(\);return ([^{};]+)\}"
-        ),
-        # Claude 1.25927.0 moved this validator into lazy chunks and changed
-        # `const` to `let`; keep the same capture layout as the legacy form.
-        re.compile(
             rb"function ([A-Za-z_$][A-Za-z0-9_$]*)\(([A-Za-z_$][A-Za-z0-9_$]*)\)"
-            rb"\{let ([A-Za-z_$][A-Za-z0-9_$]*)=\2\.toLowerCase\(\);return ([^{};]+)\}"
+            rb"\{(?:let|const) ([A-Za-z_$][A-Za-z0-9_$]*)=\2\.toLowerCase\(\);return ([^{};]+)\}"
         ),
     ]
     matches: list[re.Match[bytes]] = []
@@ -3109,9 +3093,8 @@ def main() -> int:
     patch_hardcoded_frontend_strings(patched_app, lang_code)
     patch_language_display_names(patched_app)
     if args.skip_asar_patch:
-        print("Skipping online claude.ai locale preload patch (--skip-asar-patch)")
+        print("Skipping online claude.ai locale patch (--skip-asar-patch)")
     else:
-        patch_online_locale_preload(patched_app, lang_code)
         patch_online_locale_main_process(patched_app, lang_code)
     if args.skip_asar_patch:
         print("Applying length-preserving main-process menu label patch (--skip-asar-patch)")

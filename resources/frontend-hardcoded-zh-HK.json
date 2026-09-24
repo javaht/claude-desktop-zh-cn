@@ -249,7 +249,7 @@
   ],
   [
     "Delete selected",
-    "刪除所選"
+    "刪除所選項"
   ],
   [
     "Record Memory Trace (auto-stop)",
@@ -337,7 +337,7 @@
   ],
   [
     "Custom groups",
-    "自訂分組"
+    "自定義分組"
   ],
   [
     "title:F?\"Archive selected\"",
@@ -925,7 +925,7 @@
   ],
   [
     "Anthropic's guidelines",
-    "Anthropic 的指引"
+    "Anthropic 準則"
   ],
   [
     "e.g. when learning new concepts, I find analogies particularly helpful",
@@ -1109,7 +1109,7 @@
   ],
   [
     "Scheduled",
-    "排程任務"
+    "計劃任務"
   ],
   [
     "Allow Auto mode",
@@ -1161,7 +1161,7 @@
   ],
   [
     "Create with Claude",
-    "用 Claude 建立"
+    "用 Claude 創建"
   ],
   [
     "Set up manually",
@@ -1201,11 +1201,11 @@
   ],
   [
     "Transcript width",
-    "轉錄寬度"
+    "對話記錄寬度"
   ],
   [
     "Maximum width of the transcript and composer columns.",
-    "轉錄內容和輸入框欄位的最大寬度。"
+    "對話記錄與輸入欄位的最大寬度。"
   ],
   [
     "Narrow",
@@ -1285,7 +1285,7 @@
   ],
   [
     "Reduce animation in streaming responses and other interface elements.",
-    "減少串流回應和其他介面元素中的動畫。"
+    "減少流式響應和其他介面元素中的動畫。"
   ],
   [
     "When safety measures flag a message, automatically switch to a different model to keep chatting. When off, your chat will pause instead.",
@@ -1725,7 +1725,7 @@
   ],
   [
     "Auto-fix pull requests",
-    "自動修復拉取請求"
+    "自動修復 pull request"
   ],
   [
     "Notifications are turned off for Claude. Enable them in System Settings to get alerts when Claude finishes a task.",
@@ -1749,11 +1749,11 @@
   ],
   [
     "Automatically start Claude when you log in to your computer.",
-    "登入計算機時自動啟動 Claude。"
+    "登入電腦時自動啟動 Claude。"
   ],
   [
     "Message Claude from anywhere on your desktop.",
-    "從桌面上的任何位置向 Claude 發送消息。"
+    "從桌面上的任何位置向 Claude 發送訊息。"
   ],
   [
     "Speak to Claude from anywhere on your desktop.",
@@ -1761,11 +1761,11 @@
   ],
   [
     "Show Claude in the menu bar.",
-    "在菜單欄中顯示 Claude。"
+    "在選單欄中顯示 Claude。"
   ],
   [
     "Automatically archive desktop sessions when the associated pull request is merged or closed. Archiving also removes the session's worktree and deletes its branch once the pull request is merged. Work that isn't pushed is kept.",
-    "關聯的拉取請求合併或關閉後，自動歸檔桌面工作階段。歸檔還會移除該工作階段的工作樹，並在拉取請求合併後刪除其分支。未推送的工作會被保留。"
+    "當關聯的 pull request 合併或關閉時，自動封存桌面工作階段。封存還會移除工作階段的工作樹，並在 pull request 合併後刪除其分支。未推送的工作將被保留。"
   ],
   [
     "Automatically archive desktop sessions when the associated pull request is merged or closed. Archiving also removes the session\\u2019s worktree and deletes its branch once the pull request is merged. Work that isn\\u2019t pushed is kept.",
@@ -1773,11 +1773,11 @@
   ],
   [
     "Search skills and plugins",
-    "搜尋技能和插件"
+    "搜尋技能與插件"
   ],
   [
     "Add your first skills",
-    "新增你的第一批技能"
+    "添加你的第一批技能"
   ],
   [
     "Skills teach Claude how you work. Add them from Discover, or create your own.",
@@ -1789,7 +1789,7 @@
   ],
   [
     "Add your first plugins",
-    "新增你的第一批插件"
+    "添加你的第一批插件"
   ],
   [
     "Give Claude role-level expertise with plugins. Add them from Discover.",
@@ -1814,5 +1814,1093 @@
   [
     "From Anthropic",
     "來自 Anthropic"
+  ],
+  [
+    "Chinese (Mandarin)",
+    "中文（普通話）"
+  ],
+  [
+    "Normal",
+    "正常"
+  ],
+  [
+    "Theme",
+    "主題"
+  ],
+  [
+    "Chat font",
+    "聊天字體"
+  ],
+  [
+    "Voice",
+    "語音"
+  ],
+  [
+    "Style",
+    "風格"
+  ],
+  [
+    "Response completions",
+    "回覆完成"
+  ],
+  [
+    "What should Claude call you?",
+    "Claude 應該如何稱呼您？"
+  ],
+  [
+    "What best describes your work?",
+    "哪一項最符合您的工作？"
+  ],
+  [
+    "Claude will keep these in mind for this and any of your associated accounts across chats and Cowork within Anthropic's guidelines.",
+    "Claude 將在符合 Anthropic 準則的前提下，在聊天和 Cowork 中為當前及所有關聯帳戶記住這些內容。"
+  ],
+  [
+    "Claude will keep these in mind for this and any of your associated accounts across chats and Cowork within Anthropic’s guidelines.",
+    "Claude 將在符合 Anthropic 準則的前提下，在聊天和 Cowork 中為當前及所有關聯帳戶記住這些內容。"
+  ],
+  [
+    "Claude will keep these in mind for this and any of your associated accounts across chats and Cowork within ",
+    "Claude 將在符合 Anthropic 準則的前提下，在聊天和 Cowork 中為當前及所有關聯帳戶記住這些內容，但須遵守 "
+  ],
+  [
+    "Anthropic’s guidelines",
+    "Anthropic 準則"
+  ],
+  [
+    "Log out of all devices",
+    "從所有裝置登出"
+  ],
+  [
+    "Delete your account",
+    "刪除您的帳戶"
+  ],
+  [
+    "Delete account",
+    "刪除帳戶"
+  ],
+  [
+    "Anthropic believes in transparent data practices.",
+    "Anthropic 堅持透明的資料處理原則。"
+  ],
+  [
+    "Anthropic believes in transparent data practices",
+    "Anthropic 堅持透明的資料處理原則"
+  ],
+  [
+    "Privacy Center",
+    "隱私中心"
+  ],
+  [
+    "How we protect your data",
+    "我們如何保護您的資料"
+  ],
+  [
+    "How we use your data",
+    "我們如何使用您的資料"
+  ],
+  [
+    "Preferences",
+    "偏好設定"
+  ],
+  [
+    "Location metadata",
+    "位置元數據"
+  ],
+  [
+    "Your data",
+    "您的資料"
+  ],
+  [
+    "Export data",
+    "匯出數據"
+  ],
+  [
+    "Shared chats",
+    "已分享的聊天"
+  ],
+  [
+    "Shared artifacts",
+    "已分享的 Artifacts"
+  ],
+  [
+    "Uploaded files",
+    "已上傳的檔案"
+  ],
+  [
+    "Your feedback",
+    "您的意見反映"
+  ],
+  [
+    "Upgrade plan",
+    "升級計劃"
+  ],
+  [
+    "Chat on web, iOS, Android, and on your desktop",
+    "在網頁版、iOS、Android 以及桌面版上聊天"
+  ],
+  [
+    "Generate code and visualize data",
+    "生成代碼並視覺化數據"
+  ],
+  [
+    "Write, edit, and create content",
+    "撰寫、編輯並建立內容"
+  ],
+  [
+    "Ability to search the web",
+    "具備網絡搜尋能力"
+  ],
+  [
+    "Memory across conversations",
+    "跨對話記憶能力"
+  ],
+  [
+    "Create files and execute code",
+    "建立檔案並執行代碼"
+  ],
+  [
+    "Unlock more from Claude with desktop extensions",
+    "透過桌面擴展解鎖 Claude 的更多功能"
+  ],
+  [
+    "Connect Slack and Google Workspace services",
+    "連接 Slack 和 Google Workspace 服務"
+  ],
+  [
+    "Integrate any context or tool through connectors with remote MCP",
+    "透過遠程 MCP 連接器整合任何上下文或工具"
+  ],
+  [
+    "Extended thinking for complex work",
+    "用於複雜任務的延伸思考"
+  ],
+  [
+    "Invoices",
+    "發票"
+  ],
+  [
+    "Connector search",
+    "連接器搜尋"
+  ],
+  [
+    "Switch models when a message is flagged",
+    "當訊息被標記時切換模型"
+  ],
+  [
+    "When safeguards flag a message, automatically switch to a different model to keep chatting. When off, your chat will pause instead.",
+    "當安全防護機制標記訊息時，自動切換至其他模型以繼續聊天。關閉時，聊天將會暫停。"
+  ],
+  [
+    "Generate code, documents, and designs in a dedicated window alongside your conversation.",
+    "在對話旁的專屬窗口中生成代碼、文檔與設計。"
+  ],
+  [
+    "AI-powered artifacts",
+    "AI 驅動的 Artifacts"
+  ],
+  [
+    "Build apps and interactive documents that use Claude inside the artifact.",
+    "構建在 Artifact 內部使用 Claude 的應用程序和交互式文檔。"
+  ],
+  [
+    "Inline visualizations",
+    "行內視覺化"
+  ],
+  [
+    "Allow Claude to generate interactive visualizations, charts, and diagrams directly in the conversation.",
+    "允許 Claude 直接在對話中生成交互式視覺化、圖表和示意圖。"
+  ],
+  [
+    "Claude can execute code and create and edit docs, spreadsheets, presentations, PDFs, and data reports. Required for skills.",
+    "Claude 可以執行代碼，並建立和編輯文檔、電子表格、簡報、PDF 以及數據報告。使用技能所必需。"
+  ],
+  [
+    "Allow network egress",
+    "允許網絡出站訪問"
+  ],
+  [
+    "Tool access mode",
+    "工具訪問模式"
+  ],
+  [
+    "Load tools when needed",
+    "需要時加載工具"
+  ],
+  [
+    "Generate memory from chats",
+    "從聊天中生成記憶"
+  ],
+  [
+    "Allow Claude to generate memory from your chats.",
+    "允許 Claude 從您的聊天中生成記憶。"
+  ],
+  [
+    "Allow Claude to generate memory from your chats",
+    "允許 Claude 從您的聊天中生成記憶"
+  ],
+  [
+    "Include sensitive topics in memory",
+    "在記憶中包含敏感主題"
+  ],
+  [
+    "Allow Claude to save details about sensitive topics like health conditions or religious beliefs to memory.",
+    "允許 Claude 將健康狀況或宗教信仰等敏感主題的詳細資訊保存到記憶中。"
+  ],
+  [
+    "Allow Claude to save details about sensitive topics like health conditions or religious beliefs to memory",
+    "允許 Claude 將健康狀況或宗教信仰等敏感主題的詳細資訊保存到記憶中"
+  ],
+  [
+    "export legacy memory",
+    "匯出舊版記憶"
+  ],
+  [
+    "Who the user is — identity and stable context",
+    "使用者是誰 —— 身分與穩定的上下文"
+  ],
+  [
+    "Travel",
+    "旅遊"
+  ],
+  [
+    "Travel interests and plans",
+    "旅遊興趣與計劃"
+  ],
+  [
+    "General",
+    "一般"
+  ],
+  [
+    "Classify session states",
+    "分類工作階段狀態"
+  ],
+  [
+    "Allow Claude to automatically classify sessions as blocked, ready for review, or done. Classifying sessions counts towards your plan usage. Applies to new sessions.",
+    "允許 Claude 自動將工作階段分類為已阻止、待審查或已完成。分類工作階段會計入您的方案用量。適用於新工作階段。"
+  ],
+  [
+    "When safeguards flag a message, automatically switch to a different model to keep chatting. When off, your session will pause instead. Applies to cloud sessions.",
+    "當安全防護機制標記訊息時，自動切換至其他模型以繼續聊天。關閉时，工作階段將會暫停。適用於雲端工作階段。"
+  ],
+  [
+    "Code appearance",
+    "代碼外觀"
+  ],
+  [
+    "Claude Light",
+    "Claude 淺色"
+  ],
+  [
+    "Claude Dark",
+    "Claude 深色"
+  ],
+  [
+    "Light code theme",
+    "淺色代碼主題"
+  ],
+  [
+    "Dark code theme",
+    "深色代碼主題"
+  ],
+  [
+    "Code font",
+    "代碼字體"
+  ],
+  [
+    "Set a custom monospace font for code and terminal.",
+    "為代碼和終端機設定自訂等寬字體。"
+  ],
+  [
+    "e.g. JetBrains Mono",
+    "例如 JetBrains Mono"
+  ],
+  [
+    "e.g. OpenDyslexic Mono",
+    "例如 OpenDyslexic Mono"
+  ],
+  [
+    "Code font family",
+    "代碼字型系列"
+  ],
+  [
+    "Appearance",
+    "外觀"
+  ],
+  [
+    "Interface font",
+    "介面字體"
+  ],
+  [
+    "Font for the whole interface — menus, sidebars, and panels.",
+    "整個介面的字體 —— 包括選單、側邊欄和面板。"
+  ],
+  [
+    "Font licenses",
+    "字型授權"
+  ],
+  [
+    "Transcript text size",
+    "對話記錄文字大小"
+  ],
+  [
+    "Size of the conversation transcript text.",
+    "對話記錄文字的大小。"
+  ],
+  [
+    "Small",
+    "小"
+  ],
+  [
+    "Medium",
+    "中"
+  ],
+  [
+    "Large",
+    "大"
+  ],
+  [
+    "Default transcript view",
+    "預設對話記錄檢視"
+  ],
+  [
+    "The view sessions open in. Picking a view from a session’s Transcript view menu changes only that session.",
+    "工作階段開啟時的檢視模式。從工作階段的「對話記錄檢視」選單中選擇檢視模式只會變更該工作階段。"
+  ],
+  [
+    "The view sessions open in. Picking a view from a session's Transcript view menu changes only that session.",
+    "工作階段開啟時的檢視模式。從工作階段的「對話記錄檢視」選單中選擇檢視模式只會變更該工作階段。"
+  ],
+  [
+    "Thinking",
+    "思考"
+  ],
+  [
+    "Verbose",
+    "詳細"
+  ],
+  [
+    "Mobile simulators",
+    "流動裝置模擬器"
+  ],
+  [
+    "iOS Simulator",
+    "iOS 模擬器"
+  ],
+  [
+    "Let Claude verify your changes in the iOS Simulator on this Mac: running your app, driving it through flows, and capturing screenshots and recordings. You will be asked before Claude uses each device. When off, Claude doesn’t get its simulator tools, and you can still use the simulator in the app yourself.",
+    "允許 Claude 在此 Mac 上的 iOS 模擬器中驗證您的變更：執行應用程式、引導操作流程並擷取螢幕截圖與錄影。Claude 在使用每台裝置前都會先詢問您。關閉時，Claude 將無法取得模擬器工具，您仍可在應用程式中自行使用模擬器。"
+  ],
+  [
+    "Let Claude verify your changes in the iOS Simulator on this Mac: running your app, driving it through flows, and capturing screenshots and recordings. You will be asked before Claude uses each device. When off, Claude doesn't get its simulator tools, and you can still use the simulator in the app yourself.",
+    "允許 Claude 在此 Mac 上的 iOS 模擬器中驗證您的變更：執行應用程式、引導操作流程並擷取螢幕截圖與錄影。Claude 在使用每台裝置前都會先詢問您。關閉時，Claude 將無法取得模擬器工具，您仍可在應用程式中自行使用模擬器。"
+  ],
+  [
+    "Pull requests",
+    "拉取請求"
+  ],
+  [
+    "Branch prefix",
+    "分支前綴"
+  ],
+  [
+    "Prefix added to branch names for both local and cloud sessions.",
+    "為本機和雲端工作階段新增至分支名稱的前綴。"
+  ],
+  [
+    "Create pull requests automatically",
+    "自動建立 Pull Request"
+  ],
+  [
+    "When Claude pushes changes to a branch, it automatically opens a pull request without asking first. Applies to cloud sessions only.",
+    "當 Claude 將變更推送至分支時，無需先詢問即可自動開啟 pull request。僅適用於雲端工作階段。"
+  ],
+  [
+    "When you create a pull request, Claude automatically monitors it for CI failures and review comments, then responds proactively. Claude may post comments on your behalf.",
+    "當您建立 pull request 時，Claude 會自動監控 CI 失敗和審查評論，並積極回應。Claude 可能會代表您發表評論。"
+  ],
+  [
+    "Auto-archive after PR merge or close",
+    "PR 合併或關閉後自動封存"
+  ],
+  [
+    "Automatically archive desktop sessions when the associated pull request is merged or closed. Archiving also removes the session’s worktree and deletes its branch once the pull request is merged. Work that isn’t pushed is kept.",
+    "當關聯的 pull request 合併或關閉時，自動封存桌面工作階段。封存還會移除工作階段的工作樹，並在 pull request 合併後刪除其分支。未推送的工作將被保留。"
+  ],
+  [
+    "Authorization tokens",
+    "授權權杖"
+  ],
+  [
+    "Created when you sign in to Claude Code. Revoke a token to sign out from that device.",
+    "在登入 Claude Code 時建立。撤銷權杖以從該裝置登出。"
+  ],
+  [
+    "Application",
+    "應用程式"
+  ],
+  [
+    "Scopes",
+    "權限範圍"
+  ],
+  [
+    "No connected Claude Code instances",
+    "沒有已連線的 Claude Code 實例"
+  ],
+  [
+    "When you sign in to Claude Code, your authorization tokens will appear here.",
+    "當您登入 Claude Code 時，您的授權權杖將顯示在此處。"
+  ],
+  [
+    "Desktop app version",
+    "桌面應用程式版本"
+  ],
+  [
+    "Dictation shortcut",
+    "聽寫快捷鍵"
+  ],
+  [
+    "Start or stop dictation in the chat you’re typing in.",
+    "在目前正在輸入的聊天中開始或停止聽寫。"
+  ],
+  [
+    "Start or stop dictation in the chat you're typing in.",
+    "在目前正在輸入的聊天中開始或停止聽寫。"
+  ],
+  [
+    "Yours",
+    "我的"
+  ],
+  [
+    "Discover skills",
+    "探索技能"
+  ],
+  [
+    "From Anthropic & Partners",
+    "來自 Anthropic 及合作夥伴"
+  ],
+  [
+    "English",
+    "英文"
+  ],
+  [
+    "English (India)",
+    "英文（印度）"
+  ],
+  [
+    "English (United Kingdom)",
+    "英文（英國）"
+  ],
+  [
+    "Cantonese",
+    "粵語"
+  ],
+  [
+    "French",
+    "法文"
+  ],
+  [
+    "French (Canada)",
+    "法文（加拿大）"
+  ],
+  [
+    "German",
+    "德文"
+  ],
+  [
+    "German (Austria)",
+    "德文（奧地利）"
+  ],
+  [
+    "Hindi",
+    "印地語"
+  ],
+  [
+    "Italian",
+    "意大利語"
+  ],
+  [
+    "Japanese",
+    "日文"
+  ],
+  [
+    "Korean",
+    "韓文"
+  ],
+  [
+    "Portuguese",
+    "葡萄牙文"
+  ],
+  [
+    "Portuguese (Brazil)",
+    "葡萄牙文（巴西）"
+  ],
+  [
+    "Portuguese (Portugal)",
+    "葡萄牙文（葡萄牙）"
+  ],
+  [
+    "Russian",
+    "俄文"
+  ],
+  [
+    "Spanish",
+    "西班牙文"
+  ],
+  [
+    "Spanish (Latin America)",
+    "西班牙文（拉丁美洲）"
+  ],
+  [
+    "Turkish",
+    "土耳其語"
+  ],
+  [
+    "Arabic",
+    "阿拉伯語"
+  ],
+  [
+    "Dutch",
+    "荷蘭語"
+  ],
+  [
+    "Polish",
+    "波蘭語"
+  ],
+  [
+    "Swedish",
+    "瑞典語"
+  ],
+  [
+    "Danish",
+    "丹麥語"
+  ],
+  [
+    "Finnish",
+    "芬蘭語"
+  ],
+  [
+    "Norwegian",
+    "挪威語"
+  ],
+  [
+    "Vietnamese",
+    "越南語"
+  ],
+  [
+    "Thai",
+    "泰語"
+  ],
+  [
+    "Indonesian",
+    "印尼語"
+  ],
+  [
+    "Ukrainian",
+    "烏克蘭語"
+  ],
+  [
+    "Organization ID",
+    "組織 ID"
+  ],
+  [
+    "Claude will keep these in mind for this and any of your associated accounts across chats and Cowork within",
+    "Claude 將在符合 Anthropic 準則的前提下，在聊天和 Cowork 中為當前及所有關聯帳戶記住這些內容，但須遵守"
+  ],
+  [
+    "Chats compact less since tools aren't pre-loaded.",
+    "由於未預先加載工具，聊天內容壓縮得較少。"
+  ],
+  [
+    "Chats compact less since tools aren’t pre-loaded.",
+    "由於未預先加載工具，聊天內容壓縮得較少。"
+  ],
+  [
+    "Permanently delete Anthropic’s server-side copies of your Claude Code sessions. Sessions stored locally on your computer aren’t affected. Cloud sessions are managed separately. Go to",
+    "永久刪除 Anthropic 在伺服器端儲存的 Claude Code 工作階段複本。儲存在本機電腦上的工作階段不受影響。雲端工作階段另外管理。前往"
+  ],
+  [
+    "Permanently delete Anthropic's server-side copies of your Claude Code sessions. Sessions stored locally on your computer aren't affected. Cloud sessions are managed separately. Go to",
+    "永久刪除 Anthropic 在伺服器端儲存的 Claude Code 工作階段複本。儲存在本機電腦上的工作階段不受影響。雲端工作階段另外管理。前往"
+  ],
+  [
+    "Permanently delete Anthropic’s server-side copies of your Claude Code sessions. Sessions stored locally on your computer aren’t affected. Cloud sessions are managed separately. Go to ",
+    "永久刪除 Anthropic 在伺服器端儲存的 Claude Code 工作階段複本。儲存在本機電腦上的工作階段不受影響。雲端工作階段另外管理。前往 "
+  ],
+  [
+    "Permanently delete Anthropic's server-side copies of your Claude Code sessions. Sessions stored locally on your computer aren't affected. Cloud sessions are managed separately. Go to ",
+    "永久刪除 Anthropic 在伺服器端儲存的 Claude Code 工作階段複本。儲存在本機電腦上的工作階段不受影響。雲端工作階段另外管理。前往 "
+  ],
+  [
+    "Upload skill",
+    "上傳技能"
+  ],
+  [
+    "Create a skill",
+    "創建技能"
+  ],
+  [
+    "Discover plugins",
+    "探索插件"
+  ],
+  [
+    "Discover connectors",
+    "探索連接器"
+  ],
+  [
+    "Past 3 months",
+    "過去 3 個月"
+  ],
+  [
+    "Past 6 months",
+    "過去 6 個月"
+  ],
+  [
+    "Past 7 days",
+    "過去 7 天"
+  ],
+  [
+    "Past 14 days",
+    "過去 14 天"
+  ],
+  [
+    "Past 30 days",
+    "過去 30 天"
+  ],
+  [
+    "Past 90 days",
+    "過去 90 天"
+  ],
+  [
+    "Past 24 hours",
+    "過去 24 小時"
+  ],
+  [
+    "Chats and tasks",
+    "聊天與任務"
+  ],
+  [
+    "Last activity",
+    "最近活動"
+  ],
+  [
+    "Group by",
+    "分組方式"
+  ],
+  [
+    "Sort by",
+    "排序方式"
+  ],
+  [
+    "Date created",
+    "建立日期"
+  ],
+  [
+    "New project",
+    "新建項目"
+  ],
+  [
+    "Looking to start a project?",
+    "想要開始一個項目？"
+  ],
+  [
+    "Upload materials, set custom instructions, and organize conversations in one space.",
+    "上傳材料、設定自訂指令，並在同一個空間中整理對話。"
+  ],
+  [
+    "Last updated",
+    "最近更新"
+  ],
+  [
+    "Group by type",
+    "按類型分組"
+  ],
+  [
+    "Create a project",
+    "創建項目"
+  ],
+  [
+    "What are you working on?",
+    "你正在做什麼？"
+  ],
+  [
+    "Name your project",
+    "輸入項目名稱"
+  ],
+  [
+    "What are you trying to achieve?",
+    "你想要達成什麼目標？"
+  ],
+  [
+    "Describe your project, goals, subject, etc...",
+    "描述你的項目、目標、主題等..."
+  ],
+  [
+    "Use a folder",
+    "使用資料夾"
+  ],
+  [
+    "Open in new window",
+    "在開新視窗中開啟"
+  ],
+  [
+    "Add to project",
+    "添加到項目"
+  ],
+  [
+    "New group...",
+    "新建分組..."
+  ],
+  [
+    "New group",
+    "新建分組"
+  ],
+  [
+    "Create a plugin",
+    "創建插件"
+  ],
+  [
+    "Unread",
+    "未讀"
+  ],
+  [
+    "State",
+    "狀態"
+  ],
+  [
+    "Hide sidebar",
+    "隱藏側邊欄"
+  ],
+  [
+    "Show sidebar",
+    "顯示側邊欄"
+  ],
+  [
+    "Hide sidebar ⌘ B",
+    "隱藏側邊欄 ⌘ B"
+  ],
+  [
+    "Show sidebar ⌘ B",
+    "顯示側邊欄 ⌘ B"
+  ],
+  [
+    "Hide sidebar ⌘B",
+    "隱藏側邊欄 ⌘B"
+  ],
+  [
+    "Show sidebar ⌘B",
+    "顯示側邊栏 ⌘B"
+  ],
+  [
+    "Hide sidebar Ctrl+B",
+    "隱藏側邊欄 Ctrl+B"
+  ],
+  [
+    "Show sidebar Ctrl+B",
+    "顯示側邊欄 Ctrl+B"
+  ],
+  [
+    "Get help",
+    "獲取幫助"
+  ],
+  [
+    "Get apps and extensions",
+    "獲取應用程式與擴展"
+  ],
+  [
+    "Filter and group recents",
+    "篩選並分組最近項目"
+  ],
+  [
+    "Search or create a project",
+    "搜尋或創建項目"
+  ],
+  [
+    "No projects yet",
+    "暫無項目"
+  ],
+  [
+    "New group…",
+    "新建分組…"
+  ],
+  [
+    "Delete chat?",
+    "刪除聊天？"
+  ],
+  [
+    "Delete chat",
+    "刪除聊天"
+  ],
+  [
+    "Search your activity",
+    "搜尋你的活动"
+  ],
+  [
+    "Delete selected?",
+    "刪除所選項？"
+  ],
+  [
+    "1 item will be permanently deleted. This cannot be undone.",
+    "1 項內容將被永久刪除。此操作無法復原。"
+  ],
+  [
+    "1 item will be permanently deleted. This can't be undone.",
+    "1 項內容將被永久刪除。此操作無法復原。"
+  ],
+  [
+    "1 item will be permanently deleted. This can’t be undone.",
+    "1 項內容將被永久刪除。此操作無法復原。"
+  ],
+  [
+    "Add",
+    "添加"
+  ],
+  [
+    "Sort · Last edited",
+    "排序 · 最近編輯"
+  ],
+  [
+    "Last edited",
+    "最近編輯"
+  ],
+  [
+    "Sort ·",
+    "排序 ·"
+  ],
+  [
+    "Sort · ",
+    "排序 · "
+  ],
+  [
+    "All plugins",
+    "全部插件"
+  ],
+  [
+    "Add your first connectors",
+    "添加你的第一批連接器"
+  ],
+  [
+    "Connectors let Claude work with your team’s tools and data.",
+    "連接器可讓 Claude 與你的團隊的工具和數據協同工作。"
+  ],
+  [
+    "Connectors let Claude work with your team's tools and data.",
+    "連接器可讓 Claude 與你的團隊的工具和數據協同工作。"
+  ],
+  [
+    "Skills teach Claude how you work.",
+    "技能教會 Claude 你的工作方式。"
+  ],
+  [
+    "Import",
+    "匯入"
+  ],
+  [
+    "Import isn’t enabled for this deployment. Contact your organization’s administrator to turn it on.",
+    "當前部署未啟用匯入功能。請聯絡你的組織管理員將其開啟。"
+  ],
+  [
+    "Import isn't enabled for this deployment. Contact your organization's administrator to turn it on.",
+    "當前部署未啟用匯入功能。請聯絡你的組織管理員將其開啟。"
+  ],
+  [
+    "Import & export",
+    "匯入與匯出"
+  ],
+  [
+    "Claude will keep these in mind for this and any of your associated accounts across Cowork tasks within Anthropic’s guidelines. Learn more",
+    "Claude 將在符合 Anthropic 準則的前提下，在 Cowork 任務中為當前及所有關聯帳戶記住這些內容。了解更多"
+  ],
+  [
+    "Claude will keep these in mind for this and any of your associated accounts across Cowork tasks within Anthropic's guidelines. Learn more",
+    "Claude 將在符合 Anthropic 準則的前提下，在 Cowork 任務中為當前及所有關聯帳戶記住 these 内容。了解更多"
+  ],
+  [
+    "Claude will keep these in mind for this and any of your associated accounts across Cowork tasks within Anthropic’s guidelines.",
+    "Claude 將在符合 Anthropic 準則的前提下，在 Cowork 任務中為當前及所有關聯帳戶記住這些內容。"
+  ],
+  [
+    "Claude will keep these in mind for this and any of your associated accounts across Cowork tasks within Anthropic's guidelines.",
+    "Claude 將在符合 Anthropic 準則的前提下，在 Cowork 任務中為當前及所有關聯帳戶記住這些內容。"
+  ],
+  [
+    "Claude will keep these in mind for this and any of your associated accounts across Cowork tasks within",
+    "Claude 將在符合 Anthropic 準則的前提下，在 Cowork 任務中為當前及所有關聯帳戶記住這些內容，但須遵守"
+  ],
+  [
+    "Claude will keep these in mind for this and any of your associated accounts across Cowork tasks within ",
+    "Claude 將在符合 Anthropic 準則的前提下，在 Cowork 任務中為當前及所有關聯帳戶記住這些內容，但須遵守 "
+  ],
+  [
+    "Learn more",
+    "了解更多"
+  ],
+  [
+    "Memory",
+    "記憶"
+  ],
+  [
+    "Settings",
+    "設定"
+  ],
+  [
+    "Keep computer awake while Claude works",
+    "Claude 工作時保持電腦處於喚醒狀態"
+  ],
+  [
+    "Prevent your computer from sleeping while a Code session is running, so long tasks can finish. Your display can still turn off. Closing the laptop lid will still put it to sleep.",
+    "在 Code 工作階段運行時防止電腦進入睡眠狀態，以便長時間任務能夠完成。顯示器仍可關閉。合上手提電腦蓋子仍會進入睡眠。"
+  ],
+  [
+    "Keep awake on battery power",
+    "使用電池電源時保持喚醒"
+  ],
+  [
+    "Archive inactive sessions",
+    "封存不活動的工作階段"
+  ],
+  [
+    "Automatically archive local sessions after a period of no activity. Sessions that are running or have background work are never archived, and a worktree with uncommitted changes is kept on disk.",
+    "在一段時間無活動後自動封存本機工作階段。正在運行或有後台工作的工作階段絕不會被封存，包含未提交更改的工作樹將保留在磁碟上。"
+  ],
+  [
+    "Inside project",
+    "項目內部"
+  ],
+  [
+    "Where to store Git worktrees for isolated coding sessions.",
+    "用於存放隔離編碼工作階段的 Git 工作樹的位置。"
+  ],
+  [
+    "Output style",
+    "輸出風格"
+  ],
+  [
+    "Default",
+    "預設"
+  ],
+  [
+    "How Claude structures its responses in Code sessions. Applies to new sessions; the session menu can override it for a single session.",
+    "Claude 在 Code 工作階段中組織其回覆的方式。適用於新工作階段；工作階段選單可針對單一工作階段進行覆寫。"
+  ],
+  [
+    "Local sandbox",
+    "本地沙箱"
+  ],
+  [
+    "Runs commands from Claude Code in an isolated sandbox. Applies to new sessions.",
+    "在隔離的沙箱中運行 Claude Code 的命令。適用於新工作階段。"
+  ],
+  [
+    "Strict sandbox mode",
+    "嚴格沙箱模式"
+  ],
+  [
+    "Blocks commands that can't run inside the sandbox (ssh, for example) instead of running them outside it or asking you. Applies to every Claude Code session on this computer, including the terminal, unless a project's own settings override it.",
+    "阻止無法在沙箱內運行的命令（例如 ssh），而不是在沙箱外運行或詢問你。適用於此電腦上的所有 Claude Code 工作階段（包括終端機），除非項目本身的設定進行了覆寫。"
+  ],
+  [
+    "Blocks commands that can’t run inside the sandbox (ssh, for example) instead of running them outside it or asking you. Applies to every Claude Code session on this computer, including the terminal, unless a project’s own settings override it.",
+    "阻止無法在沙箱內運行的命令（例如 ssh），而不是在沙箱外運行或詢問你。適用於此電腦上的所有 Claude Code 工作階段（包括終端機），除非項目本身的設定進行了覆寫。"
+  ],
+  [
+    "Browser tools",
+    "瀏覽器工具"
+  ],
+  [
+    "Keep cookies",
+    "保留 Cookie"
+  ],
+  [
+    "Until quit",
+    "直到退出"
+  ],
+  [
+    "Save cookies, local storage, and login sessions for Browser tabs across app restarts. Shared uses the same data for every session in a project. Per session gives each session its own copy, so sessions never see each other's logins.",
+    "跨應用程式重啟保存瀏覽器分頁的 Cookie、本地儲存和登入工作階段。「共享」在項目的每個工作階段中使用相同的數據。「每工作階段」讓每個工作階段擁有自己的獨立副本，因此各工作階段絕不會看到彼此的登入資訊。"
+  ],
+  [
+    "Save cookies, local storage, and login sessions for Browser tabs across app restarts. Shared uses the same data for every session in a project. Per session gives each session its own copy, so sessions never see each other’s logins.",
+    "跨應用程式重啟保存瀏覽器分頁的 Cookie、本地儲存和登入工作階段。「共享」在項目的每個工作階段中使用相同的數據。「每工作階段」讓每個工作階段擁有自己的獨立副本，因此各工作階段絕不会看到彼此的登入資訊。"
+  ],
+  [
+    "Show empty groups",
+    "顯示空分組"
+  ],
+  [
+    "Show PR status",
+    "顯示 PR 狀態"
+  ],
+  [
+    "Edit sidebar...",
+    "編輯側邊欄..."
+  ],
+  [
+    "Edit sidebar…",
+    "編輯側邊欄…"
+  ],
+  [
+    "Edit sidebar",
+    "編輯側邊欄"
+  ],
+  [
+    "Pin",
+    "固定"
+  ],
+  [
+    "Rename",
+    "重新命名"
+  ],
+  [
+    "Archive",
+    "封存"
+  ],
+  [
+    "Engineering",
+    "工程"
+  ],
+  [
+    "Human resources",
+    "人力資源"
+  ],
+  [
+    "Operations",
+    "營運"
+  ],
+  [
+    "Software engineer",
+    "軟件工程師"
+  ],
+  [
+    "Other",
+    "其他"
+  ],
+  [
+    "Claude will keep these in mind for this and any of your associated accounts across chats and Cowork within Anthropic’s guidelines. Learn more",
+    "Claude 將在符合 Anthropic 準則的前提下，在聊天和 Cowork 中為當前及所有關聯帳戶記住這些內容。了解更多"
+  ],
+  [
+    "Claude will keep these in mind for this and any of your associated accounts across chats and Cowork within Anthropic's guidelines. Learn more",
+    "Claude 將在符合 Anthropic 準則的前提下，在聊天和 Cowork 中為當前及所有關聯帳戶記住這些內容。了解更多"
+  ],
+  [
+    "Give Claude role-level expertise with plugins.",
+    "透過插件賦予 Claude 角色級專長。"
+  ],
+  [
+    "Instructions",
+    "項目指令"
+  ],
+  [
+    "Round up the AI news I should know about, in five bullets.",
+    "用五個要點總結我應該了解的 AI 新聞。"
+  ],
+  [
+    "Work in a folder",
+    "在資料夾中工作"
+  ],
+  [
+    "Manual",
+    "手動"
   ]
 ]

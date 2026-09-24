@@ -89,6 +89,18 @@ def materialize_windows_dom_script(template: str) -> str:
         "__ADDED_WEEK__": "$1 周前添加",
         "__ADDED_MONTH__": "$1 个月前添加",
         "__ADDED_YEAR__": "$1 年前添加",
+        "__LEGACY_MEMORY_MIGRATION_TEXT__": "我们已迁移至新的记忆系统。如果你想导出旧版记忆，还剩 $1 天时间。",
+        "__LEGACY_MEMORY_PREFIX_TEXT__": "我们已迁移至新的记忆系统。剩余 $1 天可",
+        "__PAST_HOUR__": "过去 $1 小时",
+        "__PAST_DAY__": "过去 $1 天",
+        "__PAST_WEEK__": "过去 $1 周",
+        "__PAST_MONTH__": "过去 $1 个月",
+        "__PAST_YEAR__": "过去 $1 年",
+        "__HIDE_SIDEBAR__": "隐藏侧边栏 ⌘ B",
+        "__SHOW_SIDEBAR__": "显示侧边栏 ⌘ B",
+        "__DELETE_ITEMS_PERMANENTLY__": "$1 项内容将被永久删除。此操作无法撤消。",
+        "__DELETE_SELECTED_TITLE__": "删除所选项？",
+        "__DELETE_CHAT_TITLE__": "删除聊天？",
     }
     script = template
     for placeholder, value in values.items():
@@ -371,7 +383,7 @@ class DomTranslationGuardTests(unittest.TestCase):
         )
 
         self.assertIn("pre,code,kbd,samp,var", script)
-        self.assertIn("[data-testid*=code]", script)
+        self.assertIn("[data-testid*=code-block]", script)
         self.assertIn(".cm-editor,.monaco-editor,.hljs", script)
         self.assertIn("Custom command|Slash command", script)
 

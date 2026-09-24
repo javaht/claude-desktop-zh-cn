@@ -23,7 +23,6 @@ $ErrorActionPreference = "Stop"
 $Utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 $BaseLanguageList = '["en-US","de-DE","fr-FR","ko-KR","ja-JP","es-419","es-ES","it-IT","hi-IN","pt-BR","id-ID"'
 $LanguageListPattern = [System.Text.RegularExpressions.Regex]::Escape($BaseLanguageList) + '(?:(?:,"zh-CN")|(?:,"zh-TW")|(?:,"zh-HK"))*\]'
-$AsarPatchTargetFallback = ".vite/build/index.js"
 $AsarIntegrityBlockSize = 4 * 1024 * 1024
 $OnlineLocaleMainMarker = "__claudeZhOnlineLocaleMain"
 $OnlineLocaleLockMarker = "__claudeZhLocaleLock"
@@ -1534,17 +1533,55 @@ function Get-OnlineDomTranslationScript {
         $addedOnLabel = ('' + ($i + 1) + '月$1日') + $addedOnSuffix
         '[/^added ' + $addedMonthNames[$i] + ' (\d\d?)(?:, \d\d\d\d)?$/,' + ($addedOnLabel | ConvertTo-Json -Compress) + ']'
     }
+    $monthDayRuleParts = for ($i = 0; $i -lt 12; $i++) {
+        $mNum = $i + 1
+        '[/^' + $addedMonthNames[$i] + ' (\d\d?), (\d{4})$/,"$2年' + $mNum + '月$1日"],[/^' + $addedMonthNames[$i] + ' (\d\d?)$/,"' + $mNum + '月$1日"]'
+    }
+    $legacyMemoryMigrationText = if ($Language -eq "zh-CN") {
+        "我们已迁移至新的记忆系统。如果你想导出旧版记忆，还剩 `$1 天时间。"
+    } else {
+        "我們已遷移至新的記憶系統。如果您想匯出舊版記憶，還剩 `$1 天時間。"
+    }
+    $legacyMemoryMigrationTextJson = $legacyMemoryMigrationText | ConvertTo-Json -Compress
+    $legacyMemoryPrefixText = if ($Language -eq "zh-CN") {
+        "我们已迁移至新的记忆系统。剩余 `$1 天可"
+    } else {
+        "我們已遷移至新的記憶系統。剩餘 `$1 天可"
+    }
+    $legacyMemoryPrefixTextJson = $legacyMemoryPrefixText | ConvertTo-Json -Compress
+    $pastHourText = if ($Language -eq "zh-CN") { "过去 `$1 小时" } else { "過去 `$1 小時" }
+    $pastDayText = if ($Language -eq "zh-CN") { "过去 `$1 天" } else { "過去 `$1 天" }
+    $pastWeekText = if ($Language -eq "zh-CN") { "过去 `$1 周" } else { "過去 `$1 週" }
+    $pastMonthText = if ($Language -eq "zh-CN") { "过去 `$1 个月" } else { "過去 `$1 個月" }
+    $pastYearText = if ($Language -eq "zh-CN") { "过去 `$1 年" } else { "過去 `$1 年" }
+    $pastHourTextJson = $pastHourText | ConvertTo-Json -Compress
+    $pastDayTextJson = $pastDayText | ConvertTo-Json -Compress
+    $pastWeekTextJson = $pastWeekText | ConvertTo-Json -Compress
+    $pastMonthTextJson = $pastMonthText | ConvertTo-Json -Compress
+    $pastYearTextJson = $pastYearText | ConvertTo-Json -Compress
+    $hideSidebarShortcutText = if ($Language -eq "zh-CN") { "隐藏侧边栏 ⌘ B" } else { "隱藏側邊欄 ⌘ B" }
+    $showSidebarShortcutText = if ($Language -eq "zh-CN") { "显示侧边栏 ⌘ B" } else { "顯示側邊欄 ⌘ B" }
+    $deleteItemsPermanentlyText = if ($Language -eq "zh-CN") { "`$1 项内容将被永久删除。此操作无法撤消。" } else { "`$1 項內容將被永久刪除。此操作無法復原。" }
+    $deleteSelectedTitle = if ($Language -eq "zh-CN") { "删除所选项？" } else { "刪除所選項？" }
+    $deleteChatTitle = if ($Language -eq "zh-CN") { "删除聊天？" } else { "刪除聊天？" }
+    $hideSidebarShortcutTextJson = $hideSidebarShortcutText | ConvertTo-Json -Compress
+    $showSidebarShortcutTextJson = $showSidebarShortcutText | ConvertTo-Json -Compress
+    $deleteItemsPermanentlyTextJson = $deleteItemsPermanentlyText | ConvertTo-Json -Compress
+    $deleteSelectedTitleJson = $deleteSelectedTitle | ConvertTo-Json -Compress
+    $deleteChatTitleJson = $deleteChatTitle | ConvertTo-Json -Compress
     # __ADDED_MONTH_RULES__ sits inside the G=[...] array literal, so inject the
     # flat comma-joined rule elements -- wrapping them in [ ] would nest them as
     # a single G entry and never match.
-    $addedMonthRulesJson = $addedMonthRuleParts -join ','
+    $addedMonthRulesJson = ($addedMonthRuleParts + $monthDayRuleParts) -join ','
     $template = @'
 (()=>{try{
-const L=__LANGUAGE__,M=__MAPPING__,ST=__SELECTED_TEXT__,DST=__DELETE_SELECTED_TEXT__,UMI=__UPDATED_MINUTE_TEXT__,UH=__UPDATED_HOUR_TEXT__,UD=__UPDATED_DAY_TEXT__,UW=__UPDATED_WEEK_TEXT__,UMO=__UPDATED_MONTH_TEXT__,UY=__UPDATED_YEAR_TEXT__,AS=__AGO_SECOND__,AMN=__AGO_MINUTE__,AH=__AGO_HOUR__,ADY=__AGO_DAY__,AWK=__AGO_WEEK__,ADDMI=__ADDED_MINUTE__,ADDH=__ADDED_HOUR__,ADDD=__ADDED_DAY__,ADDW=__ADDED_WEEK__,ADDMO=__ADDED_MONTH__,ADDY=__ADDED_YEAR__;
+const L=__LANGUAGE__,M=__MAPPING__,ST=__SELECTED_TEXT__,DST=__DELETE_SELECTED_TEXT__,UMI=__UPDATED_MINUTE_TEXT__,UH=__UPDATED_HOUR_TEXT__,UD=__UPDATED_DAY_TEXT__,UW=__UPDATED_WEEK_TEXT__,UMO=__UPDATED_MONTH_TEXT__,UY=__UPDATED_YEAR_TEXT__,AS=__AGO_SECOND__,AMN=__AGO_MINUTE__,AH=__AGO_HOUR__,ADY=__AGO_DAY__,AWK=__AGO_WEEK__,ADDMI=__ADDED_MINUTE__,ADDH=__ADDED_HOUR__,ADDD=__ADDED_DAY__,ADDW=__ADDED_WEEK__,ADDMO=__ADDED_MONTH__,ADDY=__ADDED_YEAR__,LMM=__LEGACY_MEMORY_MIGRATION_TEXT__,LMMP=__LEGACY_MEMORY_PREFIX_TEXT__,PH=__PAST_HOUR__,PD=__PAST_DAY__,PW=__PAST_WEEK__,PMO=__PAST_MONTH__,PY=__PAST_YEAR__,HSB=__HIDE_SIDEBAR__,SSB=__SHOW_SIDEBAR__,DIPT=__DELETE_ITEMS_PERMANENTLY__,DSTT=__DELETE_SELECTED_TITLE__,DCT=__DELETE_CHAT_TITLE__;
 localStorage.setItem("spa:locale",L);
 document.documentElement&&document.documentElement.setAttribute("lang",L);
 const N=s=>(s||"").replace(/\s+/g," ").trim();
 const G=[
+[/^Delete selected\?$/,DSTT],
+[/^Delete chat\?$/,DCT],
 [/^Morning, (.+)$/,"早上好，$1"],[/^Good morning, (.+)$/,"早上好，$1"],
 [/^Afternoon, (.+)$/,"下午好，$1"],[/^Good afternoon, (.+)$/,"下午好，$1"],
 [/^Evening, (.+)$/,"晚上好，$1"],[/^Good evening, (.+)$/,"晚上好，$1"],
@@ -1559,9 +1596,15 @@ const G=[
 [/^Are you sure you want to permanently delete these chats\? This cannot be undone\.$/,"你确定要永久删除这些聊天吗？此操作无法撤消。"],
 [/^Archive (\d+) task\? You can find it in the Archived tab\.$/,"要归档 $1 个任务吗？你可以在“已归档”标签页中找到它。"],
 [/^Archive (\d+) tasks\? You can find them in the Archived tab\.$/,"要归档 $1 个任务吗？你可以在“已归档”标签页中找到它们。"],
+[/^We[’']ve migrated to a new memory system\. You have (\d+) days? left if you[’']d like to\s*$/,LMMP],
+[/^We[’']ve migrated to a new memory system\. You have (\d+) days? left if you[’']d like to export legacy memory\.?$/,LMM],
+[/^Hide sidebar\s*(?:⌘|Ctrl\+?)\s*B$/i,HSB],
+[/^Show sidebar\s*(?:⌘|Ctrl\+?)\s*B$/i,SSB],
 [/^(\d+) selected$/,ST],
 [/^Delete (\d+) selected item$/,DST],
 [/^Delete (\d+) selected items$/,DST],
+[/^Delete (\d+) sessions?\?$/,"删除 $1 个会话？"],
+[/^(\d+) items? will be permanently deleted\.\s*This can(?:not|[’']t) be undone\.$/,DIPT],
 [/^Updated (\d+) minutes? ago$/,UMI],
 [/^Updated (\d+) hours? ago$/,UH],
 [/^Updated (\d+) days? ago$/,UD],
@@ -1580,10 +1623,15 @@ const G=[
 [/^added (\d+) months? ago$/,ADDMO],
 [/^added (\d+) years? ago$/,ADDY],
 __ADDED_MONTH_RULES__,
-[/^Mon$/,"周一"],[/^Tue$/,"周二"],[/^Wed$/,"周三"],[/^Thu$/,"周四"],[/^Fri$/,"周五"],[/^Sat$/,"周六"],[/^Sun$/,"周日"]
+[/^Mon$/,"周一"],[/^Tue$/,"周二"],[/^Wed$/,"周三"],[/^Thu$/,"周四"],[/^Fri$/,"周五"],[/^Sat$/,"周六"],[/^Sun$/,"周日"],
+[/^Past (\d+) hours?$/,PH],
+[/^Past (\d+) days?$/,PD],
+[/^Past (\d+) weeks?$/,PW],
+[/^Past (\d+) months?$/,PMO],
+[/^Past (\d+) years?$/,PY]
 ];
 const R=s=>{const n=N(s);if(M[n])return M[n];for(const [r,t] of G){const m=n.match(r);if(m)return t.replace("$1",m[1])}};
-const X=new Set(["SCRIPT","STYLE","NOSCRIPT"]),C="pre,code,kbd,samp,var,[data-language],[data-testid*=code],.cm-editor,.monaco-editor,.hljs",P='[data-testid="user-message"],.standard-markdown,.progressive-markdown,[data-testid="chat-input"],[data-testid="conway-composer-input"],[data-testid="conway-user-message"] .user-bubble,[data-testid="conway-output-cell"]';
+const X=new Set(["SCRIPT","STYLE","NOSCRIPT"]),C="pre,code,kbd,samp,var,[data-language],[data-testid*=code-block],[data-testid*=code-cell],[data-testid*=code-snippet],.cm-editor,.monaco-editor,.hljs",P='[data-testid="user-message"],.standard-markdown,.progressive-markdown,[data-testid="chat-input"],[data-testid="conway-composer-input"],[data-testid="conway-user-message"] .user-bubble,[data-testid="conway-output-cell"]';
 const SL=/^\/?[a-z][a-z0-9_]*(?:-[a-z0-9_]+)+(?:\s*(?:Custom command|Slash command))?$/i;
 function K(n){let e=n.nodeType===1?n:n.parentElement;for(let i=0;e&&i<5;e=e.parentElement,i++){const t=N(e.textContent);if(SL.test(t))return true;if(/\s/.test(t))break}return false}
 function Q(n){const e=n.nodeType===1?n:n.parentElement;return !!(e&&e.closest(P))}
@@ -1593,7 +1641,7 @@ T();
 new MutationObserver(()=>{clearTimeout(window.__claudeZhDomTimer);window.__claudeZhDomTimer=setTimeout(T,30)}).observe(document.documentElement,{subtree:true,childList:true,characterData:true,attributes:true});
 }catch(e){}})()
 '@
-    return $template.Replace("__LANGUAGE__", $languageJson).Replace("__MAPPING__", $mappingJson).Replace("__SELECTED_TEXT__", $selectedTextJson).Replace("__DELETE_SELECTED_TEXT__", $deleteSelectedTextJson).Replace("__UPDATED_MINUTE_TEXT__", $updatedMinuteTextJson).Replace("__UPDATED_HOUR_TEXT__", $updatedHourTextJson).Replace("__UPDATED_DAY_TEXT__", $updatedDayTextJson).Replace("__UPDATED_WEEK_TEXT__", $updatedWeekTextJson).Replace("__UPDATED_MONTH_TEXT__", $updatedMonthTextJson).Replace("__UPDATED_YEAR_TEXT__", $updatedYearTextJson).Replace("__AGO_SECOND__", $agoSecondTextJson).Replace("__AGO_MINUTE__", $agoMinuteTextJson).Replace("__AGO_HOUR__", $agoHourTextJson).Replace("__AGO_DAY__", $agoDayTextJson).Replace("__AGO_WEEK__", $agoWeekTextJson).Replace("__ADDED_MINUTE__", $addedMinuteTextJson).Replace("__ADDED_HOUR__", $addedHourTextJson).Replace("__ADDED_DAY__", $addedDayTextJson).Replace("__ADDED_WEEK__", $addedWeekTextJson).Replace("__ADDED_MONTH__", $addedMonthTextJson).Replace("__ADDED_YEAR__", $addedYearTextJson).Replace("__ADDED_MONTH_RULES__", $addedMonthRulesJson)
+    return $template.Replace("__LANGUAGE__", $languageJson).Replace("__MAPPING__", $mappingJson).Replace("__SELECTED_TEXT__", $selectedTextJson).Replace("__DELETE_SELECTED_TEXT__", $deleteSelectedTextJson).Replace("__UPDATED_MINUTE_TEXT__", $updatedMinuteTextJson).Replace("__UPDATED_HOUR_TEXT__", $updatedHourTextJson).Replace("__UPDATED_DAY_TEXT__", $updatedDayTextJson).Replace("__UPDATED_WEEK_TEXT__", $updatedWeekTextJson).Replace("__UPDATED_MONTH_TEXT__", $updatedMonthTextJson).Replace("__UPDATED_YEAR_TEXT__", $updatedYearTextJson).Replace("__AGO_SECOND__", $agoSecondTextJson).Replace("__AGO_MINUTE__", $agoMinuteTextJson).Replace("__AGO_HOUR__", $agoHourTextJson).Replace("__AGO_DAY__", $agoDayTextJson).Replace("__AGO_WEEK__", $agoWeekTextJson).Replace("__ADDED_MINUTE__", $addedMinuteTextJson).Replace("__ADDED_HOUR__", $addedHourTextJson).Replace("__ADDED_DAY__", $addedDayTextJson).Replace("__ADDED_WEEK__", $addedWeekTextJson).Replace("__ADDED_MONTH__", $addedMonthTextJson).Replace("__ADDED_YEAR__", $addedYearTextJson).Replace("__ADDED_MONTH_RULES__", $addedMonthRulesJson).Replace("__LEGACY_MEMORY_MIGRATION_TEXT__", $legacyMemoryMigrationTextJson).Replace("__LEGACY_MEMORY_PREFIX_TEXT__", $legacyMemoryPrefixTextJson).Replace("__PAST_HOUR__", $pastHourTextJson).Replace("__PAST_DAY__", $pastDayTextJson).Replace("__PAST_WEEK__", $pastWeekTextJson).Replace("__PAST_MONTH__", $pastMonthTextJson).Replace("__PAST_YEAR__", $pastYearTextJson).Replace("__HIDE_SIDEBAR__", $hideSidebarShortcutTextJson).Replace("__SHOW_SIDEBAR__", $showSidebarShortcutTextJson).Replace("__DELETE_ITEMS_PERMANENTLY__", $deleteItemsPermanentlyTextJson).Replace("__DELETE_SELECTED_TITLE__", $deleteSelectedTitleJson).Replace("__DELETE_CHAT_TITLE__", $deleteChatTitleJson)
 }
 
 function Remove-ExistingOnlineDomTranslationPatch {
@@ -1797,14 +1845,9 @@ function Resolve-MainProcessAsarTarget {
 
     $markerMatches = [System.Collections.Generic.List[string]]::new()
     $hookMatches = [System.Collections.Generic.List[object]]::new()
-    $legacyMatches = [System.Collections.Generic.List[string]]::new()
-    $fallbackExists = $false
 
     foreach ($item in Get-AsarFilePathEntries $Header) {
         $filePath = [string]$item.Path
-        if ($filePath -eq $AsarPatchTargetFallback) {
-            $fallbackExists = $true
-        }
         # Recent Windows builds no longer keep the main process under
         # `.vite/build/`; it may be emitted beside the frame-shell bundles.
         # Inspect every JavaScript entry and use the semantic hook/path filters
@@ -1829,9 +1872,6 @@ function Resolve-MainProcessAsarTarget {
                 continue
             }
         }
-        if ($text.Contains('s.webContents.on("dom-ready",()=>{DIA()});')) {
-            $legacyMatches.Add($filePath)
-        }
     }
 
     if ($markerMatches.Count -eq 1) {
@@ -1849,19 +1889,6 @@ function Resolve-MainProcessAsarTarget {
         }
         Write-Host "  selected main-process ASAR bundle: $($best[0].Path)" -ForegroundColor DarkGray
         return $best[0].Path
-    }
-
-    if ($legacyMatches.Count -eq 1) {
-        Write-Host "  selected legacy main-process ASAR bundle: $($legacyMatches[0])" -ForegroundColor DarkGray
-        return $legacyMatches[0]
-    }
-    if ($legacyMatches.Count -gt 1) {
-        throw "Could not select main-process app.asar bundle: multiple legacy dom-ready handlers found: $($legacyMatches -join ', ')"
-    }
-
-    if ($fallbackExists) {
-        Write-Host "  [警告] 未动态定位到 main-process bundle，回退到旧版目标：$AsarPatchTargetFallback" -ForegroundColor DarkYellow
-        return $AsarPatchTargetFallback
     }
 
     throw "Could not locate Claude's main-process app.asar bundle."
@@ -2080,24 +2107,7 @@ function Patch-OnlineDomTranslation {
         return
     }
 
-    $legacyAnchor = 's.webContents.on("dom-ready",()=>{DIA()});'
-    if (-not $text.Contains($legacyAnchor)) {
-        throw "Could not find online claude.ai DOM translation injection point. Claude's bundle format may have changed."
-    }
-
-    $injection = 's.webContents.on("dom-ready",()=>{DIA();s.webContents.executeJavaScript(' + $scriptLiteral + ').catch(()=>{})});/*' + $OnlineLocaleMainMarker + '*/'
-    if ($text.Contains($injection)) {
-        Write-Host "  online claude.ai DOM translation already patched" -ForegroundColor Green
-    } else {
-        $anchorIndex = $text.IndexOf($legacyAnchor, [System.StringComparison]::Ordinal)
-        Write-Host "  injecting legacy online DOM translation hook" -ForegroundColor DarkGray
-        $patched = $text.Substring(0, $anchorIndex) + $injection + $text.Substring($anchorIndex + $legacyAnchor.Length)
-        $patchedContent = [System.Text.Encoding]::UTF8.GetBytes($patched)
-        [void](Replace-AsarFileContent $ResourcesPath $asarTarget $patchedContent)
-        $action = if ($hadExisting) { "refreshed" } else { "patched" }
-        Write-Host "  $action online claude.ai DOM translation: $($mapping.Count) strings" -ForegroundColor Green
-    }
-    Patch-OnlineLocaleLock $ResourcesPath $Language
+    throw "Could not find online claude.ai DOM translation injection point. Claude's bundle format may have changed."
 }
 
 function Patch-HardcodedFrontendStrings {

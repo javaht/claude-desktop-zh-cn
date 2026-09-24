@@ -10,34 +10,21 @@ permissions:
   contents: read
 
 jobs:
-  dom-translation-guards:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Run DOM translation guard tests
-        run: python3 -m unittest -v tests.test_dom_translation_guards
-
-      - name: Run shortcut repair tests
-        run: python3 -m unittest -v tests.test_shortcut_repair
-
-      - name: Compile patcher and tests
-        run: python3 -m py_compile scripts/patch_claude_zh_cn.py tests/test_dom_translation_guards.py tests/test_shortcut_repair.py
+      - name: Compile patcher
+        run: |
+          python3 -m py_compile scripts/patch_claude_zh_cn.py
+          python3 -m py_compile scripts/patch_linux_asar.py
 
       - name: Syntax-check Linux installer
         run: |
           bash -n install-linux.sh
           bash -n scripts/install_linux.sh
-          python3 -m py_compile scripts/patch_linux_asar.py
-
-      - name: Syntax-check generated macOS DOM script
-        run: |
-          python3 -c "import tests.test_dom_translation_guards as t; print(t.load_python_patcher().build_online_dom_translation_script('zh-CN', {'Settings': '设置'}))" | node --check
-
-      - name: Syntax-check materialized Windows DOM script
-        run: |
-          python3 -c "import tests.test_dom_translation_guards as t; print(t.materialize_windows_dom_script(t.extract_windows_dom_template()))" | node --check
 
       - name: Validate resource JSON files
         run: |

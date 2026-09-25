@@ -3298,5 +3298,157 @@
   [
     "Git repositories or hosted marketplace.json URLs to surface as plugin marketplaces in the Directory’s Organization tab. The app re-fetches each periodically.",
     "在目錄的「組織」標籤頁中作為插件市場顯示的 Git 倉庫或託管的 marketplace.json URL。應用會定期重新抓取。"
+  ],
+  [
+    "Sign in",
+    "登入"
+  ],
+  [
+    "Log in",
+    "登入"
+  ],
+  [
+    "Sign up",
+    "註冊"
+  ],
+  [
+    "Sign in to Claude",
+    "登入 Claude"
+  ],
+  [
+    "Log in to Claude",
+    "登入 Claude"
+  ],
+  [
+    "Sign in to your account",
+    "登入你的帳戶"
+  ],
+  [
+    "Log in to your account",
+    "登入你的帳戶"
+  ],
+  [
+    "Continue with Google",
+    "使用 Google 繼續"
+  ],
+  [
+    "Continue with email",
+    "使用電郵繼續"
+  ],
+  [
+    "Enter your email",
+    "輸入你的電郵"
+  ],
+  [
+    "Email address",
+    "電郵地址"
+  ],
+  [
+    "Welcome back",
+    "歡迎回來"
+  ],
+  [
+    "Continue",
+    "繼續"
+  ],
+  [
+    "Check your email",
+    "請查收你的電郵"
+  ],
+  [
+    "Use single sign-on (SSO)",
+    "使用單點登入 (SSO)"
+  ],
+  [
+    "Sign in with SSO",
+    "使用 SSO 登入"
+  ],
+  [
+    "Log in with SSO",
+    "使用 SSO 登入"
+  ],
+  [
+    "Send code",
+    "發送驗證碼"
+  ],
+  [
+    "Resend code",
+    "重新發送驗證碼"
+  ],
+  [
+    "Send a temporary login code to your email",
+    "向你的電郵發送臨時登入驗證碼"
+  ],
+  [
+    "Terms of Service",
+    "服務條款"
+  ],
+  [
+    "Privacy Policy",
+    "私隱政策"
+  ],
+  [
+    "Consumer Terms",
+    "個人用戶條款"
+  ],
+  [
+    "Commercial Terms",
+    "商業條款"
+  ],
+  [
+    "Choose an account",
+    "選擇帳戶"
+  ],
+  [
+    "Create an account",
+    "建立帳戶"
+  ],
+  [
+    "Don't have an account?",
+    "還沒有帳戶？"
+  ],
+  [
+    "Don’t have an account?",
+    "還沒有帳戶？"
+  ],
+  [
+    "Already have an account?",
+    "已有帳戶？"
+  ],
+  [
+    "Sign out",
+    "登出"
+  ],
+  [
+    "Log out",
+    "登出"
+  ],
+  [
+    "This page ran into a problem",
+    "此頁面出現問題"
+  ],
+  [
+    "Reload to continue. If it keeps happening, check status.anthropic.com.",
+    "重新加載以繼續。若問題持續出現，請查看 status.anthropic.com。"
+  ],
+  [
+    "Still not working? You can reach out to support with this error code:",
+    "仍然無法正常工作？你可以附上此錯誤代碼聯絡支援團隊："
+  ],
+  [
+    "Your artifacts and scheduled tasks are stored at ",
+    "你的 Artifacts 與計劃任務存儲在 "
+  ],
+  [
+    "Your artifacts and scheduled tasks are stored at",
+    "你的 Artifacts 與計劃任務存儲在"
+  ],
+  [
+    "You’re running Claude through your organization’s own inference provider (127.0.0.1:15721). Your conversations are sent there, not to Anthropic, and are governed by your organization’s agreement with that provider.",
+    "你正在通過你組織自己的推理提供商（127.0.0.1:15721）運行 Claude。你的對話會發送到該提供商而非 Anthropic，並受你的組織與該提供商的協議約束。"
+  ],
+  [
+    "You're running Claude through your organization's own inference provider (127.0.0.1:15721). Your conversations are sent there, not to Anthropic, and are governed by your organization's agreement with that provider.",
+    "你正在通過你組織自己的推理提供商（127.0.0.1:15721）運行 Claude。你的對話會發送到該提供商而非 Anthropic，並受你的組織与該提供商的協議約束。"
   ]
 ]

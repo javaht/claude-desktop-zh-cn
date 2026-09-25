@@ -1564,24 +1564,31 @@ function Get-OnlineDomTranslationScript {
     $deleteItemsPermanentlyText = if ($Language -eq "zh-CN") { "`$1 项内容将被永久删除。此操作无法撤消。" } else { "`$1 項內容將被永久刪除。此操作無法復原。" }
     $deleteSelectedTitle = if ($Language -eq "zh-CN") { "删除所选项？" } else { "刪除所選項？" }
     $deleteChatTitle = if ($Language -eq "zh-CN") { "删除聊天？" } else { "刪除聊天？" }
+    $orgInferenceText = if ($Language -eq "zh-CN") {
+        "你正在通过你组织自己的推理提供商（`$1）运行 Claude。你的对话会发送到该提供商而非 Anthropic，并受你的组织与该提供商的协议约束。"
+    } else {
+        "您正在透過您組織自己的推理提供商（`$1）執行 Claude。您的對話會傳送到該提供商而非 Anthropic，並受您的組織與該提供商的協議約束。"
+    }
     $hideSidebarShortcutTextJson = $hideSidebarShortcutText | ConvertTo-Json -Compress
     $showSidebarShortcutTextJson = $showSidebarShortcutText | ConvertTo-Json -Compress
     $deleteItemsPermanentlyTextJson = $deleteItemsPermanentlyText | ConvertTo-Json -Compress
     $deleteSelectedTitleJson = $deleteSelectedTitle | ConvertTo-Json -Compress
     $deleteChatTitleJson = $deleteChatTitle | ConvertTo-Json -Compress
+    $orgInferenceTextJson = $orgInferenceText | ConvertTo-Json -Compress
     # __ADDED_MONTH_RULES__ sits inside the G=[...] array literal, so inject the
     # flat comma-joined rule elements -- wrapping them in [ ] would nest them as
     # a single G entry and never match.
     $addedMonthRulesJson = ($addedMonthRuleParts + $monthDayRuleParts) -join ','
     $template = @'
 (()=>{try{
-const L=__LANGUAGE__,M=__MAPPING__,ST=__SELECTED_TEXT__,DST=__DELETE_SELECTED_TEXT__,UMI=__UPDATED_MINUTE_TEXT__,UH=__UPDATED_HOUR_TEXT__,UD=__UPDATED_DAY_TEXT__,UW=__UPDATED_WEEK_TEXT__,UMO=__UPDATED_MONTH_TEXT__,UY=__UPDATED_YEAR_TEXT__,AS=__AGO_SECOND__,AMN=__AGO_MINUTE__,AH=__AGO_HOUR__,ADY=__AGO_DAY__,AWK=__AGO_WEEK__,ADDMI=__ADDED_MINUTE__,ADDH=__ADDED_HOUR__,ADDD=__ADDED_DAY__,ADDW=__ADDED_WEEK__,ADDMO=__ADDED_MONTH__,ADDY=__ADDED_YEAR__,LMM=__LEGACY_MEMORY_MIGRATION_TEXT__,LMMP=__LEGACY_MEMORY_PREFIX_TEXT__,PH=__PAST_HOUR__,PD=__PAST_DAY__,PW=__PAST_WEEK__,PMO=__PAST_MONTH__,PY=__PAST_YEAR__,HSB=__HIDE_SIDEBAR__,SSB=__SHOW_SIDEBAR__,DIPT=__DELETE_ITEMS_PERMANENTLY__,DSTT=__DELETE_SELECTED_TITLE__,DCT=__DELETE_CHAT_TITLE__;
+const L=__LANGUAGE__,M=__MAPPING__,ST=__SELECTED_TEXT__,DST=__DELETE_SELECTED_TEXT__,UMI=__UPDATED_MINUTE_TEXT__,UH=__UPDATED_HOUR_TEXT__,UD=__UPDATED_DAY_TEXT__,UW=__UPDATED_WEEK_TEXT__,UMO=__UPDATED_MONTH_TEXT__,UY=__UPDATED_YEAR_TEXT__,AS=__AGO_SECOND__,AMN=__AGO_MINUTE__,AH=__AGO_HOUR__,ADY=__AGO_DAY__,AWK=__AGO_WEEK__,ADDMI=__ADDED_MINUTE__,ADDH=__ADDED_HOUR__,ADDD=__ADDED_DAY__,ADDW=__ADDED_WEEK__,ADDMO=__ADDED_MONTH__,ADDY=__ADDED_YEAR__,LMM=__LEGACY_MEMORY_MIGRATION_TEXT__,LMMP=__LEGACY_MEMORY_PREFIX_TEXT__,PH=__PAST_HOUR__,PD=__PAST_DAY__,PW=__PAST_WEEK__,PMO=__PAST_MONTH__,PY=__PAST_YEAR__,HSB=__HIDE_SIDEBAR__,SSB=__SHOW_SIDEBAR__,DIPT=__DELETE_ITEMS_PERMANENTLY__,DSTT=__DELETE_SELECTED_TITLE__,DCT=__DELETE_CHAT_TITLE__,OIT=__ORG_INFERENCE_TEXT__;
 localStorage.setItem("spa:locale",L);
 document.documentElement&&document.documentElement.setAttribute("lang",L);
 const N=s=>(s||"").replace(/\s+/g," ").trim();
 const G=[
 [/^Delete selected\?$/,DSTT],
 [/^Delete chat\?$/,DCT],
+[/^You[’']re running Claude through your organization[’']s own inference provider \((.+?)\)\. Your conversations are sent there, not to Anthropic, and are governed by your organization[’']s agreement with that provider\.$/,OIT],
 [/^Morning, (.+)$/,"早上好，$1"],[/^Good morning, (.+)$/,"早上好，$1"],
 [/^Afternoon, (.+)$/,"下午好，$1"],[/^Good afternoon, (.+)$/,"下午好，$1"],
 [/^Evening, (.+)$/,"晚上好，$1"],[/^Good evening, (.+)$/,"晚上好，$1"],
@@ -1641,7 +1648,7 @@ T();
 new MutationObserver(()=>{clearTimeout(window.__claudeZhDomTimer);window.__claudeZhDomTimer=setTimeout(T,30)}).observe(document.documentElement,{subtree:true,childList:true,characterData:true,attributes:true});
 }catch(e){}})()
 '@
-    return $template.Replace("__LANGUAGE__", $languageJson).Replace("__MAPPING__", $mappingJson).Replace("__SELECTED_TEXT__", $selectedTextJson).Replace("__DELETE_SELECTED_TEXT__", $deleteSelectedTextJson).Replace("__UPDATED_MINUTE_TEXT__", $updatedMinuteTextJson).Replace("__UPDATED_HOUR_TEXT__", $updatedHourTextJson).Replace("__UPDATED_DAY_TEXT__", $updatedDayTextJson).Replace("__UPDATED_WEEK_TEXT__", $updatedWeekTextJson).Replace("__UPDATED_MONTH_TEXT__", $updatedMonthTextJson).Replace("__UPDATED_YEAR_TEXT__", $updatedYearTextJson).Replace("__AGO_SECOND__", $agoSecondTextJson).Replace("__AGO_MINUTE__", $agoMinuteTextJson).Replace("__AGO_HOUR__", $agoHourTextJson).Replace("__AGO_DAY__", $agoDayTextJson).Replace("__AGO_WEEK__", $agoWeekTextJson).Replace("__ADDED_MINUTE__", $addedMinuteTextJson).Replace("__ADDED_HOUR__", $addedHourTextJson).Replace("__ADDED_DAY__", $addedDayTextJson).Replace("__ADDED_WEEK__", $addedWeekTextJson).Replace("__ADDED_MONTH__", $addedMonthTextJson).Replace("__ADDED_YEAR__", $addedYearTextJson).Replace("__ADDED_MONTH_RULES__", $addedMonthRulesJson).Replace("__LEGACY_MEMORY_MIGRATION_TEXT__", $legacyMemoryMigrationTextJson).Replace("__LEGACY_MEMORY_PREFIX_TEXT__", $legacyMemoryPrefixTextJson).Replace("__PAST_HOUR__", $pastHourTextJson).Replace("__PAST_DAY__", $pastDayTextJson).Replace("__PAST_WEEK__", $pastWeekTextJson).Replace("__PAST_MONTH__", $pastMonthTextJson).Replace("__PAST_YEAR__", $pastYearTextJson).Replace("__HIDE_SIDEBAR__", $hideSidebarShortcutTextJson).Replace("__SHOW_SIDEBAR__", $showSidebarShortcutTextJson).Replace("__DELETE_ITEMS_PERMANENTLY__", $deleteItemsPermanentlyTextJson).Replace("__DELETE_SELECTED_TITLE__", $deleteSelectedTitleJson).Replace("__DELETE_CHAT_TITLE__", $deleteChatTitleJson)
+    return $template.Replace("__LANGUAGE__", $languageJson).Replace("__MAPPING__", $mappingJson).Replace("__SELECTED_TEXT__", $selectedTextJson).Replace("__DELETE_SELECTED_TEXT__", $deleteSelectedTextJson).Replace("__UPDATED_MINUTE_TEXT__", $updatedMinuteTextJson).Replace("__UPDATED_HOUR_TEXT__", $updatedHourTextJson).Replace("__UPDATED_DAY_TEXT__", $updatedDayTextJson).Replace("__UPDATED_WEEK_TEXT__", $updatedWeekTextJson).Replace("__UPDATED_MONTH_TEXT__", $updatedMonthTextJson).Replace("__UPDATED_YEAR_TEXT__", $updatedYearTextJson).Replace("__AGO_SECOND__", $agoSecondTextJson).Replace("__AGO_MINUTE__", $agoMinuteTextJson).Replace("__AGO_HOUR__", $agoHourTextJson).Replace("__AGO_DAY__", $agoDayTextJson).Replace("__AGO_WEEK__", $agoWeekTextJson).Replace("__ADDED_MINUTE__", $addedMinuteTextJson).Replace("__ADDED_HOUR__", $addedHourTextJson).Replace("__ADDED_DAY__", $addedDayTextJson).Replace("__ADDED_WEEK__", $addedWeekTextJson).Replace("__ADDED_MONTH__", $addedMonthTextJson).Replace("__ADDED_YEAR__", $addedYearTextJson).Replace("__ADDED_MONTH_RULES__", $addedMonthRulesJson).Replace("__LEGACY_MEMORY_MIGRATION_TEXT__", $legacyMemoryMigrationTextJson).Replace("__LEGACY_MEMORY_PREFIX_TEXT__", $legacyMemoryPrefixTextJson).Replace("__PAST_HOUR__", $pastHourTextJson).Replace("__PAST_DAY__", $pastDayTextJson).Replace("__PAST_WEEK__", $pastWeekTextJson).Replace("__PAST_MONTH__", $pastMonthTextJson).Replace("__PAST_YEAR__", $pastYearTextJson).Replace("__HIDE_SIDEBAR__", $hideSidebarShortcutTextJson).Replace("__SHOW_SIDEBAR__", $showSidebarShortcutTextJson).Replace("__DELETE_ITEMS_PERMANENTLY__", $deleteItemsPermanentlyTextJson).Replace("__DELETE_SELECTED_TITLE__", $deleteSelectedTitleJson).Replace("__DELETE_CHAT_TITLE__", $deleteChatTitleJson).Replace("__ORG_INFERENCE_TEXT__", $orgInferenceTextJson)
 }
 
 function Remove-ExistingOnlineDomTranslationPatch {

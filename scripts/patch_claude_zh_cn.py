@@ -564,6 +564,7 @@ def build_online_dom_translation_script(lang_code: str, mapping: dict[str, str])
         delete_items_permanently_text = "$1 项内容将被永久删除。此操作无法撤消。"
         delete_selected_title = "删除所选项？"
         delete_chat_title = "删除聊天？"
+        org_inference_text = "你正在通过你组织自己的推理提供商（$1）运行 Claude。你的对话会发送到该提供商而非 Anthropic，并受你的组织与该提供商的协议约束。"
     else:
         selected_text = "已選擇 $1 項"
         delete_selected_text = "刪除 $1 個所選項目"
@@ -601,9 +602,11 @@ def build_online_dom_translation_script(lang_code: str, mapping: dict[str, str])
         delete_items_permanently_text = "$1 項內容將被永久刪除。此操作無法復原。"
         delete_selected_title = "刪除所選項？"
         delete_chat_title = "刪除聊天？"
+        org_inference_text = "您正在透過您組織自己的推理提供商（$1）執行 Claude。您的對話會傳送到該提供商而非 Anthropic，並受您的組織與該提供商的協議約束。"
     dynamic_rules = "".join((
         f'[/^Delete selected\\?$/,"{delete_selected_title}"],'
         f'[/^Delete chat\\?$/,"{delete_chat_title}"],'
+        f'[/^You[’\']re running Claude through your organization[’\']s own inference provider \\((.+?)\\)\\. Your conversations are sent there, not to Anthropic, and are governed by your organization[’\']s agreement with that provider\\.$/,"{org_inference_text}"],'
         f'[/^(\\d+) selected$/,"{selected_text}"],'
         f'[/^Delete (\\d+) selected item$/,"{delete_selected_text}"],'
         f'[/^Delete (\\d+) selected items$/,"{delete_selected_text}"],'

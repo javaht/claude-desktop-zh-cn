@@ -445,7 +445,7 @@
   ],
   [
     ".dxt and .mcpb installs.",
-    ".dxt 和 .mcpb 安装包。"
+    ".dxt 与 .mcpb 安装。"
   ],
   [
     "Copy",
@@ -2708,10 +2708,6 @@
     "用户是谁 —— 身份与固定的上下文"
   ],
   [
-    "Travel",
-    "旅行"
-  ],
-  [
     "Travel interests and plans",
     "旅行兴趣与计划"
   ],
@@ -3172,14 +3168,6 @@
     "创建插件"
   ],
   [
-    "Unread",
-    "未读"
-  ],
-  [
-    "State",
-    "状态"
-  ],
-  [
     "Hide sidebar",
     "隐藏侧边栏"
   ],
@@ -3344,10 +3332,6 @@
     "Claude 将在符合 Anthropic 准则的前提下，在 Cowork 任务中为当前及所有关联账号记住这些内容，但须遵守 "
   ],
   [
-    "Memory",
-    "记忆"
-  ],
-  [
     "Settings",
     "设置"
   ],
@@ -3448,38 +3432,6 @@
     "编辑侧边栏"
   ],
   [
-    "Pin",
-    "固定"
-  ],
-  [
-    "Rename",
-    "重命名"
-  ],
-  [
-    "Archive",
-    "归档"
-  ],
-  [
-    "Engineering",
-    "工程"
-  ],
-  [
-    "Human resources",
-    "人力资源"
-  ],
-  [
-    "Operations",
-    "运营"
-  ],
-  [
-    "Software engineer",
-    "软件工程师"
-  ],
-  [
-    "Other",
-    "其他"
-  ],
-  [
     "Claude will keep these in mind for this and any of your associated accounts across chats and Cowork within Anthropic’s guidelines. Learn more",
     "Claude 将在符合 Anthropic 准则的前提下，在聊天和 Cowork 中为当前及所有关联账号记住这些内容。了解更多"
   ],
@@ -3504,7 +3456,595 @@
     "在文件夹中工作"
   ],
   [
-    "Manual",
-    "手动"
+    "Capabilities",
+    "能力"
+  ],
+  [
+    "Limits",
+    "限制"
+  ],
+  [
+    "Egress",
+    "出站"
+  ],
+  [
+    "Enable Cowork. Claude works on longer tasks like research, analysis, and documents.",
+    "启用 Cowork。Claude 可处理研究、分析和文档等耗时较长的任务。"
+  ],
+  [
+    "Enable Code. Claude writes and runs code.",
+    "启用代码。Claude 编写并运行代码。"
+  ],
+  [
+    "Enable Chat. Quick questions and drafting.",
+    "启用聊天。用于快速提问和起草。"
+  ],
+  [
+    "Hostnames the agent’s tools may reach from Cowork and Code sessions. Also surfaced under Egress Requirements.",
+    "智能体工具在 Cowork 和 Code 会话中可访问的主机名。同时显示在“出站要求”下。"
+  ],
+  [
+    "Hostnames the agent's tools may reach from Cowork and Code sessions. Also surfaced under Egress Requirements.",
+    "智能体工具在 Cowork 和 Code 会话中可访问的主机名。同时显示在“出站要求”下。"
+  ],
+  [
+    "Folders where Claude may work. Applies to both Cowork and Code sessions. Leave unset for unrestricted access.",
+    "允许 Claude 工作的文件夹。同时适用于 Cowork 和 Code 会话。留空则不限制访问。"
+  ],
+  [
+    "Not set",
+    "未设置"
+  ],
+  [
+    "Allow none",
+    "不允许任何"
+  ],
+  [
+    "Block reads outside working directories",
+    "阻止读取工作目录之外的文件"
+  ],
+  [
+    "Keep Claude from reading files outside a Code session’s working directories. File tools refuse such reads; sandboxed shell commands lose the home directory.",
+    "阻止 Claude 读取 Code 会话工作目录之外的文件。文件工具将拒绝此类读取；沙箱中的 shell 命令将失去主目录访问权限。"
+  ],
+  [
+    "Keep Claude from reading files outside a Code session's working directories. File tools refuse such reads; sandboxed shell commands lose the home directory.",
+    "阻止 Claude 读取 Code 会话工作目录之外的文件。文件工具将拒绝此类读取；沙箱中的 shell 命令将失去主目录访问权限。"
+  ],
+  [
+    "Disable bypass permissions mode",
+    "禁用绕过权限模式"
+  ],
+  [
+    "Remove the bypass permissions mode from Code sessions and Cowork tasks, so Claude always follows the permission policy. Off by default.",
+    "从 Code 会话和 Cowork 任务中移除绕过权限模式，确保 Claude 始终遵循权限策略。默认关闭。"
+  ],
+  [
+    "Allow user-added plugin marketplaces",
+    "允许用户添加的插件市场"
+  ],
+  [
+    "Allow users to add plugin marketplaces themselves. When off, the add-marketplace surfaces are hidden and in-app adds are refused.",
+    "允许用户自行添加插件市场。关闭时，添加市场的入口将被隐藏，应用内添加将被拒绝。"
+  ],
+  [
+    "Allow user-added plugins",
+    "允许用户添加的插件"
+  ],
+  [
+    "Allow users to add their own plugins. When off, every in-app option for adding one is hidden and uploads that still reach the app are refused.",
+    "允许用户添加自己的插件。关闭时，应用内的所有添加入口都会被隐藏，仍到达应用的上传也会被拒绝。"
+  ],
+  [
+    "Allow scheduled tasks",
+    "允许计划任务"
+  ],
+  [
+    "Allow scheduled tasks in Cowork and Code. When off, the Scheduled page is hidden, existing tasks stop running, and Claude cannot create new ones.",
+    "允许在 Cowork 和 Code 中使用计划任务。关闭时，“计划任务”页面将被隐藏，现有任务停止运行，Claude 也无法创建新任务。"
+  ],
+  [
+    "Allow keep awake",
+    "允许保持唤醒"
+  ],
+  [
+    "Let Claude keep the computer awake. When off, Claude never prevents sleep and hides the keep-awake switches in Settings, the Scheduled page and the Code tab.",
+    "允许 Claude 保持计算机唤醒。关闭时，Claude 不会阻止睡眠，并隐藏设置、“计划任务”页和 Code 标签页中的保持唤醒开关。"
+  ],
+  [
+    "Stop external apps and websites from opening Claude Desktop via claude:// links.",
+    "阻止外部应用和网站通过 claude:// 链接打开 Claude Desktop。"
+  ],
+  [
+    "Skip WebFetch domain check",
+    "跳过 WebFetch 域名检查"
+  ],
+  [
+    "Skip Claude Code’s WebFetch domain lookup against api.anthropic.com in Code sessions. Off by default; turn on when that host is blocked.",
+    "在 Code 会话中跳过 Claude Code 对 api.anthropic.com 的 WebFetch 域名查询。默认关闭；当该主机被阻断时开启。"
+  ],
+  [
+    "Skip Claude Code's WebFetch domain lookup against api.anthropic.com in Code sessions. Off by default; turn on when that host is blocked.",
+    "在 Code 会话中跳过 Claude Code 对 api.anthropic.com 的 WebFetch 域名查询。默认关闭；当该主机被阻断时开启。"
+  ],
+  [
+    "Notifications",
+    "通知"
+  ],
+  [
+    "Bounce the Dock icon when Claude needs your attention and the app isn’t focused.",
+    "当 Claude 需要关注且应用不在前台时，弹跳 Dock 图标。"
+  ],
+  [
+    "Bounce the Dock icon when Claude needs your attention and the app isn't focused.",
+    "当 Claude 需要关注且应用不在前台时，弹跳 Dock 图标。"
+  ],
+  [
+    "Always start with the default model",
+    "始终以默认模型启动"
+  ],
+  [
+    "When true, each new conversation or task starts on the default model, and a person’s model and effort changes are no longer saved as their default.",
+    "开启后，每个新对话或任务都以默认模型启动，且个人选择的模型与投入度不再保存为默认值。"
+  ],
+  [
+    "When true, each new conversation or task starts on the default model, and a person's model and effort changes are no longer saved as their default.",
+    "开启后，每个新对话或任务都以默认模型启动，且个人选择的模型与投入度不再保存为默认值。"
+  ],
+  [
+    "Show estimated cost",
+    "显示预估费用"
+  ],
+  [
+    "Show an estimated cost on the Usage page at Anthropic list price; turn on to set a multiplier or per-model rates.",
+    "在用量页面按 Anthropic 官方牌价显示预估费用；开启后可设置倍率或按模型费率。"
+  ],
+  [
+    "Model catalog metadata",
+    "模型目录元数据"
+  ],
+  [
+    "Label and describe the model picker’s entries from the published Claude Code model catalog, instead of the app’s built-in table.",
+    "使用已发布的 Claude Code 模型目录（而非应用内置表）为模型选择器的条目添加标签与描述。"
+  ],
+  [
+    "Label and describe the model picker's entries from the published Claude Code model catalog, instead of the app's built-in table.",
+    "使用已发布的 Claude Code 模型目录（而非应用内置表）为模型选择器的条目添加标签与描述。"
+  ],
+  [
+    "Model catalog URL",
+    "模型目录 URL"
+  ],
+  [
+    "Fetch the model catalog and its signature file from this URL (a mirror inside your network serving Anthropic’s published files) instead of downloads.claude.ai.",
+    "从此 URL（在你网络内提供 Anthropic 已发布文件的镜像）获取模型目录及其签名文件，取代 downloads.claude.ai。"
+  ],
+  [
+    "Fetch the model catalog and its signature file from this URL (a mirror inside your network serving Anthropic's published files) instead of downloads.claude.ai.",
+    "从此 URL（在你网络内提供 Anthropic 已发布文件的镜像）获取模型目录及其签名文件，取代 downloads.claude.ai。"
+  ],
+  [
+    "Animation speed",
+    "动画速度"
+  ],
+  [
+    "Static API key",
+    "静态 API 密钥"
+  ],
+  [
+    "Extra headers on every inference request — routing and tenant headers only (org IDs, Bedrock Guardrails). No credentials; use the credential helper for tokens.",
+    "每个推理请求的额外请求头 —— 仅限路由与租户标头（组织 ID、Bedrock Guardrails）。不含凭据；令牌请使用凭据助手。"
+  ],
+  [
+    "Stream idle timeout",
+    "流式空闲超时"
+  ],
+  [
+    "Extra seconds to wait for model output on a streaming response that is sending only keep-alive pings. Gateway provider only. Default 300.",
+    "流式响应仅发送保活心跳时，额外等待模型输出的秒数。仅限网关提供商。默认 300。"
+  ],
+  [
+    "seconds",
+    "秒"
+  ],
+  [
+    "When a user has no saved selection, start the picker on the 1M-context variant of the default model if it offers one.",
+    "当用户没有保存的选择时，若默认模型提供 1M 上下文变体，则选择器默认从该变体启动。"
+  ],
+  [
+    "Default model effort",
+    "默认模型投入度"
+  ],
+  [
+    "Network proxy",
+    "网络代理"
+  ],
+  [
+    "Proxy server URL",
+    "代理服务器 URL"
+  ],
+  [
+    "Send the app’s and the agent’s traffic through this HTTP proxy instead of the operating system’s proxy settings.",
+    "让应用和智能体的流量经过此 HTTP 代理，而非操作系统的代理设置。"
+  ],
+  [
+    "Send the app's and the agent's traffic through this HTTP proxy instead of the operating system's proxy settings.",
+    "让应用和智能体的流量经过此 HTTP 代理，而非操作系统的代理设置。"
+  ],
+  [
+    "Proxy auto-config (PAC) URL",
+    "代理自动配置（PAC）URL"
+  ],
+  [
+    "URL of a PAC file that decides the proxy per request. Wins over the proxy server URL when both are set.",
+    "用于按请求决定代理的 PAC 文件的 URL。同时设置时优先于代理服务器 URL。"
+  ],
+  [
+    "Workspace VM network",
+    "工作区虚拟机网络"
+  ],
+  [
+    "Enable IPv6 in the workspace VM",
+    "在工作区虚拟机中启用 IPv6"
+  ],
+  [
+    "Give the Cowork workspace VM an IPv6 address and route so the agent’s tools can reach IPv6-only hosts through the device. macOS and Windows; off by default.",
+    "为 Cowork 工作区虚拟机分配 IPv6 地址和路由，使智能体工具能够访问仅支持 IPv6 的主机。适用于 macOS 和 Windows；默认关闭。"
+  ],
+  [
+    "Give the Cowork workspace VM an IPv6 address and route so the agent's tools can reach IPv6-only hosts through the device. macOS and Windows; off by default.",
+    "为 Cowork 工作区虚拟机分配 IPv6 地址和路由，使智能体工具能够访问仅支持 IPv6 的主机。适用于 macOS 和 Windows；默认关闭。"
+  ],
+  [
+    "Scheduled-task tool approval lifetime",
+    "计划任务工具批准有效期"
+  ],
+  [
+    "How many days a scheduled task may reuse a lasting MCP-tool approval before it asks again. 0 removes the lasting option.",
+    "计划任务可重复使用 MCP 工具持久批准的天数，超过后需要再次询问。0 表示不提供持久选项。"
+  ],
+  [
+    "days",
+    "天"
+  ],
+  [
+    "Allowed plugin MCP servers",
+    "允许的插件 MCP 服务器"
+  ],
+  [
+    "Servers plugins may connect in sessions, beyond the managed list above and organization plugins. An empty list allows none; unset keeps today’s rules.",
+    "插件在会话中可连接的 MCP 服务器，不含上方托管列表和组织插件。列表为空表示全部禁止；未设置则保持现有规则。"
+  ],
+  [
+    "Servers plugins may connect in sessions, beyond the managed list above and organization plugins. An empty list allows none; unset keeps today's rules.",
+    "插件在会话中可连接的 MCP 服务器，不含上方托管列表和组织插件。列表为空表示全部禁止；未设置则保持现有规则。"
+  ],
+  [
+    "MCP tool call timeout",
+    "MCP 工具调用超时"
+  ],
+  [
+    "Per-call timeout for MCP tool calls, in seconds. Default 180 (3 minutes).",
+    "MCP 工具调用的单次超时时间（秒）。默认 180（3 分钟）。"
+  ],
+  [
+    "Enable import",
+    "启用导入"
+  ],
+  [
+    "Lets users import Claude.ai chats and projects, plus earlier Claude sessions on this computer, when ",
+    "当 "
+  ],
+  [
+    " is true. ",
+    " 为 true 时，允许用户导入 Claude.ai 聊天和项目，以及这台电脑上较早的 Claude 会话。"
+  ],
+  [
+    " is a separate switch.",
+    " 是一个独立的开关。"
+  ],
+  [
+    "Automatically import earlier third-party sessions",
+    "自动导入早前的第三方会话"
+  ],
+  [
+    "Copy this computer’s earlier third-party sessions into the app once, in the background. Independent of ",
+    "在后台一次性将这台电脑上较早的第三方会话复制进应用。独立于 "
+  ],
+  [
+    "Copy this computer's earlier third-party sessions into the app once, in the background. Independent of ",
+    "在后台一次性将这台电脑上较早的第三方会话复制进应用。独立于 "
+  ],
+  [
+    "Enable session export",
+    "启用会话导出"
+  ],
+  [
+    "Lets users export this computer’s chats, Cowork tasks, and Code sessions as a zip another install can import. No effect unless ",
+    "允许用户将这台电脑的聊天、Cowork 任务和 Code 会话导出为 zip，供其他安装导入。除非 "
+  ],
+  [
+    "Lets users export this computer's chats, Cowork tasks, and Code sessions as a zip another install can import. No effect unless ",
+    "允许用户将这台电脑的聊天、Cowork 任务和 Code 会话导出为 zip，供其他安装导入。除非 "
+  ],
+  [
+    " is true.",
+    " 为 true，否则无效。"
+  ],
+  [
+    "Import prompt banner",
+    "导入提示横幅"
+  ],
+  [
+    "Prompt to import at the top of a new chat or task. ",
+    "在新聊天或任务顶部显示导入提示。"
+  ],
+  [
+    ": only when earlier Claude sessions are found on this computer. ",
+    "：仅当在这台电脑上发现较早的 Claude 会话时。"
+  ],
+  [
+    ": always. Hidden when unset.",
+    "：始终显示。未设置时隐藏。"
+  ],
+  [
+    "Connector favicons and the artifact-preview and MCP Apps widget iframe origins. Artifacts will not render.",
+    "连接器网站图标以及 Artifact 预览和 MCP 应用小部件的 iframe 来源。Artifacts 将无法渲染。"
+  ],
+  [
+    "Where OpenTelemetry logs and metrics are sent. Leave blank to disable.",
+    "OpenTelemetry 日志和指标的发送位置。留空则禁用。"
+  ],
+  [
+    "Stop Claude Desktop from fetching updates entirely (no time limit). You’ll need to push new versions yourself.",
+    "完全阻止 Claude Desktop 获取更新（不设时限）。你需要自行推送新版本。"
+  ],
+  [
+    "Stop Claude Desktop from fetching updates entirely (no time limit). You'll need to push new versions yourself.",
+    "完全阻止 Claude Desktop 获取更新（不设时限）。你需要自行推送新版本。"
+  ],
+  [
+    "Hours before a downloaded update force-installs. Only applies when auto-updates are enabled. Blank = 72-hour default.",
+    "已下载的更新强制安装前的小时数。仅在启用自动更新时生效。留空 = 默认 72 小时。"
+  ],
+  [
+    "Configuration relaunch window",
+    "配置重新启动窗口"
+  ],
+  [
+    "Hours a user may keep working on the old configuration after a managed-configuration change is detected. 0 = restart required at once. Blank = 24 hours.",
+    "检测到托管配置更改后，允许用户继续使用旧配置工作的小时数。0 = 立即要求重启。留空 = 24 小时。"
+  ],
+  [
+    "Configuration re-check interval",
+    "配置重新检查间隔"
+  ],
+  [
+    "Minutes between the running app’s checks for a changed managed configuration. Blank = 10 minutes.",
+    "运行中的应用检查托管配置是否变更的间隔分钟数。留空 = 10 分钟。"
+  ],
+  [
+    "Minutes between the running app's checks for a changed managed configuration. Blank = 10 minutes.",
+    "运行中的应用检查托管配置是否变更的间隔分钟数。留空 = 10 分钟。"
+  ],
+  [
+    "minutes",
+    "分钟"
+  ],
+  [
+    "Auto-updates",
+    "自动更新"
+  ],
+  [
+    "Session retention",
+    "会话保留"
+  ],
+  [
+    "Chat retention period",
+    "聊天保留期限"
+  ],
+  [
+    "Delete chats, with their files, after this many days without activity. Unset: kept until the user deletes them. Projects and memory stay.",
+    "聊天在无活动达到此天数后连同其文件一起删除。未设置：一直保留，直至用户自行删除。项目和记忆不受影响。"
+  ],
+  [
+    "Cowork retention period",
+    "Cowork 保留期限"
+  ],
+  [
+    "Delete Cowork tasks, with their uploads and outputs, after this many days without activity. Unset: kept until the user deletes them. Spaces and memory stay.",
+    "Cowork 任务在无活动达到此天数后连同其上传与输出一起删除。未设置：一直保留，直至用户自行删除。空间和记忆不受影响。"
+  ],
+  [
+    "Code retention period",
+    "Code 保留期限"
+  ],
+  [
+    "Delete Code sessions, conversation included, after this many days without activity. Unset: kept until the user deletes them. Uncommitted work stays on disk.",
+    "Code 会话在无活动达到此天数后连同对话一起删除。未设置：一直保留，直至用户自行删除。未提交的工作保留在磁盘上。"
+  ],
+  [
+    "Suspend session deletion",
+    "暂停会话删除"
+  ],
+  [
+    "Suspend all automatic session deletion for these users (legal hold). While on, the retention periods above delete nothing.",
+    "为这些用户暂停所有自动会话删除（法律保留）。开启期间，上方的保留期限不会删除任何内容。"
+  ],
+  [
+    "Per-user soft cap, counted client-side over the token cap window. Not a server-enforced quota.",
+    "按用户统计的软上限，在客户端按 token 上限窗口计数。并非服务器强制配额。"
+  ],
+  [
+    "Configuration notices",
+    "配置通知"
+  ],
+  [
+    "Hide configuration deprecation warnings",
+    "隐藏配置弃用警告"
+  ],
+  [
+    "Don’t show users the in-app warning that this configuration uses a deprecated field. The final reminder in the 24 hours before the cut-off still appears.",
+    "不向用户显示此配置使用了已弃用字段的应用内警告。截止前 24 小时内的最终提醒仍会出现。"
+  ],
+  [
+    "Don't show users the in-app warning that this configuration uses a deprecated field. The final reminder in the 24 hours before the cut-off still appears.",
+    "不向用户显示此配置使用了已弃用字段的应用内警告。截止前 24 小时内的最终提醒仍会出现。"
+  ],
+  [
+    "Git repositories or hosted marketplace.json URLs to surface as plugin marketplaces in the Directory’s Organization tab. The app re-fetches each periodically.",
+    "在目录的“组织”标签页中作为插件市场显示的 Git 仓库或托管的 marketplace.json URL。应用会定期重新抓取。"
+  ],
+  [
+    "Sign in",
+    "登录"
+  ],
+  [
+    "Log in",
+    "登录"
+  ],
+  [
+    "Sign up",
+    "注册"
+  ],
+  [
+    "Sign in to Claude",
+    "登录 Claude"
+  ],
+  [
+    "Log in to Claude",
+    "登录 Claude"
+  ],
+  [
+    "Sign in to your account",
+    "登录你的账号"
+  ],
+  [
+    "Log in to your account",
+    "登录你的账号"
+  ],
+  [
+    "Continue with Google",
+    "使用 Google 继续"
+  ],
+  [
+    "Continue with email",
+    "使用邮箱继续"
+  ],
+  [
+    "Enter your email",
+    "输入你的邮箱"
+  ],
+  [
+    "Email address",
+    "邮箱地址"
+  ],
+  [
+    "Welcome back",
+    "欢迎回来"
+  ],
+  [
+    "Continue",
+    "继续"
+  ],
+  [
+    "Check your email",
+    "请查收你的邮件"
+  ],
+  [
+    "Use single sign-on (SSO)",
+    "使用单点登录 (SSO)"
+  ],
+  [
+    "Sign in with SSO",
+    "使用 SSO 登录"
+  ],
+  [
+    "Log in with SSO",
+    "使用 SSO 登录"
+  ],
+  [
+    "Send code",
+    "发送验证码"
+  ],
+  [
+    "Resend code",
+    "重新发送验证码"
+  ],
+  [
+    "Send a temporary login code to your email",
+    "向你的邮箱发送临时登录验证码"
+  ],
+  [
+    "Terms of Service",
+    "服务条款"
+  ],
+  [
+    "Privacy Policy",
+    "隐私政策"
+  ],
+  [
+    "Consumer Terms",
+    "个人用户条款"
+  ],
+  [
+    "Commercial Terms",
+    "商业条款"
+  ],
+  [
+    "Choose an account",
+    "选择账号"
+  ],
+  [
+    "Create an account",
+    "创建账号"
+  ],
+  [
+    "Don't have an account?",
+    "还没有账号？"
+  ],
+  [
+    "Don’t have an account?",
+    "还没有账号？"
+  ],
+  [
+    "Already have an account?",
+    "已有账号？"
+  ],
+  [
+    "Sign out",
+    "退出登录"
+  ],
+  [
+    "Log out",
+    "退出登录"
+  ],
+  [
+    "This page ran into a problem",
+    "此页面出现问题"
+  ],
+  [
+    "Reload to continue. If it keeps happening, check status.anthropic.com.",
+    "重新加载以继续。如果该问题持续出现，请查看 status.anthropic.com。"
+  ],
+  [
+    "Still not working? You can reach out to support with this error code:",
+    "仍然无法正常工作？你可以携带此错误代码联系支持团队："
+  ],
+  [
+    "Your artifacts and scheduled tasks are stored at ",
+    "你的 Artifacts 和计划任务存储在 "
+  ],
+  [
+    "Your artifacts and scheduled tasks are stored at",
+    "你的 Artifacts 和计划任务存储在"
+  ],
+  [
+    "You’re running Claude through your organization’s own inference provider (127.0.0.1:15721). Your conversations are sent there, not to Anthropic, and are governed by your organization’s agreement with that provider.",
+    "你正在通过你组织自己的推理提供商（127.0.0.1:15721）运行 Claude。你的对话会发送到该提供商而非 Anthropic，并受你的组织与该提供商的协议约束。"
+  ],
+  [
+    "You're running Claude through your organization's own inference provider (127.0.0.1:15721). Your conversations are sent there, not to Anthropic, and are governed by your organization's agreement with that provider.",
+    "你正在通过你组织自己的推理提供商（127.0.0.1:15721）运行 Claude。你的对话会发送到该提供商而非 Anthropic，并受你的组织与该提供商的协议约束。"
   ]
 ]

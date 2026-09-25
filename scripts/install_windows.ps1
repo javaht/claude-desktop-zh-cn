@@ -1564,24 +1564,31 @@ function Get-OnlineDomTranslationScript {
     $deleteItemsPermanentlyText = if ($Language -eq "zh-CN") { "`$1 项内容将被永久删除。此操作无法撤消。" } else { "`$1 項內容將被永久刪除。此操作無法復原。" }
     $deleteSelectedTitle = if ($Language -eq "zh-CN") { "删除所选项？" } else { "刪除所選項？" }
     $deleteChatTitle = if ($Language -eq "zh-CN") { "删除聊天？" } else { "刪除聊天？" }
+    $orgInferenceText = if ($Language -eq "zh-CN") {
+        "你正在通过你组织自己的推理提供商（`$1）运行 Claude。你的对话会发送到该提供商而非 Anthropic，并受你的组织与该提供商的协议约束。"
+    } else {
+        "您正在透過您組織自己的推理提供商（`$1）執行 Claude。您的對話會傳送到該提供商而非 Anthropic，並受您的組織與該提供商的協議約束。"
+    }
     $hideSidebarShortcutTextJson = $hideSidebarShortcutText | ConvertTo-Json -Compress
     $showSidebarShortcutTextJson = $showSidebarShortcutText | ConvertTo-Json -Compress
     $deleteItemsPermanentlyTextJson = $deleteItemsPermanentlyText | ConvertTo-Json -Compress
     $deleteSelectedTitleJson = $deleteSelectedTitle | ConvertTo-Json -Compress
     $deleteChatTitleJson = $deleteChatTitle | ConvertTo-Json -Compress
+    $orgInferenceTextJson = $orgInferenceText | ConvertTo-Json -Compress
     # __ADDED_MONTH_RULES__ sits inside the G=[...] array literal, so inject the
     # flat comma-joined rule elements -- wrapping them in [ ] would nest them as
     # a single G entry and never match.
     $addedMonthRulesJson = ($addedMonthRuleParts + $monthDayRuleParts) -join ','
     $template = @'
 (()=>{try{
-const L=__LANGUAGE__,M=__MAPPING__,ST=__SELECTED_TEXT__,DST=__DELETE_SELECTED_TEXT__,UMI=__UPDATED_MINUTE_TEXT__,UH=__UPDATED_HOUR_TEXT__,UD=__UPDATED_DAY_TEXT__,UW=__UPDATED_WEEK_TEXT__,UMO=__UPDATED_MONTH_TEXT__,UY=__UPDATED_YEAR_TEXT__,AS=__AGO_SECOND__,AMN=__AGO_MINUTE__,AH=__AGO_HOUR__,ADY=__AGO_DAY__,AWK=__AGO_WEEK__,ADDMI=__ADDED_MINUTE__,ADDH=__ADDED_HOUR__,ADDD=__ADDED_DAY__,ADDW=__ADDED_WEEK__,ADDMO=__ADDED_MONTH__,ADDY=__ADDED_YEAR__,LMM=__LEGACY_MEMORY_MIGRATION_TEXT__,LMMP=__LEGACY_MEMORY_PREFIX_TEXT__,PH=__PAST_HOUR__,PD=__PAST_DAY__,PW=__PAST_WEEK__,PMO=__PAST_MONTH__,PY=__PAST_YEAR__,HSB=__HIDE_SIDEBAR__,SSB=__SHOW_SIDEBAR__,DIPT=__DELETE_ITEMS_PERMANENTLY__,DSTT=__DELETE_SELECTED_TITLE__,DCT=__DELETE_CHAT_TITLE__;
+const L=__LANGUAGE__,M=__MAPPING__,ST=__SELECTED_TEXT__,DST=__DELETE_SELECTED_TEXT__,UMI=__UPDATED_MINUTE_TEXT__,UH=__UPDATED_HOUR_TEXT__,UD=__UPDATED_DAY_TEXT__,UW=__UPDATED_WEEK_TEXT__,UMO=__UPDATED_MONTH_TEXT__,UY=__UPDATED_YEAR_TEXT__,AS=__AGO_SECOND__,AMN=__AGO_MINUTE__,AH=__AGO_HOUR__,ADY=__AGO_DAY__,AWK=__AGO_WEEK__,ADDMI=__ADDED_MINUTE__,ADDH=__ADDED_HOUR__,ADDD=__ADDED_DAY__,ADDW=__ADDED_WEEK__,ADDMO=__ADDED_MONTH__,ADDY=__ADDED_YEAR__,LMM=__LEGACY_MEMORY_MIGRATION_TEXT__,LMMP=__LEGACY_MEMORY_PREFIX_TEXT__,PH=__PAST_HOUR__,PD=__PAST_DAY__,PW=__PAST_WEEK__,PMO=__PAST_MONTH__,PY=__PAST_YEAR__,HSB=__HIDE_SIDEBAR__,SSB=__SHOW_SIDEBAR__,DIPT=__DELETE_ITEMS_PERMANENTLY__,DSTT=__DELETE_SELECTED_TITLE__,DCT=__DELETE_CHAT_TITLE__,OIT=__ORG_INFERENCE_TEXT__;
 localStorage.setItem("spa:locale",L);
 document.documentElement&&document.documentElement.setAttribute("lang",L);
 const N=s=>(s||"").replace(/\s+/g," ").trim();
 const G=[
 [/^Delete selected\?$/,DSTT],
 [/^Delete chat\?$/,DCT],
+[/^You[’']re running Claude through your organization[’']s own inference provider \((.+?)\)\. Your conversations are sent there, not to Anthropic, and are governed by your organization[’']s agreement with that provider\.$/,OIT],
 [/^Morning, (.+)$/,"早上好，$1"],[/^Good morning, (.+)$/,"早上好，$1"],
 [/^Afternoon, (.+)$/,"下午好，$1"],[/^Good afternoon, (.+)$/,"下午好，$1"],
 [/^Evening, (.+)$/,"晚上好，$1"],[/^Good evening, (.+)$/,"晚上好，$1"],
@@ -1641,7 +1648,7 @@ T();
 new MutationObserver(()=>{clearTimeout(window.__claudeZhDomTimer);window.__claudeZhDomTimer=setTimeout(T,30)}).observe(document.documentElement,{subtree:true,childList:true,characterData:true,attributes:true});
 }catch(e){}})()
 '@
-    return $template.Replace("__LANGUAGE__", $languageJson).Replace("__MAPPING__", $mappingJson).Replace("__SELECTED_TEXT__", $selectedTextJson).Replace("__DELETE_SELECTED_TEXT__", $deleteSelectedTextJson).Replace("__UPDATED_MINUTE_TEXT__", $updatedMinuteTextJson).Replace("__UPDATED_HOUR_TEXT__", $updatedHourTextJson).Replace("__UPDATED_DAY_TEXT__", $updatedDayTextJson).Replace("__UPDATED_WEEK_TEXT__", $updatedWeekTextJson).Replace("__UPDATED_MONTH_TEXT__", $updatedMonthTextJson).Replace("__UPDATED_YEAR_TEXT__", $updatedYearTextJson).Replace("__AGO_SECOND__", $agoSecondTextJson).Replace("__AGO_MINUTE__", $agoMinuteTextJson).Replace("__AGO_HOUR__", $agoHourTextJson).Replace("__AGO_DAY__", $agoDayTextJson).Replace("__AGO_WEEK__", $agoWeekTextJson).Replace("__ADDED_MINUTE__", $addedMinuteTextJson).Replace("__ADDED_HOUR__", $addedHourTextJson).Replace("__ADDED_DAY__", $addedDayTextJson).Replace("__ADDED_WEEK__", $addedWeekTextJson).Replace("__ADDED_MONTH__", $addedMonthTextJson).Replace("__ADDED_YEAR__", $addedYearTextJson).Replace("__ADDED_MONTH_RULES__", $addedMonthRulesJson).Replace("__LEGACY_MEMORY_MIGRATION_TEXT__", $legacyMemoryMigrationTextJson).Replace("__LEGACY_MEMORY_PREFIX_TEXT__", $legacyMemoryPrefixTextJson).Replace("__PAST_HOUR__", $pastHourTextJson).Replace("__PAST_DAY__", $pastDayTextJson).Replace("__PAST_WEEK__", $pastWeekTextJson).Replace("__PAST_MONTH__", $pastMonthTextJson).Replace("__PAST_YEAR__", $pastYearTextJson).Replace("__HIDE_SIDEBAR__", $hideSidebarShortcutTextJson).Replace("__SHOW_SIDEBAR__", $showSidebarShortcutTextJson).Replace("__DELETE_ITEMS_PERMANENTLY__", $deleteItemsPermanentlyTextJson).Replace("__DELETE_SELECTED_TITLE__", $deleteSelectedTitleJson).Replace("__DELETE_CHAT_TITLE__", $deleteChatTitleJson)
+    return $template.Replace("__LANGUAGE__", $languageJson).Replace("__MAPPING__", $mappingJson).Replace("__SELECTED_TEXT__", $selectedTextJson).Replace("__DELETE_SELECTED_TEXT__", $deleteSelectedTextJson).Replace("__UPDATED_MINUTE_TEXT__", $updatedMinuteTextJson).Replace("__UPDATED_HOUR_TEXT__", $updatedHourTextJson).Replace("__UPDATED_DAY_TEXT__", $updatedDayTextJson).Replace("__UPDATED_WEEK_TEXT__", $updatedWeekTextJson).Replace("__UPDATED_MONTH_TEXT__", $updatedMonthTextJson).Replace("__UPDATED_YEAR_TEXT__", $updatedYearTextJson).Replace("__AGO_SECOND__", $agoSecondTextJson).Replace("__AGO_MINUTE__", $agoMinuteTextJson).Replace("__AGO_HOUR__", $agoHourTextJson).Replace("__AGO_DAY__", $agoDayTextJson).Replace("__AGO_WEEK__", $agoWeekTextJson).Replace("__ADDED_MINUTE__", $addedMinuteTextJson).Replace("__ADDED_HOUR__", $addedHourTextJson).Replace("__ADDED_DAY__", $addedDayTextJson).Replace("__ADDED_WEEK__", $addedWeekTextJson).Replace("__ADDED_MONTH__", $addedMonthTextJson).Replace("__ADDED_YEAR__", $addedYearTextJson).Replace("__ADDED_MONTH_RULES__", $addedMonthRulesJson).Replace("__LEGACY_MEMORY_MIGRATION_TEXT__", $legacyMemoryMigrationTextJson).Replace("__LEGACY_MEMORY_PREFIX_TEXT__", $legacyMemoryPrefixTextJson).Replace("__PAST_HOUR__", $pastHourTextJson).Replace("__PAST_DAY__", $pastDayTextJson).Replace("__PAST_WEEK__", $pastWeekTextJson).Replace("__PAST_MONTH__", $pastMonthTextJson).Replace("__PAST_YEAR__", $pastYearTextJson).Replace("__HIDE_SIDEBAR__", $hideSidebarShortcutTextJson).Replace("__SHOW_SIDEBAR__", $showSidebarShortcutTextJson).Replace("__DELETE_ITEMS_PERMANENTLY__", $deleteItemsPermanentlyTextJson).Replace("__DELETE_SELECTED_TITLE__", $deleteSelectedTitleJson).Replace("__DELETE_CHAT_TITLE__", $deleteChatTitleJson).Replace("__ORG_INFERENCE_TEXT__", $orgInferenceTextJson)
 }
 
 function Remove-ExistingOnlineDomTranslationPatch {
@@ -1897,8 +1904,11 @@ function Resolve-MainProcessAsarTarget {
 function Remove-ExistingOnlineLocaleLockPatch {
     param([string]$Text)
 
+    # 宽容匹配：从 requestLocaleChange( 到锁标记之间的整个函数体（兼容历史上
+    # 所有保护形态：无保护 / if 相等保护 / 可重入标志位保护）。
+    $ident = '[A-Za-z_$][A-Za-z0-9_$]*'
     $pattern = [System.Text.RegularExpressions.Regex]::new(
-        'requestLocaleChange\((?<arg>[A-Za-z_$][A-Za-z0-9_$]*)\)\{(?<setter>[A-Za-z_$][A-Za-z0-9_$]*)\("(?<lang>[^"]+)"\)\}/\*' +
+        'requestLocaleChange\((?<arg>' + $ident + ')\)\{.*?\}/\*' +
         [System.Text.RegularExpressions.Regex]::Escape($OnlineLocaleLockMarker) +
         '\*/'
     )
@@ -1911,7 +1921,9 @@ function Remove-ExistingOnlineLocaleLockPatch {
     }
 
     $arg = $match.Groups["arg"].Value
-    $setter = $match.Groups["setter"].Value
+    # 从体内提取第一个 `X("…")` 调用作为 setter 名
+    $setterMatch = [System.Text.RegularExpressions.Regex]::Match($match.Value, '(' + $ident + ')\("')
+    $setter = if ($setterMatch.Success) { $setterMatch.Groups[1].Value } else { "setter" }
     $replacement = "requestLocaleChange(" + $arg + "){" + $setter + "(" + $arg + ")}"
     $patched = $Text.Substring(0, $match.Index) + $replacement + $Text.Substring($match.Index + $match.Length)
     return @{ Text = $patched; Removed = $true }
@@ -2020,7 +2032,11 @@ function Patch-OnlineLocaleLock {
     }
 
     $languageJson = $Language | ConvertTo-Json -Compress
-    $replacement = "requestLocaleChange(" + $handler["Arg"] + "){" + $handler["Setter"] + "(" + $languageJson + ")}/*" + $OnlineLocaleLockMarker + "*/"
+    # 递归保护：2.9939.2 的 setter 内部会回调 requestLocaleChange，直接调用会造成
+    # 无限递归并挂死主进程（窗口永远无法创建）。仅当目标语言与当前请求不同才转发。
+    # 递归保护：2.9939.2 的 setter 内部可能以不同参数形式回调 requestLocaleChange，
+    # 简单的相等判断挡不住交替递归。用可重入标志位保证只转发一次。
+    $replacement = "requestLocaleChange(" + $handler["Arg"] + "){if(!globalThis.__claudeZhLockBusy){globalThis.__claudeZhLockBusy=1;try{if(" + $handler["Arg"] + "!==" + $languageJson + "){" + $handler["Setter"] + "(" + $languageJson + ")}}finally{globalThis.__claudeZhLockBusy=0}}}/*" + $OnlineLocaleLockMarker + "*/"
     $index = [int]$handler["Index"]
     $length = [int]$handler["Length"]
     $patched = $text.Substring(0, $index) + $replacement + $text.Substring($index + $length)
@@ -2103,7 +2119,21 @@ function Patch-OnlineDomTranslation {
             $action = if ($hadExisting) { "refreshed" } else { "patched" }
             Write-Host "  $action online claude.ai DOM translation: $($mapping.Count) strings" -ForegroundColor Green
         }
-        Patch-OnlineLocaleLock $ResourcesPath $Language
+        # Claude 2.9939.2（Electron 44）起，DesktopIntl 锁补丁（任何形态）都会造成
+        # requestLocaleChange 无限递归并挂死主进程——窗口永远无法创建。新版跳过锁注入。
+        $skipLocaleLock = $false
+        try {
+            $claudeExe2 = Join-Path (Split-Path $ResourcesPath -Parent) "Claude.exe"
+            if (Test-Path $claudeExe2) {
+                $exeVersion2 = [version]((Get-Item $claudeExe2).VersionInfo.ProductVersion)
+                if ($exeVersion2 -ge [version]"2.9939.2") { $skipLocaleLock = $true }
+            }
+        } catch {}
+        if ($skipLocaleLock) {
+            Write-Host "  skipping DesktopIntl locale lock on Claude >= 2.9939.2 (would hang window creation)" -ForegroundColor DarkYellow
+        } else {
+            Patch-OnlineLocaleLock $ResourcesPath $Language
+        }
         return
     }
 
@@ -2255,7 +2285,9 @@ function Get-MenuRuntimePatch {
 
     $labelJson = Convert-PairsToHashtable $LabelPairs | ConvertTo-Json -Compress -Depth 20
     $roleJson = Convert-PairsToHashtable $RolePairs | ConvertTo-Json -Compress -Depth 20
-    return ';(()=>{try{const e=require("electron"),M=' + $labelJson + ',R=' + $roleJson + ';if(!e||!e.Menu||e.Menu.__claudeZhMenuRuntimePatch)return;const n=s=>String(s||"").replace(/\u2026/g,"...").trim(),t=s=>M[s]||M[n(s)]||M[String(s||"").replace(/\.\.\.$/,"…")];function w(a){if(!Array.isArray(a))return;for(const i of a){if(!i||typeof i!=="object")continue;if(i.label){const l=t(i.label);if(l)i.label=l}const r=i.role==null?"":String(i.role),k=R[r]||R[r.charAt(0).toLowerCase()+r.slice(1)]||R[r.toLowerCase()];if(!i.label&&k)i.label=k;if(Array.isArray(i.submenu))w(i.submenu)}}const b=e.Menu.buildFromTemplate;e.Menu.buildFromTemplate=function(a){try{w(a)}catch{}return b.call(this,a)};if(e.MenuItem&&!e.MenuItem.__claudeZhMenuRuntimePatch){const I=e.MenuItem;e.MenuItem=function(o){try{w([o])}catch{}return new I(o)};e.MenuItem.prototype=I.prototype;Object.setPrototypeOf(e.MenuItem,I);Object.defineProperty(e.MenuItem,"__claudeZhMenuRuntimePatch",{value:!0})}Object.defineProperty(e.Menu,"__claudeZhMenuRuntimePatch",{value:!0})}catch{}})();/*' + $MenuRuntimeMarker + '*/'
+    # 注意：不要覆写 e.MenuItem 构造函数——Electron 44（Claude 2.9939.2+）上会挂死主进程，
+    # 窗口永远无法创建。菜单标签翻译由 desktop 语言包与 buildFromTemplate 钩子覆盖即可。
+    return ';(()=>{try{const e=require("electron"),M=' + $labelJson + ',R=' + $roleJson + ';if(!e||!e.Menu||e.Menu.__claudeZhMenuRuntimePatch)return;const n=s=>String(s||"").replace(/\u2026/g,"...").trim(),t=s=>M[s]||M[n(s)]||M[String(s||"").replace(/\.\.\.$/,"…")];function w(a){if(!Array.isArray(a))return;for(const i of a){if(!i||typeof i!=="object")continue;if(i.label){const l=t(i.label);if(l)i.label=l}const r=i.role==null?"":String(i.role),k=R[r]||R[r.charAt(0).toLowerCase()+r.slice(1)]||R[r.toLowerCase()];if(!i.label&&k)i.label=k;if(Array.isArray(i.submenu))w(i.submenu)}}const b=e.Menu.buildFromTemplate;e.Menu.buildFromTemplate=function(a){try{w(a)}catch{}return b.call(this,a)};Object.defineProperty(e.Menu,"__claudeZhMenuRuntimePatch",{value:!0})}catch{}})();/*' + $MenuRuntimeMarker + '*/'
 }
 
 function Patch-HardcodedMainProcessMenuLabels {
@@ -2275,6 +2307,12 @@ function Patch-HardcodedMainProcessMenuLabels {
                 @("Developer", "开发者"),
                 @("Help", "帮助"),
                 @("New Conversation", "新对话"),
+                @("New Task", "新建任务"),
+                @("Open File…", "打开文件…"),
+                @("Open File...", "打开文件..."),
+                @("Open Folder…", "打开文件夹…"),
+                @("Open Folder...", "打开文件夹..."),
+                @("Go", "前往"),
                 @("Settings…", "设置…"),
                 @("Settings...", "设置..."),
                 @("Close Window", "关闭窗口"),
@@ -2384,6 +2422,12 @@ function Patch-HardcodedMainProcessMenuLabels {
                 @("Developer", "開發者"),
                 @("Help", "說明"),
                 @("New Conversation", "新對話"),
+                @("New Task", "新增任務"),
+                @("Open File…", "開啟檔案…"),
+                @("Open File...", "開啟檔案..."),
+                @("Open Folder…", "開啟資料夾…"),
+                @("Open Folder...", "開啟資料夾..."),
+                @("Go", "前往"),
                 @("Settings…", "設定…"),
                 @("Settings...", "設定..."),
                 @("Close Window", "關閉視窗"),
@@ -2493,6 +2537,12 @@ function Patch-HardcodedMainProcessMenuLabels {
                 @("Developer", "開發者"),
                 @("Help", "說明"),
                 @("New Conversation", "新對話"),
+                @("New Task", "新增任務"),
+                @("Open File…", "開啟檔案…"),
+                @("Open File...", "開啟檔案..."),
+                @("Open Folder…", "開啟資料夾…"),
+                @("Open Folder...", "開啟資料夾..."),
+                @("Go", "前往"),
                 @("Settings…", "設定…"),
                 @("Settings...", "設定..."),
                 @("Close Window", "關閉視窗"),
@@ -2730,8 +2780,22 @@ function Patch-HardcodedMainProcessMenuLabels {
     }
 
     if (-not $patched.Contains($MenuRuntimeMarker)) {
-        $patched = (Get-MenuRuntimePatch $replacements (Get-MainProcessMenuRoleReplacementPairs $Language)) + $patched
-        $runtimeCount = 1
+        # Claude 2.9939.2（Electron 44）起，注入菜单运行时补丁会挂死主进程——
+        # 窗口永远无法创建。新版菜单标签由 desktop 语言包（intl catalog）覆盖。
+        $skipRuntimePatch = $false
+        try {
+            $claudeExe = Join-Path (Split-Path $ResourcesPath -Parent) "Claude.exe"
+            if (Test-Path $claudeExe) {
+                $exeVersion = [version]((Get-Item $claudeExe).VersionInfo.ProductVersion)
+                if ($exeVersion -ge [version]"2.9939.2") { $skipRuntimePatch = $true }
+            }
+        } catch {}
+        if ($skipRuntimePatch) {
+            Write-Host "  skipping menu runtime patch on Claude >= 2.9939.2 (would hang window creation); menu labels come from the desktop locale catalog" -ForegroundColor DarkYellow
+        } else {
+            $patched = (Get-MenuRuntimePatch $replacements (Get-MainProcessMenuRoleReplacementPairs $Language)) + $patched
+            $runtimeCount = 1
+        }
     }
     elseif ($script:__menuRuntimeRemovedCount -gt 0) {
         $runtimeCount = 1

@@ -798,16 +798,19 @@ def strip_online_locale_main_process_patch(text: str) -> tuple[str, bool]:
 
 
 def strip_online_locale_lock_patch(text: str) -> tuple[str, bool]:
+    # 宽容匹配：从 requestLocaleChange( 到锁标记之间的整个函数体（兼容历史上
+    # 所有保护形态：无保护 / if 相等保护 / 可重入标志位保护）。
+    ident = r'[A-Za-z_$][A-Za-z0-9_$]*'
     pattern = re.compile(
-        r'requestLocaleChange\((?P<arg>[A-Za-z_$][A-Za-z0-9_$]*)\)'
-        r'\{(?P<setter>[A-Za-z_$][A-Za-z0-9_$]*)\("(?P<lang>[^"]+)"\)\}/\*'
-        + re.escape(ONLINE_LOCALE_LOCK_MARKER)
-        + r"\*/"
+        rf'requestLocaleChange\((?P<arg>{ident})\)\{{.*?\}}'
+        r'/\*' + re.escape(ONLINE_LOCALE_LOCK_MARKER) + r"\*/"
     )
 
     def restore(match: re.Match[str]) -> str:
         arg = match.group("arg")
-        setter = match.group("setter")
+        # 还原时需要 setter 名；从体内提取第一个 `X("…")` 调用
+        m = re.search(rf'({ident})\("', match.group(0))
+        setter = m.group(1) if m else "setter"
         return f"requestLocaleChange({arg}){{{setter}({arg})}}"
 
     patched, count = pattern.subn(restore, text)
@@ -836,8 +839,14 @@ def patch_online_locale_lock(text: str, lang_code: str) -> tuple[str, bool]:
     match = matches[0]
     arg = match.group("arg")
     setter = match.group("setter")
+    # 递归保护：2.9939.2 的 setter 内部可能以不同参数形式回调 requestLocaleChange，
+    # 简单的相等判断挡不住交替递归，会造成无限递归并挂死主进程（窗口永远无法创建）。
+    # 用可重入标志位保证只转发一次。
     replacement = (
-        f'requestLocaleChange({arg}){{{setter}("{lang_code}")}}/*{ONLINE_LOCALE_LOCK_MARKER}*/'
+        f'requestLocaleChange({arg}){{if(!globalThis.__claudeZhLockBusy){{'
+        f'globalThis.__claudeZhLockBusy=1;try{{if({arg}!=="{lang_code}"){{{setter}("{lang_code}")}}}}'
+        f'finally{{globalThis.__claudeZhLockBusy=0}}}}}}'
+        f'/*{ONLINE_LOCALE_LOCK_MARKER}*/'
     )
     patched = text[: match.start()] + replacement + text[match.end() :]
     return patched, True
@@ -1008,6 +1017,17 @@ def patch_online_locale_main_process(app: Path, lang_code: str) -> None:
         print("Online claude.ai locale main-process patch already applied")
     else:
         replace_asar_file_content(app, asar_target, patched_text.encode("utf-8"))
+    # Claude 2.9939.2（Electron 44）起，DesktopIntl 锁补丁（任何形态，包括可重入
+    # 标志位）都会造成 requestLocaleChange 无限递归并挂死主进程——窗口永远无法
+    # 创建（实测 sample 显示主线程 JS 深度递归）。新版跳过锁注入：语言由
+    # config.json locale + 在线页 localStorage spa:locale + desktop 语言包覆盖。
+    if version_key(bundle_version(app)) >= (2, 9939, 2):
+        action = "Refreshed" if had_existing else "Patched"
+        print(
+            f"{action} online claude.ai locale main-process hook: {len(mapping)} DOM strings; "
+            f"skipping DesktopIntl locale lock on Claude >= 2.9939.2 (would hang window creation)"
+        )
+        return
     locale_lock_target = patch_online_locale_lock_in_asar(app, lang_code)
     action = "Refreshed" if (had_existing or had_existing_lock) else "Patched"
     print(
@@ -1261,6 +1281,12 @@ def get_main_process_menu_replacements(lang_code: str) -> dict[str, str]:
             "Developer": "开发者",
             "Help": "帮助",
             "New Conversation": "新对话",
+            "New Task": "新建任务",
+            "Open File…": "打开文件…",
+            "Open File...": "打开文件...",
+            "Open Folder…": "打开文件夹…",
+            "Open Folder...": "打开文件夹...",
+            "Go": "前往",
             "Settings…": "设置…",
             "Settings...": "设置...",
             "Close Window": "关闭窗口",
@@ -1321,6 +1347,12 @@ def get_main_process_menu_replacements(lang_code: str) -> dict[str, str]:
             "Developer": "開發者",
             "Help": "說明",
             "New Conversation": "新對話",
+            "New Task": "新增任務",
+            "Open File…": "開啟檔案…",
+            "Open File...": "開啟檔案...",
+            "Open Folder…": "開啟資料夾…",
+            "Open Folder...": "開啟資料夾...",
+            "Go": "前往",
             "Settings…": "設定…",
             "Settings...": "設定...",
             "Close Window": "關閉視窗",
@@ -1381,6 +1413,12 @@ def get_main_process_menu_replacements(lang_code: str) -> dict[str, str]:
             "Developer": "開發者",
             "Help": "說明",
             "New Conversation": "新對話",
+            "New Task": "新增任務",
+            "Open File…": "開啟檔案…",
+            "Open File...": "開啟檔案...",
+            "Open Folder…": "開啟資料夾…",
+            "Open Folder...": "開啟資料夾...",
+            "Go": "前往",
             "Settings…": "設定…",
             "Settings...": "設定...",
             "Close Window": "關閉視窗",
@@ -1669,10 +1707,9 @@ def build_menu_runtime_patch(lang_code: str) -> str:
         f'const r=i.role==null?"":String(i.role),k=R[r]||R[r.charAt(0).toLowerCase()+r.slice(1)]||R[r.toLowerCase()];'
         f'if(!i.label&&k)i.label=k;if(Array.isArray(i.submenu))w(i.submenu)}}}}'
         f'const b=e.Menu.buildFromTemplate;e.Menu.buildFromTemplate=function(a){{try{{w(a)}}catch{{}}return b.call(this,a)}};'
-        f'if(e.MenuItem&&!e.MenuItem.__claudeZhMenuRuntimePatch){{const I=e.MenuItem;'
-        f'e.MenuItem=function(o){{try{{w([o])}}catch{{}}return new I(o)}};'
-        f'e.MenuItem.prototype=I.prototype;Object.setPrototypeOf(e.MenuItem,I);'
-        f'Object.defineProperty(e.MenuItem,"__claudeZhMenuRuntimePatch",{{value:!0}})}}'
+        # 注意：不要覆写 e.MenuItem 构造函数——Claude 2.9939.2（Electron 44）上会挂死
+        # 主进程（窗口永远无法创建）。菜单标签翻译由 desktop 语言包（intl catalog）
+        # 与 buildFromTemplate 钩子覆盖即可。
         f'Object.defineProperty(e.Menu,"__claudeZhMenuRuntimePatch",{{value:!0}})}}catch{{}}}})();/*{MENU_RUNTIME_MARKER}*/'
     )
 
@@ -1858,8 +1895,16 @@ def patch_hardcoded_main_process_menu_labels(app: Path, lang_code: str) -> None:
         count += occurrences
 
     if MENU_RUNTIME_MARKER not in patched:
-        patched = build_menu_runtime_patch(lang_code) + patched
-        runtime_count = 1
+        # Claude 2.9939.2（Electron 44）起，注入菜单运行时补丁会挂死主进程——
+        # 窗口永远无法创建（实测）。新版菜单标签由 desktop 语言包（intl catalog）
+        # 覆盖（desktop-zh-*.json 已含全部菜单 key），因此新版跳过注入。
+        new_ver = version_key(bundle_version(app))
+        if new_ver >= (2, 9939, 2):
+            print("Skipping menu runtime patch on Claude >= 2.9939.2 (would hang window creation); "
+                  "menu labels come from the desktop locale catalog")
+        else:
+            patched = build_menu_runtime_patch(lang_code) + patched
+            runtime_count = 1
     elif removed_runtime_patch:
         runtime_count = 1
 
@@ -2905,29 +2950,33 @@ def verify_online_locale_patch(app: Path, lang_code: str) -> None:
             "Online locale patch verification failed; missing marker in "
             f"{asar_target}: {ONLINE_LOCALE_MAIN_MARKER}"
         )
-    lock_target = find_online_locale_lock_asar_target(
-        data, header_size, header, lang_code
-    )
-    lock_entry = get_asar_file_entry(header, lock_target)
-    lock_text = read_asar_entry_content(
-        data, header_size, lock_entry, lock_target
-    ).decode("utf-8")
-    lock_pattern = re.compile(
-        r'requestLocaleChange\([A-Za-z_$][A-Za-z0-9_$]*\)'
-        r'\{[A-Za-z_$][A-Za-z0-9_$]*\("'
-        + re.escape(lang_code)
-        + r'"\)\}/\*'
-        + re.escape(ONLINE_LOCALE_LOCK_MARKER)
-        + r"\*/"
-    )
-    if lock_pattern.search(lock_text) is None:
-        raise SystemExit(
-            f"Online locale lock verification failed for {lang_code} in {lock_target}."
+    # Claude 2.9939.2 起 DesktopIntl 锁已跳过注入（会挂死主进程），同步跳过其校验。
+    if version_key(bundle_version(app)) < (2, 9939, 2):
+        lock_target = find_online_locale_lock_asar_target(
+            data, header_size, header, lang_code
         )
-    print(
-        f"Verified online locale patch in {asar_target}; "
-        f"DesktopIntl lock in {lock_target}: {lang_code}"
-    )
+        lock_entry = get_asar_file_entry(header, lock_target)
+        lock_text = read_asar_entry_content(
+            data, header_size, lock_entry, lock_target
+        ).decode("utf-8")
+        # 锁形态历经三代（无保护 / if 相等保护 / 可重入标志位），统一按
+        # "标记存在 + 目标语言的 setter 调用存在" 校验。
+        if (
+            ONLINE_LOCALE_LOCK_MARKER not in lock_text
+            or re.search(re.escape(lang_code) + r'"\)\}', lock_text) is None
+        ):
+            raise SystemExit(
+                f"Online locale lock verification failed for {lang_code} in {lock_target}."
+            )
+        print(
+            f"Verified online locale patch in {asar_target}; "
+            f"DesktopIntl lock in {lock_target}: {lang_code}"
+        )
+    else:
+        print(
+            f"Verified online locale patch in {asar_target}; "
+            f"DesktopIntl locale lock skipped on Claude >= 2.9939.2"
+        )
 
 
 def verify(app: Path, lang_code: str, *, expect_online_patch: bool = True) -> None:

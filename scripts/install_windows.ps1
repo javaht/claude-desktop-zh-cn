@@ -1897,8 +1897,11 @@ function Resolve-MainProcessAsarTarget {
 function Remove-ExistingOnlineLocaleLockPatch {
     param([string]$Text)
 
+    # 宽容匹配：从 requestLocaleChange( 到锁标记之间的整个函数体（兼容历史上
+    # 所有保护形态：无保护 / if 相等保护 / 可重入标志位保护）。
+    $ident = '[A-Za-z_$][A-Za-z0-9_$]*'
     $pattern = [System.Text.RegularExpressions.Regex]::new(
-        'requestLocaleChange\((?<arg>[A-Za-z_$][A-Za-z0-9_$]*)\)\{(?<setter>[A-Za-z_$][A-Za-z0-9_$]*)\("(?<lang>[^"]+)"\)\}/\*' +
+        'requestLocaleChange\((?<arg>' + $ident + ')\)\{.*?\}/\*' +
         [System.Text.RegularExpressions.Regex]::Escape($OnlineLocaleLockMarker) +
         '\*/'
     )
@@ -1911,7 +1914,9 @@ function Remove-ExistingOnlineLocaleLockPatch {
     }
 
     $arg = $match.Groups["arg"].Value
-    $setter = $match.Groups["setter"].Value
+    # 从体内提取第一个 `X("…")` 调用作为 setter 名
+    $setterMatch = [System.Text.RegularExpressions.Regex]::Match($match.Value, '(' + $ident + ')\("')
+    $setter = if ($setterMatch.Success) { $setterMatch.Groups[1].Value } else { "setter" }
     $replacement = "requestLocaleChange(" + $arg + "){" + $setter + "(" + $arg + ")}"
     $patched = $Text.Substring(0, $match.Index) + $replacement + $Text.Substring($match.Index + $match.Length)
     return @{ Text = $patched; Removed = $true }
@@ -2020,7 +2025,11 @@ function Patch-OnlineLocaleLock {
     }
 
     $languageJson = $Language | ConvertTo-Json -Compress
-    $replacement = "requestLocaleChange(" + $handler["Arg"] + "){" + $handler["Setter"] + "(" + $languageJson + ")}/*" + $OnlineLocaleLockMarker + "*/"
+    # 递归保护：2.9939.2 的 setter 内部会回调 requestLocaleChange，直接调用会造成
+    # 无限递归并挂死主进程（窗口永远无法创建）。仅当目标语言与当前请求不同才转发。
+    # 递归保护：2.9939.2 的 setter 内部可能以不同参数形式回调 requestLocaleChange，
+    # 简单的相等判断挡不住交替递归。用可重入标志位保证只转发一次。
+    $replacement = "requestLocaleChange(" + $handler["Arg"] + "){if(!globalThis.__claudeZhLockBusy){globalThis.__claudeZhLockBusy=1;try{if(" + $handler["Arg"] + "!==" + $languageJson + "){" + $handler["Setter"] + "(" + $languageJson + ")}}finally{globalThis.__claudeZhLockBusy=0}}}/*" + $OnlineLocaleLockMarker + "*/"
     $index = [int]$handler["Index"]
     $length = [int]$handler["Length"]
     $patched = $text.Substring(0, $index) + $replacement + $text.Substring($index + $length)
@@ -2103,7 +2112,21 @@ function Patch-OnlineDomTranslation {
             $action = if ($hadExisting) { "refreshed" } else { "patched" }
             Write-Host "  $action online claude.ai DOM translation: $($mapping.Count) strings" -ForegroundColor Green
         }
-        Patch-OnlineLocaleLock $ResourcesPath $Language
+        # Claude 2.9939.2（Electron 44）起，DesktopIntl 锁补丁（任何形态）都会造成
+        # requestLocaleChange 无限递归并挂死主进程——窗口永远无法创建。新版跳过锁注入。
+        $skipLocaleLock = $false
+        try {
+            $claudeExe2 = Join-Path (Split-Path $ResourcesPath -Parent) "Claude.exe"
+            if (Test-Path $claudeExe2) {
+                $exeVersion2 = [version]((Get-Item $claudeExe2).VersionInfo.ProductVersion)
+                if ($exeVersion2 -ge [version]"2.9939.2") { $skipLocaleLock = $true }
+            }
+        } catch {}
+        if ($skipLocaleLock) {
+            Write-Host "  skipping DesktopIntl locale lock on Claude >= 2.9939.2 (would hang window creation)" -ForegroundColor DarkYellow
+        } else {
+            Patch-OnlineLocaleLock $ResourcesPath $Language
+        }
         return
     }
 
@@ -2255,7 +2278,9 @@ function Get-MenuRuntimePatch {
 
     $labelJson = Convert-PairsToHashtable $LabelPairs | ConvertTo-Json -Compress -Depth 20
     $roleJson = Convert-PairsToHashtable $RolePairs | ConvertTo-Json -Compress -Depth 20
-    return ';(()=>{try{const e=require("electron"),M=' + $labelJson + ',R=' + $roleJson + ';if(!e||!e.Menu||e.Menu.__claudeZhMenuRuntimePatch)return;const n=s=>String(s||"").replace(/\u2026/g,"...").trim(),t=s=>M[s]||M[n(s)]||M[String(s||"").replace(/\.\.\.$/,"…")];function w(a){if(!Array.isArray(a))return;for(const i of a){if(!i||typeof i!=="object")continue;if(i.label){const l=t(i.label);if(l)i.label=l}const r=i.role==null?"":String(i.role),k=R[r]||R[r.charAt(0).toLowerCase()+r.slice(1)]||R[r.toLowerCase()];if(!i.label&&k)i.label=k;if(Array.isArray(i.submenu))w(i.submenu)}}const b=e.Menu.buildFromTemplate;e.Menu.buildFromTemplate=function(a){try{w(a)}catch{}return b.call(this,a)};if(e.MenuItem&&!e.MenuItem.__claudeZhMenuRuntimePatch){const I=e.MenuItem;e.MenuItem=function(o){try{w([o])}catch{}return new I(o)};e.MenuItem.prototype=I.prototype;Object.setPrototypeOf(e.MenuItem,I);Object.defineProperty(e.MenuItem,"__claudeZhMenuRuntimePatch",{value:!0})}Object.defineProperty(e.Menu,"__claudeZhMenuRuntimePatch",{value:!0})}catch{}})();/*' + $MenuRuntimeMarker + '*/'
+    # 注意：不要覆写 e.MenuItem 构造函数——Electron 44（Claude 2.9939.2+）上会挂死主进程，
+    # 窗口永远无法创建。菜单标签翻译由 desktop 语言包与 buildFromTemplate 钩子覆盖即可。
+    return ';(()=>{try{const e=require("electron"),M=' + $labelJson + ',R=' + $roleJson + ';if(!e||!e.Menu||e.Menu.__claudeZhMenuRuntimePatch)return;const n=s=>String(s||"").replace(/\u2026/g,"...").trim(),t=s=>M[s]||M[n(s)]||M[String(s||"").replace(/\.\.\.$/,"…")];function w(a){if(!Array.isArray(a))return;for(const i of a){if(!i||typeof i!=="object")continue;if(i.label){const l=t(i.label);if(l)i.label=l}const r=i.role==null?"":String(i.role),k=R[r]||R[r.charAt(0).toLowerCase()+r.slice(1)]||R[r.toLowerCase()];if(!i.label&&k)i.label=k;if(Array.isArray(i.submenu))w(i.submenu)}}const b=e.Menu.buildFromTemplate;e.Menu.buildFromTemplate=function(a){try{w(a)}catch{}return b.call(this,a)};Object.defineProperty(e.Menu,"__claudeZhMenuRuntimePatch",{value:!0})}catch{}})();/*' + $MenuRuntimeMarker + '*/'
 }
 
 function Patch-HardcodedMainProcessMenuLabels {
@@ -2275,6 +2300,12 @@ function Patch-HardcodedMainProcessMenuLabels {
                 @("Developer", "开发者"),
                 @("Help", "帮助"),
                 @("New Conversation", "新对话"),
+                @("New Task", "新建任务"),
+                @("Open File…", "打开文件…"),
+                @("Open File...", "打开文件..."),
+                @("Open Folder…", "打开文件夹…"),
+                @("Open Folder...", "打开文件夹..."),
+                @("Go", "前往"),
                 @("Settings…", "设置…"),
                 @("Settings...", "设置..."),
                 @("Close Window", "关闭窗口"),
@@ -2384,6 +2415,12 @@ function Patch-HardcodedMainProcessMenuLabels {
                 @("Developer", "開發者"),
                 @("Help", "說明"),
                 @("New Conversation", "新對話"),
+                @("New Task", "新增任務"),
+                @("Open File…", "開啟檔案…"),
+                @("Open File...", "開啟檔案..."),
+                @("Open Folder…", "開啟資料夾…"),
+                @("Open Folder...", "開啟資料夾..."),
+                @("Go", "前往"),
                 @("Settings…", "設定…"),
                 @("Settings...", "設定..."),
                 @("Close Window", "關閉視窗"),
@@ -2493,6 +2530,12 @@ function Patch-HardcodedMainProcessMenuLabels {
                 @("Developer", "開發者"),
                 @("Help", "說明"),
                 @("New Conversation", "新對話"),
+                @("New Task", "新增任務"),
+                @("Open File…", "開啟檔案…"),
+                @("Open File...", "開啟檔案..."),
+                @("Open Folder…", "開啟資料夾…"),
+                @("Open Folder...", "開啟資料夾..."),
+                @("Go", "前往"),
                 @("Settings…", "設定…"),
                 @("Settings...", "設定..."),
                 @("Close Window", "關閉視窗"),
@@ -2730,8 +2773,22 @@ function Patch-HardcodedMainProcessMenuLabels {
     }
 
     if (-not $patched.Contains($MenuRuntimeMarker)) {
-        $patched = (Get-MenuRuntimePatch $replacements (Get-MainProcessMenuRoleReplacementPairs $Language)) + $patched
-        $runtimeCount = 1
+        # Claude 2.9939.2（Electron 44）起，注入菜单运行时补丁会挂死主进程——
+        # 窗口永远无法创建。新版菜单标签由 desktop 语言包（intl catalog）覆盖。
+        $skipRuntimePatch = $false
+        try {
+            $claudeExe = Join-Path (Split-Path $ResourcesPath -Parent) "Claude.exe"
+            if (Test-Path $claudeExe) {
+                $exeVersion = [version]((Get-Item $claudeExe).VersionInfo.ProductVersion)
+                if ($exeVersion -ge [version]"2.9939.2") { $skipRuntimePatch = $true }
+            }
+        } catch {}
+        if ($skipRuntimePatch) {
+            Write-Host "  skipping menu runtime patch on Claude >= 2.9939.2 (would hang window creation); menu labels come from the desktop locale catalog" -ForegroundColor DarkYellow
+        } else {
+            $patched = (Get-MenuRuntimePatch $replacements (Get-MainProcessMenuRoleReplacementPairs $Language)) + $patched
+            $runtimeCount = 1
+        }
     }
     elseif ($script:__menuRuntimeRemovedCount -gt 0) {
         $runtimeCount = 1

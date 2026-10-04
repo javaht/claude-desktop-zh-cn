@@ -3450,5 +3450,1681 @@
   [
     "You're running Claude through your organization's own inference provider (127.0.0.1:15721). Your conversations are sent there, not to Anthropic, and are governed by your organization's agreement with that provider.",
     "你正在通過你組織自己的推理提供商（127.0.0.1:15721）運行 Claude。你的對話會發送到該提供商而非 Anthropic，並受你的組織与該提供商的協議約束。"
+  ],
+  [
+    "Get started",
+    "開始使用"
+  ],
+  [
+    "The fastest way to talk with Claude",
+    "與 Claude 交談的最快方式"
+  ],
+  [
+    "Claude for Mac",
+    "Claude Mac 版"
+  ],
+  [
+    "Add header",
+    "新增請求頭"
+  ],
+  [
+    "Are you sure you want to delete 1 chat? This cannot be undone.",
+    "你確定要刪除 1 個聊天嗎？此操作無法撤消。"
+  ],
+  [
+    "Are you sure you want to delete {count} chat? This cannot be undone.",
+    "你確定要刪除 {count} 個聊天嗎？此操作無法撤消。"
+  ],
+  [
+    "Are you sure you want to delete {count} chats? This cannot be undone.",
+    "你確定要刪除 {count} 個聊天嗎？此操作無法撤消。"
+  ],
+  [
+    "Automatically archive desktop sessions when the associated pull request is merged or closed.",
+    "關聯的拉取請求合併或關閉後，自動歸檔桌面會話。"
+  ],
+  [
+    "Autofix pull requests",
+    "自動修復拉取請求"
+  ],
+  [
+    "Auto-populate the model picker from /v1/models at launch.",
+    "啓動時從 /v1/models 自動填充模型選擇器。"
+  ],
+  [
+    "Auto-populate the model picker from {url} at launch.",
+    "啓動時從 {url} 自動填充模型選擇器。"
+  ],
+  [
+    "Claude understands your codebase and helps you build, debug, and ship faster. Upgrade your plan to get started.",
+    "Claude 瞭解你的代碼庫，能幫助你更快地構建、調試和發佈。升級你的計劃即可開始使用。"
+  ],
+  [
+    "Claude understands your codebase and helps you build, debug, and ship faster. Get started in the desktop app.",
+    "Claude 瞭解你的代碼庫，能幫助你更快地構建、調試和發佈。請在桌面應用中開始使用。"
+  ],
+  [
+    "Claude Code (CLI, Desktop, IDE)",
+    "Claude Code（CLI、桌面版、IDE）"
+  ],
+  [
+    "Choose where Claude Desktop sends inference requests.",
+    "選擇 Claude Desktop 將推理請求發送到哪裏。"
+  ],
+  [
+    "Connection",
+    "連接"
+  ],
+  [
+    "Connectors & extensions",
+    "連接器與擴展"
+  ],
+  [
+    "Configure",
+    "配置"
+  ],
+  [
+    "Credential kind",
+    "憑據類型"
+  ],
+  [
+    "Custom inference headers",
+    "自定義推理請求頭"
+  ],
+  [
+    "Egress Requirements",
+    "出站要求"
+  ],
+  [
+    "Extensions",
+    "擴展"
+  ],
+  [
+    "Installed on your computer",
+    "安裝在你的計算機上"
+  ],
+  [
+    "Extra HTTP headers sent on every inference request to the configured provider. For tenant routing, org IDs, Bedrock Guardrails, etc.",
+    "每次向所配置提供商發送推理請求時附加的 HTTP 請求頭。可用於租户路由、組織 ID、Bedrock Guardrails 等場景。"
+  ],
+  [
+    "High-contrast dark theme",
+    "高對比度深色主題"
+  ],
+  [
+    "Use a darker, near-black background when dark mode is on.",
+    "開啓深色模式時使用更暗、接近黑色的背景。"
+  ],
+  [
+    "Browse extensions",
+    "瀏覽擴展"
+  ],
+  [
+    "Advanced settings",
+    "高級設置"
+  ],
+  [
+    "Drag .MCPB or .DXT files here to install",
+    "將 .MCPB 或 .DXT 檔案拖到此處以安裝"
+  ],
+  [
+    "Local MCP servers",
+    "本地 MCP 服務器"
+  ],
+  [
+    "Edit Config",
+    "編輯配置"
+  ],
+  [
+    "This server is managed by an extension",
+    "該服務器由擴展程序管理"
+  ],
+  [
+    "Command",
+    "命令"
+  ],
+  [
+    "Arguments",
+    "參數"
+  ],
+  [
+    "View Logs",
+    "查看日誌"
+  ],
+  [
+    "Full URL of the inference gateway endpoint.",
+    "推理網關端點的完整 URL。"
+  ],
+  [
+    "Gateway",
+    "網關"
+  ],
+  [
+    "Gateway base URL",
+    "網關基礎 URL"
+  ],
+  [
+    "GATEWAY CREDENTIALS",
+    "網關憑據"
+  ],
+  [
+    "网关 credentials",
+    "網關憑據"
+  ],
+  [
+    "{provider} credentials",
+    "{provider} 憑據"
+  ],
+  [
+    "Model list",
+    "模型列表"
+  ],
+  [
+    "Models",
+    "模型"
+  ],
+  [
+    "Models to show in the picker. First entry is the default.",
+    "顯示在模型選擇器中的模型。第一項為預設模型。"
+  ],
+  [
+    "MODELS",
+    "模型"
+  ],
+  [
+    "Override the auto-discovered model list. First entry is the default.",
+    "覆蓋自動發現的模型列表。第一項為預設模型。"
+  ],
+  [
+    "Plugins & skills",
+    "插件與技能"
+  ],
+  [
+    "Selects the credential source. When set, only that source is used (no fallback).",
+    "選擇憑據來源。設置後只會使用該來源，不會回退。"
+  ],
+  [
+    "Telemetry & updates",
+    "診斷與更新"
+  ],
+  [
+    "Usage limits",
+    "使用限制"
+  ],
+  [
+    "Workspace restrictions",
+    "工作區限制"
+  ],
+  [
+    "Allow all",
+    "全部允許"
+  ],
+  [
+    "Allow Claude Code tab",
+    "允許 Claude Code 標籤頁"
+  ],
+  [
+    "Allow desktop extensions",
+    "允許桌面擴展"
+  ],
+  [
+    "Allow user-added MCP servers",
+    "允許用户新增 MCP 服務器"
+  ],
+  [
+    "Allowed egress hosts",
+    "允許的出站主機"
+  ],
+  [
+    "Allowed workspace folders",
+    "允許的工作區檔案夾"
+  ],
+  [
+    "AUTO-UPDATES",
+    "自動更新"
+  ],
+  [
+    "ANTHROPIC TELEMETRY",
+    "Anthropic 診斷數據"
+  ],
+  [
+    "Block essential telemetry",
+    "阻止必要診斷數據"
+  ],
+  [
+    "Block nonessential services",
+    "阻止非必要服務"
+  ],
+  [
+    "Block nonessential telemetry",
+    "阻止非必要診斷數據"
+  ],
+  [
+    "Built-in tool policy",
+    "內置工具策略"
+  ],
+  [
+    "Built-in tools removed from Cowork.",
+    "從 Cowork 中移除的內置工具。"
+  ],
+  [
+    "Choose from disk",
+    "從磁盤選擇"
+  ],
+  [
+    "Choose...",
+    "選擇..."
+  ],
+  [
+    "Copy",
+    "複製"
+  ],
+  [
+    "CORE (VM BUNDLE + CLAUDE CLI BINARY)",
+    "核心（VM 包 + Claude CLI 二進制檔案）"
+  ],
+  [
+    "DESKTOP EXTENSIONS (PYTHON RUNTIME)",
+    "桌面擴展（Python 運行時）"
+  ],
+  [
+    "Disable Claude.ai sign-in",
+    "禁用 Claude.ai 登錄"
+  ],
+  [
+    "Disable claude:// deep-link handling",
+    "禁用 claude:// 深度鏈接處理"
+  ],
+  [
+    "Disabled built-in tools",
+    "禁用內置工具"
+  ],
+  [
+    "Domains Cowork's tools may reach during a turn. Also surfaced under Egress Requirements.",
+    "Cowork 的工具在一次任務中可以存取的域名。也會顯示在出站要求中。"
+  ],
+  [
+    "Domains Cowork's tools may reach during a turn. Also surfaced under 出站要求.",
+    "Cowork 的工具在一次任務中可以存取的域名。也會顯示在出站要求中。"
+  ],
+  [
+    "ESSENTIAL TELEMETRY",
+    "必要診斷數據"
+  ],
+  [
+    "EXTENSIONS",
+    "擴展"
+  ],
+  [
+    "Favicon fetch and the artifact-preview iframe origin. Artifacts will not render.",
+    "獲取網站圖標和 Artifact 預覽 iframe 來源。Artifacts 將無法渲染。"
+  ],
+  [
+    "Folders users may attach as a workspace. Leave unset for unrestricted access.",
+    "用户可作為工作區附加的檔案夾。留空則不限制。"
+  ],
+  [
+    "Hosts your network firewall must allow, derived from your current settings. This list is read-only and updates as you make changes. Traffic is HTTPS on port 443 unless a custom port is specified (OTLP, gateway, or MCP server URLs).",
+    "根據當前設置生成的網絡防火牆放行清單。此列表為只讀，並會隨配置變更自動更新。除非指定了自定義端口（OTLP、網關或 MCP 服務器 URL），否則流量均為 443 端口上的 HTTPS。"
+  ],
+  [
+    "Local stdio servers added via the Developer settings. Remote servers come from the managed list above, or plugins mounted to a user's computer by an organization admin.",
+    "通過開發者設置新增的本地 stdio 服務器。遠程服務器來自上方託管列表，或來自組織管理員掛載到用户電腦上的插件。"
+  ],
+  [
+    "Managed MCP servers",
+    "託管的 MCP 服務器"
+  ],
+  [
+    "Max tokens per window",
+    "每窗口最大令牌數"
+  ],
+  [
+    "MCP SERVERS",
+    "MCP 服務器"
+  ],
+  [
+    "Mount plugin bundles to this folder using your device-management tool and Cowork will load them at launch. The folder is read-only; tool policies you set below are saved in this configuration.",
+    "使用設備管理工具將插件包掛載到此檔案夾，Cowork 會在啓動時加載。該檔案夾為只讀；下面設置的工具策略會保存在此配置中。"
+  ],
+  [
+    "NONESSENTIAL SERVICES",
+    "非必要服務"
+  ],
+  [
+    "NONESSENTIAL TELEMETRY",
+    "非必要診斷數據"
+  ],
+  [
+    "ORGANIZATION PLUGINS",
+    "組織插件"
+  ],
+  [
+    "Organization UUID",
+    "組織 UUID"
+  ],
+  [
+    "Org-pushed MCP servers: remote (HTTP/SSE) or local (stdio command). May embed bearer tokens.",
+    "組織推送的 MCP 服務器：遠程（HTTP/SSE）或本地（stdio 命令）。可能嵌入 Bearer 令牌。"
+  ],
+  [
+    "Per-tool approval policy. \"ask\" requires user approval before each call; \"allow\" is the default. Use Disabled built-in tools to remove a tool entirely.",
+    "按工具設置的審批策略。\"ask\" 表示每次調用前都需要用户批准；\"allow\" 為預設值。如需完全移除某個工具，請使用“禁用內置工具”。"
+  ],
+  [
+    "Per-user soft cap, counted client-side over the duration below. Not a server-enforced quota.",
+    "按用户設置的軟上限，會在下方時長內由客户端統計。不是服務器強制執行的配額。"
+  ],
+  [
+    "Product-usage analytics and diagnostic-report uploads. No message content.",
+    "產品使用分析和診斷報告上傳。不包含消息內容。"
+  ],
+  [
+    "Prompts, completions, and your data are never sent to Anthropic. Telemetry covers crash and usage signals only.",
+    "提示、補全和你的數據絕不會發送給 Anthropic。診斷數據只包含崩潰和使用信號。"
+  ],
+  [
+    "Reject desktop extensions that are not signed by a trusted publisher.",
+    "拒絕未由受信任發佈者簽名的桌面擴展。"
+  ],
+  [
+    "Require signed extensions",
+    "要求擴展已簽名"
+  ],
+  [
+    "Show the Code tab (terminal-based coding sessions). Sessions run on the host, not inside the VM.",
+    "顯示 Code 標籤頁（基於終端的編碼會話）。會話在宿主機上運行，不在 VM 內運行。"
+  ],
+  [
+    "Tags telemetry events with your organization's UUID so Anthropic support can find them. Not used for auth.",
+    "使用你組織的 UUID 標記診斷數據事件，方便 Anthropic 支持人員定位。不會用於認證。"
+  ],
+  [
+    "tokens",
+    "令牌"
+  ],
+  [
+    "Users see only this provider at the login screen. The option to sign in to Claude.ai is hidden.",
+    "用户在登錄頁只會看到此提供商。Claude.ai 登錄選項會被隱藏。"
+  ],
+  [
+    "Crash and performance reports to Anthropic.",
+    "發送給 Anthropic 的崩潰和性能報告。"
+  ],
+  [
+    "Add server policy",
+    "新增服務器策略"
+  ],
+  [
+    "+ Add server policy",
+    "+ 新增服務器策略"
+  ],
+  [
+    "Add policy",
+    "新增策略"
+  ],
+  [
+    "Anthropic telemetry",
+    "Anthropic 診斷數據"
+  ],
+  [
+    "OpenTelemetry",
+    "OpenTelemetry 診斷數據"
+  ],
+  [
+    "OpenTelemetry collector endpoint",
+    "OpenTelemetry 收集器端點"
+  ],
+  [
+    "Where Cowork sends OpenTelemetry logs and metrics. Leave blank to disable.",
+    "Cowork 發送 OpenTelemetry 日誌和指標的位置。留空則禁用。"
+  ],
+  [
+    "Updates",
+    "更新"
+  ],
+  [
+    "Block auto-updates",
+    "阻止自動更新"
+  ],
+  [
+    "Stop Cowork from fetching updates. You'll need to push new versions yourself.",
+    "阻止 Cowork 獲取更新。你需要自行推送新版本。"
+  ],
+  [
+    "Auto-update enforcement window",
+    "自動更新強制窗口"
+  ],
+  [
+    "Hours before a downloaded update force-installs. Blank = 72-hour default.",
+    "已下載更新在強制安裝前等待的小時數。留空則預設為 72 小時。"
+  ],
+  [
+    "<b>{category}</b> needs {count, plural, one {{label}} other {# fields}}",
+    "<b>{category}</b> 需要 {count, plural, one {{label}} other {# 個字段}}"
+  ],
+  [
+    "Per-tool approval policy. \"ask\" requires user approval before each call; \"allow\" is the default. Use 禁用内置工具 to remove a tool entirely.",
+    "按工具設置的審批策略。“ask” 表示每次調用前都需要用户批准；“allow” 為預設值。如需完全移除某個工具，請使用“禁用內置工具”。"
+  ],
+  [
+    "Hi! How can I help you today?",
+    "你好！今天我能為你提供什麼幫助？"
+  ],
+  [
+    "Write a message...",
+    "輸入消息..."
+  ],
+  [
+    "Write a message…",
+    "輸入消息..."
+  ],
+  [
+    "message:F?`归档 ${j.items.length} ${1===j.items.length?b.noun:b.nouns}？你可以在“已归档”标签页中找到${1===j.items.length?\"它\":\"它们\"}。`",
+    "message:F?`歸檔 ${j.items.length} 個${1===j.items.length?b.noun:b.nouns}？你可以在“已歸檔”標籤頁中找到${1===j.items.length?\"它\":\"它們\"}。`"
+  ],
+  [
+    "CR={local:\"Local\",remote:\"Cloud\",bridge:\"Remote Control\",slack:\"Slack\"}",
+    "CR={local:\"本地\",remote:\"雲端\",bridge:\"遠程控制\",slack:\"Slack\"}"
+  ],
+  [
+    "\"Run tasks on a schedule or whenever you need them.\"",
+    "\"按計劃或在需要時運行任務。\""
+  ],
+  [
+    "\"Run tasks on a schedule or whenever you need them. Type /schedule in any existing task to set one up.\"",
+    "\"按計劃運行任務，或在需要時運行任務。在任意現有任務中輸入 /schedule 即可設置。\""
+  ],
+  [
+    "Add and manage MCP servers that you\\u2019re working on. ",
+    "新增並管理你正在使用的 MCP 服務器。"
+  ],
+  [
+    "defaultMessage:\"All environments\",id:\"SBWkijOQlK\"",
+    "defaultMessage:\"所有環境\",id:\"SBWkijOQlK\""
+  ],
+  [
+    "A quiet month.",
+    "這個月很安靜。"
+  ],
+  [
+    "Not much to reflect on from this month's conversations with Claude. One short exchange in Chinese, and that was the month.",
+    "這個月與 Claude 的對話沒什麼可回顧的。只有一段簡短的中文交流，這就是這個月的全部了。"
+  ],
+  [
+    "MOST ACTIVE DAY",
+    "最活躍日期"
+  ],
+  [
+    "PEAK HOUR",
+    "高峯時段"
+  ],
+  [
+    "TOTAL CONVERSATIONS",
+    "對話總數"
+  ],
+  [
+    "YOUR TIME WITH CLAUDE",
+    "你與 Claude 共度的時間"
+  ],
+  [
+    "Time spent",
+    "使用時長"
+  ],
+  [
+    "Decide when Claude is off",
+    "設定 Claude 的休息時間"
+  ],
+  [
+    "Schedule quiet hours and get a nudge when a session runs long.",
+    "設置安靜時段；當會話持續過長時，Claude 會提醒你。"
+  ],
+  [
+    "Set quiet hours and breaks",
+    "設置安靜時段和休息提醒"
+  ],
+  [
+    "WHAT YOU SPENT TIME ON",
+    "你的時間投入"
+  ],
+  [
+    "A brief hello",
+    "簡短問候"
+  ],
+  [
+    "A single short greeting exchange in Chinese",
+    "一次簡短的中文問候交流"
+  ],
+  [
+    "EXPANDING YOUR SKILLS",
+    "拓展你的技能"
+  ],
+  [
+    "Your Claude activity measured as AI fluency skills",
+    "你的 Claude 活動將按 AI 熟練度技能衡量"
+  ],
+  [
+    "DELEGATION",
+    "委派"
+  ],
+  [
+    "DISCERNMENT",
+    "辨析"
+  ],
+  [
+    "DILIGENCE",
+    "嚴謹"
+  ],
+  [
+    "Nothing to build on yet",
+    "暫時沒有可積累的內容"
+  ],
+  [
+    "There wasn't enough this month to reflect on this skill.",
+    "這個月與此技能相關的內容還不足以進行回顧。"
+  ],
+  [
+    "There wasn’t enough this month to reflect on this skill.",
+    "這個月與此技能相關的內容還不足以進行回顧。"
+  ],
+  [
+    "Explore more hard questions",
+    "探索更多高難度問題"
+  ],
+  [
+    "Claude uses memory to build your reflection. Turn this off anytime in memory settings.",
+    "Claude 會使用記憶生成你的回顧。你可以隨時在記憶設置中關閉此功能。"
+  ],
+  [
+    "Topics",
+    "主題"
+  ],
+  [
+    "Recent Work",
+    "近期工作"
+  ],
+  [
+    "Who the user is — identity and stable preferences",
+    "用户身份與穩定偏好"
+  ],
+  [
+    "Recent one-off activity that doesn't fit elsewhere",
+    "不適合歸入其他類別的近期一次性活動"
+  ],
+  [
+    "Profile photo",
+    "頭像"
+  ],
+  [
+    "PNG, JPEG, or WebP, up to 10MB.",
+    "PNG、JPEG 或 WebP，最大 10MB。"
+  ],
+  [
+    "Report profile photo",
+    "舉報頭像"
+  ],
+  [
+    "To delete your account, please cancel your Claude Pro subscription first.",
+    "要刪除賬户，請先取消你的 Claude Pro 訂閲。"
+  ],
+  [
+    "To delete your account, please cancel your Claude Max subscription first.",
+    "要刪除賬户，請先取消你的 Claude Max 訂閲。"
+  ],
+  [
+    "On track. You should reach tomorrow’s reset with room to spare.",
+    "進度正常。到明天重置時，你的額度應該還有富餘。"
+  ],
+  [
+    "On track. You should reach today’s reset with room to spare.",
+    "進度正常。到今天重置時，你的額度應該還有富餘。"
+  ],
+  [
+    "Limit resets",
+    "限額重置"
+  ],
+  [
+    "Full reset",
+    "完全重置"
+  ],
+  [
+    "5-hour reset",
+    "5 小時重置"
+  ],
+  [
+    "None right now. When you get one, it shows up here.",
+    "目前沒有。獲得後會顯示在這裏。"
+  ],
+  [
+    "Cloud session credits",
+    "雲端會話額度"
+  ],
+  [
+    "Applies automatically to cloud sessions. After it’s used or expires, your plan’s regular usage applies.",
+    "自動用於雲端會話。用完或過期後，按你套餐的常規用量計算。"
+  ],
+  [
+    "Reset for free",
+    "免費重置"
+  ],
+  [
+    "Allow Claude to search for relevant details in past chats.",
+    "允許 Claude 在過去的聊天中搜索相關細節。"
+  ],
+  [
+    "Areas",
+    "領域"
+  ],
+  [
+    "A confirmation has been emailed to you. Your Anthropic account executive will review and confirm coverage.",
+    "確認郵件已發送給你。你的 Anthropic 客户經理將審核並確認覆蓋範圍。"
+  ],
+  [
+    "About additional billing emails",
+    "關於附加賬單郵箱"
+  ],
+  [
+    "About tax exemption",
+    "關於免税"
+  ],
+  [
+    "Account Settings",
+    "賬户設置"
+  ],
+  [
+    "Active threads",
+    "進行中的討論串"
+  ],
+  [
+    "Add a brief reason for declining this account.",
+    "請簡要説明拒絕此賬户的原因。"
+  ],
+  [
+    "Additional billing emails",
+    "附加賬單郵箱"
+  ],
+  [
+    "Additional notes",
+    "補充説明"
+  ],
+  [
+    "Additional request headers",
+    "附加請求頭"
+  ],
+  [
+    "All checks have passed",
+    "所有檢查均已通過"
+  ],
+  [
+    "Already connected",
+    "已連接"
+  ],
+  [
+    "Anyone can use this server without signing in or providing credentials.",
+    "任何人都無需登錄或提供憑據即可使用此服務器。"
+  ],
+  [
+    "Approve plan",
+    "批准計劃"
+  ],
+  [
+    "Reject plan",
+    "拒絕計劃"
+  ],
+  [
+    "Review plan",
+    "審閲計劃"
+  ],
+  [
+    "Authentication methods",
+    "身份驗證方式"
+  ],
+  [
+    "Authentication requirement",
+    "身份驗證要求"
+  ],
+  [
+    "Available to your organization",
+    "可供你的組織使用"
+  ],
+  [
+    "Back to billing details",
+    "返回賬單詳情"
+  ],
+  [
+    "Back to file history",
+    "返回檔案歷史"
+  ],
+  [
+    "Back to repo list",
+    "返回倉庫列表"
+  ],
+  [
+    "Back to review",
+    "返回審閲"
+  ],
+  [
+    "Base branch",
+    "基準分支"
+  ],
+  [
+    "Head branch",
+    "頭分支"
+  ],
+  [
+    "Target branch",
+    "目標分支"
+  ],
+  [
+    "Both models answer the same prompt, independently. Vote on each pair.",
+    "兩個模型各自獨立回答同一個提示。請對每一組投票。"
+  ],
+  [
+    "Both retrieves and modifies data",
+    "既讀取也修改數據"
+  ],
+  [
+    "Retrieves data but never modifies it",
+    "讀取數據，但從不修改"
+  ],
+  [
+    "Creates or modifies data but does not read it",
+    "創建或修改數據，但不讀取"
+  ],
+  [
+    "Read / write capabilities",
+    "讀/寫能力"
+  ],
+  [
+    "Read and write",
+    "讀寫"
+  ],
+  [
+    "Read only",
+    "只讀"
+  ],
+  [
+    "Write only",
+    "只寫"
+  ],
+  [
+    "Billing contact first name",
+    "賬單聯繫人名字"
+  ],
+  [
+    "Billing contact last name",
+    "賬單聯繫人姓氏"
+  ],
+  [
+    "Billing contact phone",
+    "賬單聯繫人電話"
+  ],
+  [
+    "Build info",
+    "構建信息"
+  ],
+  [
+    "Can't reach the Claude extension.",
+    "無法連接到 Claude 擴展。"
+  ],
+  [
+    "Certification is completed through a secure link emailed to your organization's primary contact.",
+    "認證需通過發送給你組織主要聯繫人的安全鏈接完成。"
+  ],
+  [
+    "Certification links are sent by email",
+    "認證鏈接將通過郵件發送"
+  ],
+  [
+    "Certify and submit",
+    "認證並提交"
+  ],
+  [
+    "Claude is no longer waiting for this permission",
+    "Claude 已不再等待此權限"
+  ],
+  [
+    "Claude will return soon",
+    "Claude 很快就會回來"
+  ],
+  [
+    "Claude connects without credentials first, then prompts to sign in if the server requires it.",
+    "Claude 會先在不使用憑據的情況下連接，如果服務器需要再提示登錄。"
+  ],
+  [
+    "Close this window and try again from the desktop app.",
+    "關閉此窗口，然後從桌面應用重試。"
+  ],
+  [
+    "Close video",
+    "關閉視頻"
+  ],
+  [
+    "Collapse all",
+    "全部摺疊"
+  ],
+  [
+    "Expand all",
+    "全部展開"
+  ],
+  [
+    "Comments resolved",
+    "評論已解決"
+  ],
+  [
+    "Completed threads",
+    "已完成的討論串"
+  ],
+  [
+    "Company information",
+    "公司信息"
+  ],
+  [
+    "Context breakdown",
+    "上下文明細"
+  ],
+  [
+    "Continue to certification",
+    "繼續認證"
+  ],
+  [
+    "Continue to platform IDs",
+    "繼續填寫平台 ID"
+  ],
+  [
+    "Couldn't confirm your answer",
+    "無法確認你的回答"
+  ],
+  [
+    "Couldn’t load this page. Go back to the artifact and try again.",
+    "無法加載此頁面。請返回 Artifact 後重試。"
+  ],
+  [
+    "Go back to the artifact and try again.",
+    "請返回 Artifact 後重試。"
+  ],
+  [
+    "Returning to the artifact…",
+    "正在返回 Artifact…"
+  ],
+  [
+    "Create new file",
+    "新建檔案"
+  ],
+  [
+    "New file name",
+    "新檔案名"
+  ],
+  [
+    "Credit available on this organization. To move it, name the destination organization in your reason and your account executive will complete the transfer.",
+    "此組織可用的額度。如需轉移，請在理由中註明目標組織，你的客户經理會完成轉移。"
+  ],
+  [
+    "Current limit comes from",
+    "當前限額來自"
+  ],
+  [
+    "New limit comes from",
+    "新限額來自"
+  ],
+  [
+    "Custom icon URL",
+    "自定義圖標 URL"
+  ],
+  [
+    "Custom monthly limit",
+    "自定義月度限額"
+  ],
+  [
+    "Custom monthly limits",
+    "自定義月度限額"
+  ],
+  [
+    "Default monthly limit",
+    "預設月度限額"
+  ],
+  [
+    "Customize Claude",
+    "自定義 Claude"
+  ],
+  [
+    "Customize Claude Cowork",
+    "自定義 Claude Cowork"
+  ],
+  [
+    "Data policy",
+    "數據政策"
+  ],
+  [
+    "Default folder",
+    "預設檔案夾"
+  ],
+  [
+    "Default local folder",
+    "預設本地檔案夾"
+  ],
+  [
+    "Default for plugins",
+    "插件預設值"
+  ],
+  [
+    "Delete block",
+    "刪除塊"
+  ],
+  [
+    "Delete marketplace",
+    "刪除市場"
+  ],
+  [
+    "Delivery failed — try again.",
+    "發送失敗——請重試。"
+  ],
+  [
+    "Describe the change you want...",
+    "描述你想要的更改..."
+  ],
+  [
+    "Describe what your plugin does and its key features...",
+    "描述你的插件功能及其主要特性..."
+  ],
+  [
+    "A clear, concise description of what your plugin does.",
+    "清晰簡潔地描述你的插件的功能。"
+  ],
+  [
+    "Dismiss guest pass",
+    "關閉訪客通行證"
+  ],
+  [
+    "Download Claude for your desktop or mobile device.",
+    "為你的桌面或移動設備下載 Claude。"
+  ],
+  [
+    "Download as CSV",
+    "下載為 CSV"
+  ],
+  [
+    "Download it now",
+    "立即下載"
+  ],
+  [
+    "Download progress",
+    "下載進度"
+  ],
+  [
+    "Email address for communications about your plugin.",
+    "用於接收與你的插件相關溝通的郵箱地址。"
+  ],
+  [
+    "Email addresses look like name@company.com.",
+    "郵箱地址的格式類似 name@company.com。"
+  ],
+  [
+    "Email the certification link",
+    "通過郵件發送認證鏈接"
+  ],
+  [
+    "Request your certification link",
+    "申請你的認證鏈接"
+  ],
+  [
+    "Resend Certification Email",
+    "重新發送認證郵件"
+  ],
+  [
+    "If a certification matches, we have emailed the registered contact.",
+    "如果有匹配的認證，我們已向登記的聯繫人發送郵件。"
+  ],
+  [
+    "Enter an account name.",
+    "請輸入賬户名稱。"
+  ],
+  [
+    "Enter name",
+    "輸入名稱"
+  ],
+  [
+    "Error displaying content - Raw result:",
+    "顯示內容出錯 - 原始結果："
+  ],
+  [
+    "Everyone in this project can read what Claude says about this session.",
+    "此項目中的所有人都可以閲讀 Claude 關於此會話的説明。"
+  ],
+  [
+    "Example use cases",
+    "示例用例"
+  ],
+  [
+    "Export is temporarily unavailable on this account for your security. Contact support to verify your identity.",
+    "為保護你的安全，此賬户暫時無法導出。請聯繫支持團隊驗證你的身份。"
+  ],
+  [
+    "Extension ID",
+    "擴展 ID"
+  ],
+  [
+    "Fetching the session’s pending plan…",
+    "正在獲取會話的待審閲計劃…"
+  ],
+  [
+    "The session has no pending plan to review.",
+    "此會話沒有待審閲的計劃。"
+  ],
+  [
+    "The plan changed in the session since this was shown — nothing was sent. Reopen to fetch the current plan.",
+    "顯示此內容後會話中的計劃已更改——未發送任何內容。請重新打開以獲取當前計劃。"
+  ],
+  [
+    "Plan too large to show in full — open the session to read the rest. Approval is disabled for truncated plans.",
+    "計劃太大，無法完整顯示——請打開會話閲讀其餘部分。截斷的計劃無法批准。"
+  ],
+  [
+    "Find it under Setup → My Domain.",
+    "在“設置 → 我的域”下查找。"
+  ],
+  [
+    "Hide model names",
+    "隱藏模型名稱"
+  ],
+  [
+    "High priority",
+    "高優先級"
+  ],
+  [
+    "Hold responses",
+    "暫停回覆"
+  ],
+  [
+    "In a moment, open the link in your email again.",
+    "請稍後再次打開郵件中的鏈接。"
+  ],
+  [
+    "Include everything below the folder.",
+    "包含該檔案夾下的所有內容。"
+  ],
+  [
+    "Interview progress",
+    "面試進度"
+  ],
+  [
+    "Invite domain",
+    "邀請域名"
+  ],
+  [
+    "Learn more about Anthropic",
+    "進一步瞭解 Anthropic"
+  ],
+  [
+    "Learn more about project knowledge",
+    "進一步瞭解項目知識庫"
+  ],
+  [
+    "Learn more about using Claude for Chrome safely",
+    "進一步瞭解如何安全使用 Claude for Chrome"
+  ],
+  [
+    "Left to assign",
+    "待分配"
+  ],
+  [
+    "License type",
+    "許可證類型"
+  ],
+  [
+    "Link to plugin",
+    "插件鏈接"
+  ],
+  [
+    "Loading debug information",
+    "正在加載調試信息"
+  ],
+  [
+    "Members on this seat type",
+    "此席位類型的成員"
+  ],
+  [
+    "Memory file content",
+    "記憶檔案內容"
+  ],
+  [
+    "Message session",
+    "給會話發消息"
+  ],
+  [
+    "Model comparison",
+    "模型對比"
+  ],
+  [
+    "Name or email (optional)",
+    "姓名或郵箱（可選）"
+  ],
+  [
+    "No platforms are available to add. Remove this card.",
+    "沒有可新增的平台。請移除此卡片。"
+  ],
+  [
+    "No preference",
+    "無偏好"
+  ],
+  [
+    "No structured data available.",
+    "沒有可用的結構化數據。"
+  ],
+  [
+    "Open Claude to answer this",
+    "打開 Claude 以回答"
+  ],
+  [
+    "Open a new role",
+    "打開新角色"
+  ],
+  [
+    "Open in Claude ↗",
+    "在 Claude 中打開 ↗"
+  ],
+  [
+    "Optional description of what this role is for and who should have it.",
+    "可選：説明此角色的用途以及應分配給誰。"
+  ],
+  [
+    "Org name",
+    "組織名稱"
+  ],
+  [
+    "Organization Settings",
+    "組織設置"
+  ],
+  [
+    "Organization setting",
+    "組織設置"
+  ],
+  [
+    "Over by",
+    "超出"
+  ],
+  [
+    "Panel settings",
+    "面板設置"
+  ],
+  [
+    "Paste as",
+    "粘貼為"
+  ],
+  [
+    "Persist session across runs",
+    "在多次運行之間保留會話"
+  ],
+  [
+    "Reuse the same session each time so Claude keeps memory between runs.",
+    "每次都複用同一個會話，讓 Claude 在多次運行之間保留記憶。"
+  ],
+  [
+    "Plugin description",
+    "插件描述"
+  ],
+  [
+    "Plugin details",
+    "插件詳情"
+  ],
+  [
+    "Plugin homepage",
+    "插件主頁"
+  ],
+  [
+    "Plugin information",
+    "插件信息"
+  ],
+  [
+    "Plugin links",
+    "插件鏈接"
+  ],
+  [
+    "Plugins deleted with it",
+    "隨之刪除的插件"
+  ],
+  [
+    "Press 1-4 to apply",
+    "按 1-4 應用"
+  ],
+  [
+    "Pricing applies to these accounts going forward. To add or remove an account, contact your account executive.",
+    "定價將從現在起適用於這些賬户。如需新增或移除賬户，請聯繫你的客户經理。"
+  ],
+  [
+    "Primary use cases",
+    "主要用例"
+  ],
+  [
+    "Privacy policy URL",
+    "隱私政策 URL"
+  ],
+  [
+    "Project knowledge capacity",
+    "項目知識庫容量"
+  ],
+  [
+    "Provide details about your plugin that will be displayed in the directory.",
+    "提供將在目錄中顯示的插件詳情。"
+  ],
+  [
+    "Provide examples of how users can use your plugin.",
+    "提供用户如何使用你的插件的示例。"
+  ],
+  [
+    "Provide licensing and legal information for your plugin.",
+    "提供你的插件的許可和法律信息。"
+  ],
+  [
+    "Provide the links for your plugin.",
+    "提供你的插件的相關鏈接。"
+  ],
+  [
+    "Provide your contact details for communications about your plugin.",
+    "提供用於溝通插件相關事宜的聯繫方式。"
+  ],
+  [
+    "Provided by your account team",
+    "由你的客户團隊提供"
+  ],
+  [
+    "Read the transcript",
+    "閲讀對話記錄"
+  ],
+  [
+    "Reason for declining",
+    "拒絕原因"
+  ],
+  [
+    "Reconnect Claude to Google Drive",
+    "將 Claude 重新連接到 Google Drive"
+  ],
+  [
+    "Connect Claude to Google Drive",
+    "將 Claude 連接到 Google Drive"
+  ],
+  [
+    "Remove plugin",
+    "移除插件"
+  ],
+  [
+    "Remove recording",
+    "移除錄製"
+  ],
+  [
+    "Remove this account",
+    "移除此賬户"
+  ],
+  [
+    "Remove this billing account",
+    "移除此賬單賬户"
+  ],
+  [
+    "Remove this tenant",
+    "移除此租户"
+  ],
+  [
+    "Remove tool",
+    "移除工具"
+  ],
+  [
+    "Request a new export. If this happens again, contact support.",
+    "請申請新的導出。如果再次發生，請聯繫支持團隊。"
+  ],
+  [
+    "Requested by",
+    "申請人"
+  ],
+  [
+    "Requested connectors",
+    "申請的連接器"
+  ],
+  [
+    "Requested seat",
+    "申請的席位"
+  ],
+  [
+    "Requester domain",
+    "申請人域名"
+  ],
+  [
+    "Requester email",
+    "申請人郵箱"
+  ],
+  [
+    "Required when the server asks",
+    "服務器要求時必填"
+  ],
+  [
+    "Resynthesize memory",
+    "重新整合記憶"
+  ],
+  [
+    "Review what Claude will see",
+    "檢查 Claude 將看到的內容"
+  ],
+  [
+    "Seat type",
+    "席位類型"
+  ],
+  [
+    "Seat type ID",
+    "席位類型 ID"
+  ],
+  [
+    "Seats on your agreement",
+    "你協議中的席位"
+  ],
+  [
+    "Select a server in the Connection step first.",
+    "請先在“連接”步驟中選擇服務器。"
+  ],
+  [
+    "Select the surfaces where you would like your plugin to be supported.",
+    "選擇你希望插件支持的平台。"
+  ],
+  [
+    "Self-tested",
+    "已自測"
+  ],
+  [
+    "Sends your note and this modal's debug data (conversation and API usage logs) to Anthropic.",
+    "將你的備註以及此窗口的調試數據（對話和 API 用量日誌）發送給 Anthropic。"
+  ],
+  [
+    "Sent to the session.",
+    "已發送到會話。"
+  ],
+  [
+    "Server connection",
+    "服務器連接"
+  ],
+  [
+    "Server requires no auth to list and call tools",
+    "服務器列出和調用工具無需身份驗證"
+  ],
+  [
+    "Session running",
+    "會話運行中"
+  ],
+  [
+    "Shared via Claude, an AI assistant from Anthropic",
+    "通過 Claude（Anthropic 的 AI 助手）共享"
+  ],
+  [
+    "Sharing opens here.",
+    "共享在這裏打開。"
+  ],
+  [
+    "Sign in to Claude, then open this again from the artifact.",
+    "請登錄 Claude，然後從 Artifact 中再次打開。"
+  ],
+  [
+    "Sign in to claude.ai to use the side panel.",
+    "登錄 claude.ai 以使用側邊面板。"
+  ],
+  [
+    "Sign-in failed",
+    "登錄失敗"
+  ],
+  [
+    "Something went wrong!",
+    "出錯了！"
+  ],
+  [
+    "Spent so far this month",
+    "本月至今已支出"
+  ],
+  [
+    "Steer the session…",
+    "引導會話…"
+  ],
+  [
+    "Submission details",
+    "提交詳情"
+  ],
+  [
+    "Submitter email",
+    "提交者郵箱"
+  ],
+  [
+    "Summary of your calendar, emails, and messages.",
+    "你的日曆、郵件和消息摘要。"
+  ],
+  [
+    "Supported platforms",
+    "支持的平台"
+  ],
+  [
+    "Switch accounts to continue",
+    "切換賬户以繼續"
+  ],
+  [
+    "Tell us more…",
+    "告訴我們更多…"
+  ],
+  [
+    "Tell us why (required)",
+    "告訴我們原因（必填）"
+  ],
+  [
+    "Test URL",
+    "測試 URL"
+  ],
+  [
+    "Test failed",
+    "測試失敗"
+  ],
+  [
+    "Testing access",
+    "正在測試存取"
+  ],
+  [
+    "Thank you for the feedback!",
+    "感謝你的反饋！"
+  ],
+  [
+    "The URL to your plugin repository.",
+    "你的插件倉庫的 URL。"
+  ],
+  [
+    "The public homepage or documentation site for your plugin.",
+    "你的插件的公開主頁或文檔站點。"
+  ],
+  [
+    "The accounts your pricing and provisioning will apply to. Discounts are not applied retroactively to accounts added later.",
+    "你的定價和配置將適用的賬户。折扣不會追溯應用於之後新增的賬户。"
+  ],
+  [
+    "The file for this export could not be found. Request a new export.",
+    "找不到此導出的檔案。請申請新的導出。"
+  ],
+  [
+    "The local folder Claude starts in for this project’s work, without asking you. Claude may run commands in that folder without asking.",
+    "Claude 在此項目工作時預設啓動的本地檔案夾，不會詢問你。Claude 可能會在該檔案夾中直接運行命令而不詢問。"
+  ],
+  [
+    "This is a payer (management) account",
+    "這是付款方（管理）賬户"
+  ],
+  [
+    "This link has been used. Please request a new export.",
+    "此鏈接已被使用。請申請新的導出。"
+  ],
+  [
+    "This link has expired. Please request a new export.",
+    "此鏈接已過期。請申請新的導出。"
+  ],
+  [
+    "This link has reached its download limit. Request a new export.",
+    "此鏈接已達到下載次數上限。請申請新的導出。"
+  ],
+  [
+    "This link is incomplete",
+    "此鏈接不完整"
+  ],
+  [
+    "This link isn't valid",
+    "此鏈接無效"
+  ],
+  [
+    "This link was created for a different user or team.",
+    "此鏈接是為其他用户或團隊創建的。"
+  ],
+  [
+    "This link was revoked",
+    "此鏈接已被撤銷"
+  ],
+  [
+    "This page must be opened from claude.com. Close this window and sign in there.",
+    "此頁面必須從 claude.com 打開。請關閉此窗口並在那裏登錄。"
+  ],
+  [
+    "This section opens in a full page.",
+    "此部分會在完整頁面中打開。"
+  ],
+  [
+    "This will remove Claude’s access. You can reconnect at any time.",
+    "這將移除 Claude 的存取權限。你可以隨時重新連接。"
+  ],
+  [
+    "Today’s brief",
+    "今日簡報"
+  ],
+  [
+    "Too many downloads are in progress. In a moment, open the link in your email again.",
+    "正在進行的下載過多。請稍後再次打開郵件中的鏈接。"
+  ],
+  [
+    "Too many requests",
+    "請求過多"
+  ],
+  [
+    "Too many verification codes were sent",
+    "發送的驗證碼過多"
+  ],
+  [
+    "Try making a change and see it live on the right:",
+    "試着做個修改，在右側實時查看效果："
+  ],
+  [
+    "Unread activity",
+    "未讀動態"
+  ],
+  [
+    "Upgrade your Teams workspace under this agreement.",
+    "在此協議下升級你的 Teams 工作區。"
+  ],
+  [
+    "Use the email associated with your lab or institution.",
+    "請使用與你的實驗室或機構關聯的郵箱。"
+  ],
+  [
+    "Use your saved memory in this panel’s replies. Fixed once the chat starts.",
+    "在此面板的回覆中使用你保存的記憶。聊天開始後無法更改。"
+  ],
+  [
+    "Users connect and sign in before any tools or resources are available.",
+    "用户需先連接並登錄，才能使用任何工具或資源。"
+  ],
+  [
+    "Verify it’s you",
+    "驗證是你本人"
+  ],
+  [
+    "Verify your institutional email",
+    "驗證你的機構郵箱"
+  ],
+  [
+    "Waiting for both responses to finish",
+    "正在等待兩個回覆完成"
+  ],
+  [
+    "Waiting for the full tool request…",
+    "正在等待完整的工具請求…"
+  ],
+  [
+    "We could not find this link. Make sure you are logged in with the account that requested the link.",
+    "找不到此鏈接。請確保你使用申請該鏈接的賬户登錄。"
+  ],
+  [
+    "Welcome to Claude via AWS Marketplace",
+    "歡迎通過 AWS Marketplace 使用 Claude"
+  ],
+  [
+    "What's wrong with this response?",
+    "這個回覆有什麼問題？"
+  ],
+  [
+    "Where Remote Control starts on your device without asking. Claude may run commands there without asking.",
+    "遠程控制在你設備上預設啓動的位置，不會詢問你。Claude 可能會在那裏直接運行命令而不詢問。"
+  ],
+  [
+    "Where do I find these IDs?",
+    "在哪裏找到這些 ID？"
+  ],
+  [
+    "Where to find your IDs",
+    "在哪裏找到你的 ID"
+  ],
+  [
+    "Which response do you prefer?",
+    "你更喜歡哪個回覆？"
+  ],
+  [
+    "Why reject? (sent to the session)",
+    "為什麼拒絕？（將發送到會話）"
+  ],
+  [
+    "Write a document with Claude",
+    "與 Claude 一起寫文檔"
+  ],
+  [
+    "You should check your name is not already taken. You may not use brand names you do not own in the name of your plugin.",
+    "請確認你的名稱未被佔用。插件名稱中不得使用你不擁有的品牌名。"
+  ],
+  [
+    "You're signed into claude.ai as a different account.",
+    "你在 claude.ai 上登錄的是另一個賬户。"
+  ],
+  [
+    "You've been invited to try Claude",
+    "你受邀試用 Claude"
+  ],
+  [
+    "You've received a gift subscription to Claude. Sign in to redeem your gift.",
+    "你收到了一份 Claude 禮品訂閲。請登錄以兌換。"
+  ],
+  [
+    "Your account executive will review added tenants before they’re provisioned.",
+    "你的客户經理會在配置前審核新新增的租户。"
+  ],
+  [
+    "Your account executive will review this addition before it’s provisioned.",
+    "你的客户經理會在配置前審核此次新增。"
+  ],
+  [
+    "Your export should begin downloading automatically.",
+    "你的導出應會自動開始下載。"
+  ],
+  [
+    "Your organization's encryption key is disabled or revoked. Re-enable it, then open the link in your email again.",
+    "你組織的加密密鑰已被禁用或撤銷。請重新啓用，然後再次打開郵件中的鏈接。"
+  ],
+  [
+    "Your pick",
+    "你的選擇"
+  ],
+  [
+    "Your work email",
+    "你的工作郵箱"
+  ],
+  [
+    "You’re giving feedback on a new version of Claude.",
+    "你正在對新版本的 Claude 提供反饋。"
+  ],
+  [
+    "You’re signed in to Claude with a different account than this artifact tab. Switch accounts in Claude, then try again from the artifact.",
+    "你在 Claude 中登錄的賬户與此 Artifact 標籤頁不同。請在 Claude 中切換賬户，然後從 Artifact 中重試。"
   ]
 ]

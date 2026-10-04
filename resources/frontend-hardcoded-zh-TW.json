@@ -3497,11 +3497,11 @@
   ],
   [
     "Claude understands your codebase and helps you build, debug, and ship faster. Upgrade your plan to get started.",
-    "Claude 瞭解你的程式碼庫，能幫助你更快地構建、除錯和釋出。升級你的計劃即可開始使用。"
+    "Claude 瞭解你的程式碼庫，能幫助你更快地構建、除錯和發佈。升級你的計劃即可開始使用。"
   ],
   [
     "Claude understands your codebase and helps you build, debug, and ship faster. Get started in the desktop app.",
-    "Claude 瞭解你的程式碼庫，能幫助你更快地構建、除錯和釋出。請在桌面應用中開始使用。"
+    "Claude 瞭解你的程式碼庫，能幫助你更快地構建、除錯和發佈。請在桌面應用中開始使用。"
   ],
   [
     "Claude Code (CLI, Desktop, IDE)",
@@ -3517,7 +3517,7 @@
   ],
   [
     "Connectors & extensions",
-    "連接器與擴充套件"
+    "連接器與擴展"
   ],
   [
     "Configure",
@@ -3537,7 +3537,7 @@
   ],
   [
     "Extensions",
-    "擴充套件"
+    "擴展"
   ],
   [
     "Installed on your computer",
@@ -3557,7 +3557,7 @@
   ],
   [
     "Browse extensions",
-    "瀏覽擴充套件"
+    "瀏覽擴展"
   ],
   [
     "Advanced settings",
@@ -3577,7 +3577,7 @@
   ],
   [
     "This server is managed by an extension",
-    "該伺服器由擴充套件程式管理"
+    "該伺服器由擴展程式管理"
   ],
   [
     "Command",
@@ -3585,7 +3585,7 @@
   ],
   [
     "Arguments",
-    "引數"
+    "參數"
   ],
   [
     "View Logs",
@@ -3665,7 +3665,7 @@
   ],
   [
     "Allow desktop extensions",
-    "允許桌面擴充套件"
+    "允許桌面擴展"
   ],
   [
     "Allow user-added MCP servers",
@@ -3725,7 +3725,7 @@
   ],
   [
     "DESKTOP EXTENSIONS (PYTHON RUNTIME)",
-    "桌面擴充套件（Python 執行時）"
+    "桌面擴展（Python 執行時）"
   ],
   [
     "Disable Claude.ai sign-in",
@@ -3753,7 +3753,7 @@
   ],
   [
     "EXTENSIONS",
-    "擴充套件"
+    "擴展"
   ],
   [
     "Favicon fetch and the artifact-preview iframe origin. Artifacts will not render.",
@@ -3769,7 +3769,7 @@
   ],
   [
     "Local stdio servers added via the Developer settings. Remote servers come from the managed list above, or plugins mounted to a user's computer by an organization admin.",
-    "透過開發者設定新增的本地 stdio 伺服器。遠端伺服器來自上方託管列表，或來自組織管理員掛載到使用者電腦上的外掛。"
+    "通過開發者設定新增的本地 stdio 伺服器。遠端伺服器來自上方託管列表，或來自組織管理員掛載到使用者電腦上的外掛。"
   ],
   [
     "Managed MCP servers",
@@ -3825,11 +3825,11 @@
   ],
   [
     "Reject desktop extensions that are not signed by a trusted publisher.",
-    "拒絕未由受信任釋出者簽名的桌面擴充套件。"
+    "拒絕未由受信任發佈者簽名的桌面擴展。"
   ],
   [
     "Require signed extensions",
-    "要求擴充套件已簽名"
+    "要求擴展已簽名"
   ],
   [
     "Show the Code tab (terminal-based coding sessions). Sessions run on the host, not inside the VM.",
@@ -4117,7 +4117,7 @@
   ],
   [
     "A confirmation has been emailed to you. Your Anthropic account executive will review and confirm coverage.",
-    "確認郵件已傳送給你。你的 Anthropic 客戶經理將稽核並確認覆蓋範圍。"
+    "確認郵件已傳送給你。你的 Anthropic 客戶經理將審核並確認覆蓋範圍。"
   ],
   [
     "About additional billing emails",
@@ -4153,7 +4153,7 @@
   ],
   [
     "All checks have passed",
-    "所有檢查均已透過"
+    "所有檢查均已通過"
   ],
   [
     "Already connected",
@@ -4249,15 +4249,15 @@
   ],
   [
     "Billing contact first name",
-    "賬單聯絡人名字"
+    "賬單聯繫人名字"
   ],
   [
     "Billing contact last name",
-    "賬單聯絡人姓氏"
+    "賬單聯繫人姓氏"
   ],
   [
     "Billing contact phone",
-    "賬單聯絡人電話"
+    "賬單聯繫人電話"
   ],
   [
     "Build info",
@@ -4265,15 +4265,15 @@
   ],
   [
     "Can't reach the Claude extension.",
-    "無法連線到 Claude 擴充套件。"
+    "無法連線到 Claude 擴展。"
   ],
   [
     "Certification is completed through a secure link emailed to your organization's primary contact.",
-    "認證需透過傳送給你組織主要聯絡人的安全鏈接完成。"
+    "認證需通過傳送給你組織主要聯繫人的安全鏈接完成。"
   ],
   [
     "Certification links are sent by email",
-    "認證鏈接將透過郵件傳送"
+    "認證鏈接將通過郵件傳送"
   ],
   [
     "Certify and submit",
@@ -4281,7 +4281,7 @@
   ],
   [
     "Claude is no longer waiting for this permission",
-    "Claude 已不再等待此許可權"
+    "Claude 已不再等待此權限"
   ],
   [
     "Claude will return soon",
@@ -4461,7 +4461,7 @@
   ],
   [
     "Email the certification link",
-    "透過郵件傳送認證鏈接"
+    "通過郵件傳送認證鏈接"
   ],
   [
     "Request your certification link",
@@ -4473,7 +4473,7 @@
   ],
   [
     "If a certification matches, we have emailed the registered contact.",
-    "如果有匹配的認證，我們已向登記的聯絡人傳送郵件。"
+    "如果有匹配的認證，我們已向登記的聯繫人傳送郵件。"
   ],
   [
     "Enter an account name.",
@@ -4497,11 +4497,11 @@
   ],
   [
     "Export is temporarily unavailable on this account for your security. Contact support to verify your identity.",
-    "為保護你的安全，此賬戶暫時無法匯出。請聯絡支援團隊驗證你的身份。"
+    "為保護你的安全，此賬戶暫時無法匯出。請聯繫支援團隊驗證你的身份。"
   ],
   [
     "Extension ID",
-    "擴充套件 ID"
+    "擴展 ID"
   ],
   [
     "Fetching the session’s pending plan…",
@@ -4529,7 +4529,7 @@
   ],
   [
     "High priority",
-    "高優先順序"
+    "高優先級"
   ],
   [
     "Hold responses",
@@ -4689,7 +4689,7 @@
   ],
   [
     "Pricing applies to these accounts going forward. To add or remove an account, contact your account executive.",
-    "定價將從現在起適用於這些賬戶。如需新增或移除賬戶，請聯絡你的客戶經理。"
+    "定價將從現在起適用於這些賬戶。如需新增或移除賬戶，請聯繫你的客戶經理。"
   ],
   [
     "Primary use cases",
@@ -4721,7 +4721,7 @@
   ],
   [
     "Provide your contact details for communications about your plugin.",
-    "提供用於溝通外掛相關事宜的聯絡方式。"
+    "提供用於溝通外掛相關事宜的聯繫方式。"
   ],
   [
     "Provided by your account team",
@@ -4769,7 +4769,7 @@
   ],
   [
     "Request a new export. If this happens again, contact support.",
-    "請申請新的匯出。如果再次發生，請聯絡支援團隊。"
+    "請申請新的匯出。如果再次發生，請聯繫支援團隊。"
   ],
   [
     "Requested by",
@@ -4797,7 +4797,7 @@
   ],
   [
     "Resynthesize memory",
-    "重新整合記憶"
+    "重新集成記憶"
   ],
   [
     "Review what Claude will see",
@@ -4849,7 +4849,7 @@
   ],
   [
     "Shared via Claude, an AI assistant from Anthropic",
-    "透過 Claude（Anthropic 的 AI 助手）共享"
+    "通過 Claude（Anthropic 的 AI 助手）共享"
   ],
   [
     "Sharing opens here.",
@@ -4929,7 +4929,7 @@
   ],
   [
     "The public homepage or documentation site for your plugin.",
-    "你的外掛的公開主頁或文件站點。"
+    "你的外掛的公開主頁或文檔站點。"
   ],
   [
     "The accounts your pricing and provisioning will apply to. Discounts are not applied retroactively to accounts added later.",
@@ -4985,7 +4985,7 @@
   ],
   [
     "This will remove Claude’s access. You can reconnect at any time.",
-    "這將移除 Claude 的存取許可權。你可以隨時重新連線。"
+    "這將移除 Claude 的存取權限。你可以隨時重新連線。"
   ],
   [
     "Today’s brief",
@@ -5049,7 +5049,7 @@
   ],
   [
     "Welcome to Claude via AWS Marketplace",
-    "歡迎透過 AWS Marketplace 使用 Claude"
+    "歡迎通過 AWS Marketplace 使用 Claude"
   ],
   [
     "What's wrong with this response?",
@@ -5077,7 +5077,7 @@
   ],
   [
     "Write a document with Claude",
-    "與 Claude 一起寫文件"
+    "與 Claude 一起寫文檔"
   ],
   [
     "You should check your name is not already taken. You may not use brand names you do not own in the name of your plugin.",
@@ -5097,11 +5097,11 @@
   ],
   [
     "Your account executive will review added tenants before they’re provisioned.",
-    "你的客戶經理會在配置前稽核新新增的租戶。"
+    "你的客戶經理會在配置前審核新新增的租戶。"
   ],
   [
     "Your account executive will review this addition before it’s provisioned.",
-    "你的客戶經理會在配置前稽核此次新增。"
+    "你的客戶經理會在配置前審核此次新增。"
   ],
   [
     "Your export should begin downloading automatically.",
@@ -5221,11 +5221,11 @@
   ],
   [
     "Colors, type and components captured once, so every deck and design can wear them.",
-    "把顏色、字型和元件一次性整理好，所有簡報和設計都能直接套用。"
+    "把顏色、字體和元件一次性整理好，所有演示文稿和設計都能直接套用。"
   ],
   [
     "Connect to preclinical research tools and databases (literature search, genomics analysis, target prioritization) to accelerate early-stage life sciences R&D",
-    "連線臨床前研究工具和資料庫（文獻檢索、基因組分析、靶點優先順序排序），加速早期生命科學研發"
+    "連線臨床前研究工具和資料庫（文獻檢索、基因組分析、靶點優先級排序），加速早期生命科學研發"
   ],
   [
     "Create, customize, and manage plugins tailored to your organization's tools and workflows. Configure MCP servers, adjust plugin behavior, and adapt templates to match how your team works.",
@@ -5245,11 +5245,11 @@
   ],
   [
     "Streamline engineering workflows — standups, code review, architecture decisions, incident response, and technical documentation. Works with your existing tools or standalone.",
-    "簡化工程工作流——站會、程式碼審查、架構決策、事故響應和技術文件。可配合你現有的工具，也可獨立使用。"
+    "簡化工程工作流——站會、程式碼審查、架構決策、事故響應和技術文檔。可配合你現有的工具，也可獨立使用。"
   ],
   [
     "Search across all of your company's tools in one place. Find anything across email, chat, documents, and wikis without switching between apps.",
-    "在一處搜尋公司的所有工具。不用切換應用，就能在郵件、聊天、文件和 wiki 中找到任何內容。"
+    "在一處搜尋公司的所有工具。不用切換應用，就能在郵件、聊天、文檔和 wiki 中找到任何內容。"
   ],
   [
     "Streamline finance and accounting workflows, from journal entries and reconciliation to financial statements and variance analysis. Speed up audit prep, month-end close, and keeping your books clean.",
@@ -5269,11 +5269,11 @@
   ],
   [
     "Optimize business operations — vendor management, process documentation, change management, capacity planning, and compliance tracking. Keep your organization running efficiently.",
-    "最佳化業務運營——供應商管理、流程文件、變更管理、產能規劃和合規跟蹤。讓組織高效運轉。"
+    "最佳化業務運營——供應商管理、流程文檔、變更管理、產能規劃和合規跟蹤。讓組織高效運轉。"
   ],
   [
     "3 pre-built skills that chain multiple Apollo APIs into complete sales workflows — no manual steps, no tab switching. Enrich any contact from a name, email, or LinkedIn URL. Prospect by describing your ICP in plain English and get ranked leads. Find, enrich, and load contacts into a sequence in one shot.",
-    "3 個預置技能，把多個 Apollo API 串成完整的銷售工作流——無需手動操作，也不用切換標籤頁。憑姓名、郵箱或 LinkedIn 鏈接即可補全聯絡人資訊；用自然語言描述理想客戶畫像，就能得到排好序的潛在客戶；一步完成查詢、補全並把聯絡人加入跟進序列。"
+    "3 個預置技能，把多個 Apollo API 串成完整的銷售工作流——無需手動操作，也不用切換標籤頁。憑姓名、郵箱或 LinkedIn 鏈接即可補全聯繫人資訊；用自然語言描述理想客戶畫像，就能得到排好序的潛在客戶；一步完成查詢、補全並把聯繫人加入跟進序列。"
   ],
   [
     "Brand Voice transforms scattered brand materials into enforceable AI guardrails — automatically. It searches across Notion, Google Drive, Confluence, Gong, Slack, and meeting transcripts to distill your strongest brand signals into a single source of truth, then applies them to every piece of AI-generated content. The more your team creates with Claude, the more consistent your brand becomes.",
@@ -5281,7 +5281,7 @@
   ],
   [
     "Turn Common Room into your GTM copilot. Research accounts and contacts, prep for calls with attendee profiles and talking points, and draft personalized outreach across email, LinkedIn, and phone. Build targeted prospect lists, generate weekly briefings for every upcoming call, and create strategic account plans — all grounded in real signal data from product usage, engagement and intent signals, so every output reflects what's actually happening in your accounts.",
-    "讓 Common Room 成為你的市場進入助手。調研客戶和聯絡人，用參會者資料和談話要點準備通話，起草郵件、LinkedIn 和電話的個性化觸達內容。建立目標潛在客戶名單，為每次即將進行的通話生成每週簡報，制定戰略客戶計劃——全部基於產品使用、互動和意向等真實訊號資料，讓每份產出都反映客戶的真實情況。"
+    "讓 Common Room 成為你的市場進入助手。調研客戶和聯繫人，用參會者資料和談話要點準備通話，起草郵件、LinkedIn 和電話的個性化觸達內容。建立目標潛在客戶名單，為每次即將進行的通話生成每週簡報，制定戰略客戶計劃——全部基於產品使用、互動和意向等真實訊號資料，讓每份產出都反映客戶的真實情況。"
   ],
   [
     "Official Slack MCP server for interactive and collaborative workflows. Surface insights, draft messages, and engage teams directly within Slack from Claude Cowork.",
@@ -5289,7 +5289,7 @@
   ],
   [
     "Claude plugin for planning, building, and debugging Zoom integrations across REST APIs, SDKs, webhooks, bots, and MCP workflows",
-    "用於規劃、構建和除錯 Zoom 整合的 Claude 外掛，涵蓋 REST API、SDK、Webhook、機器人和 MCP 工作流"
+    "用於規劃、構建和除錯 Zoom 集成的 Claude 外掛，涵蓋 REST API、SDK、Webhook、機器人和 MCP 工作流"
   ],
   [
     "View, annotate, and sign PDFs in a live interactive viewer. Mark up contracts, fill forms with visual feedback, stamp approvals, and place signatures — then download the annotated copy.",
@@ -5305,7 +5305,7 @@
   ],
   [
     "Sales skills that work with the tools your team already uses - your CRM, email, calendar, chat and call recorder - or with uploaded files. Prep calls, summarize and follow up, research accounts, review deals and pipeline, and write the forecast. When you ask, it can update CRM records, create email drafts or send email, post to chat and book meetings through your connected tools.",
-    "可配合團隊現有工具（CRM、郵件、日曆、聊天和通話錄音）或上傳檔案使用的銷售技能。準備通話、總結跟進、調研客戶、覆盤交易和銷售管道、撰寫預測。在你要求時，還能透過已連線的工具更新 CRM 記錄、建立郵件草稿或傳送郵件、在聊天中發帖和預約會議。"
+    "可配合團隊現有工具（CRM、郵件、日曆、聊天和通話錄音）或上傳檔案使用的銷售技能。準備通話、總結跟進、調研客戶、覆盤交易和銷售管道、撰寫預測。在你要求時，還能通過已連線的工具更新 CRM 記錄、建立郵件草稿或傳送郵件、在聊天中發帖和預約會議。"
   ],
   [
     "Pre-built small business workflows to help you run and grow your business. Supports a majority of the tools you already use. You approve every step that touches money or customers. Install and then ask Claude to help you get onboarded.",
@@ -5313,11 +5313,11 @@
   ],
   [
     "Creating algorithmic art using p5.js with seeded randomness and interactive parameter exploration. Use this when users request creating art using code, generative art, algorithmic art, flow fields, or particle systems. Create original algorithmic art rather than copying existing artists' work to avoid copyright violations.",
-    "用 p5.js 創作演算法藝術，支援種子隨機和互動式引數探索。適用於用程式碼創作藝術、生成藝術、演算法藝術、流場或粒子系統等需求。創作原創演算法藝術，不照搬現有藝術家的作品，以免侵犯版權。"
+    "用 p5.js 創作演算法藝術，支援種子隨機和互動式參數探索。適用於用程式碼創作藝術、生成藝術、演算法藝術、流場或粒子系統等需求。創作原創演算法藝術，不照搬現有藝術家的作品，以免侵犯版權。"
   ],
   [
     "Applies Anthropic's official brand colors and typography to any sort of artifact that may benefit from having Anthropic's look-and-feel. Use it when brand colors or style guidelines, visual formatting, or company design standards apply.",
-    "把 Anthropic 官方的品牌配色和字型應用到需要 Anthropic 風格的各類 Artifact 上。適用於涉及品牌配色、風格規範、視覺格式或公司設計標準的場景。"
+    "把 Anthropic 官方的品牌配色和字體應用到需要 Anthropic 風格的各類 Artifact 上。適用於涉及品牌配色、風格規範、視覺格式或公司設計標準的場景。"
   ],
   [
     "Create beautiful visual art in .png and .pdf documents using design philosophy. You should use this skill when the user asks to create a poster, piece of art, design, or other static piece. Create original visual designs, never copying existing artists' work to avoid copyright violations.",
@@ -5329,15 +5329,15 @@
   ],
   [
     "Guide users through a structured workflow for co-authoring documentation. Use when user wants to write documentation, proposals, technical specs, decision docs, or similar structured content. This workflow helps users efficiently transfer context, refine content through iteration, and verify the doc works for readers. Trigger when user mentions writing docs, creating proposals, drafting specs, or similar documentation tasks.",
-    "引導使用者按結構化流程合作撰寫文件。適用於撰寫文件、提案、技術規格、決策文件等結構化內容。這個流程幫助使用者高效傳遞背景、透過迭代打磨內容，並確認文件對讀者有用。"
+    "引導使用者按結構化流程合作撰寫文檔。適用於撰寫文檔、提案、技術規格、決策文檔等結構化內容。這個流程幫助使用者高效傳遞背景、通過迭代打磨內容，並確認文檔對讀者有用。"
   ],
   [
     "Use this skill whenever the user wants to create, read, edit, or manipulate Word documents (.docx files) or Word templates (.dotx files). Triggers include: any mention of 'Word doc', 'word document', '.docx', '.dotx', or requests to produce professional documents with formatting like tables of contents, headings, page numbers, or letterheads. Also use when extracting or reorganizing content from .docx or .dotx files, inserting or replacing images in documents, performing find-and-replace in Word files, working with tracked changes or comments, or converting content into a polished Word document. If the user asks for a 'report', 'memo', 'letter', 'template', or similar deliverable as a Word or .docx file, use this skill. Do NOT use for PDFs, spreadsheets, Google Docs, or general coding tasks unrelated to document generation.",
-    "建立、讀取、編輯或處理 Word 文件（.docx）和 Word 模板（.dotx）時使用：帶目錄、標題、頁碼、信頭的專業文件，提取或重組內容，插入或替換圖片，查詢替換，修訂和批註，以及生成精美的 Word 文件。不用於 PDF、電子表格、Google Docs 或與文件生成無關的程式設計任務。"
+    "建立、讀取、編輯或處理 Word 文檔（.docx）和 Word 模板（.dotx）時使用：帶目錄、標題、頁碼、信頭的專業文檔，提取或重組內容，插入或替換圖片，查詢替換，修訂和批註，以及生成精美的 Word 文檔。不用於 PDF、電子表格、Google Docs 或與文檔生成無關的程式設計任務。"
   ],
   [
     "Guidance for distinctive, intentional visual design when building new UI or reshaping an existing one. Helps with aesthetic direction, typography, and making choices that don't read as templated defaults.",
-    "構建新介面或改造現有介面時，指導做出有特色、有意圖的視覺設計。幫助確定審美方向、字型排印，做出不落俗套的設計選擇。"
+    "構建新介面或改造現有介面時，指導做出有特色、有意圖的視覺設計。幫助確定審美方向、字體排印，做出不落俗套的設計選擇。"
   ],
   [
     "A set of resources to help me write all kinds of internal communications, using the formats that my company likes to use. Claude should use this skill whenever asked to write some sort of internal communications (status reports, leadership updates, 3P updates, company newsletters, FAQs, incident reports, project updates, etc.).",
@@ -5345,7 +5345,7 @@
   ],
   [
     "Guide for creating high-quality MCP (Model Context Protocol) servers that enable LLMs to interact with external services through well-designed tools. Use when building MCP servers to integrate external APIs or services, whether in Python (FastMCP) or Node/TypeScript (MCP SDK).",
-    "建立高質量 MCP（模型上下文協議）伺服器的指南，讓大模型透過設計良好的工具與外部服務互動。適用於用 Python（FastMCP）或 Node/TypeScript（MCP SDK）構建接入外部 API 或服務的 MCP 伺服器。"
+    "建立高質量 MCP（模型上下文協議）伺服器的指南，讓大模型通過設計良好的工具與外部服務互動。適用於用 Python（FastMCP）或 Node/TypeScript（MCP SDK）構建接入外部 API 或服務的 MCP 伺服器。"
   ],
   [
     "Use this skill whenever the user wants to do anything with PDF files. This includes reading or extracting text/tables from PDFs, combining or merging multiple PDFs into one, splitting PDFs apart, rotating pages, adding watermarks, creating new PDFs, filling PDF forms, encrypting/decrypting PDFs, extracting images, and OCR on scanned PDFs to make them searchable. If the user mentions a .pdf file or asks to produce one, use this skill.",
@@ -5357,7 +5357,7 @@
   ],
   [
     "Toolkit for styling artifacts with a theme. These artifacts can be slides, docs, reportings, HTML landing pages, etc. There are 10 pre-set themes with colors/fonts that you can apply to any artifact that has been creating, or can generate a new theme on-the-fly.",
-    "給 Artifacts 套用主題的工具包，適用於幻燈片、文件、報告、HTML 落地頁等。內建 10 套配色和字型主題，可應用到已建立的 Artifacts 上，也能即時生成新主題。"
+    "給 Artifacts 套用主題的工具包，適用於幻燈片、文檔、報告、HTML 落地頁等。內建 10 套配色和字體主題，可應用到已建立的 Artifacts 上，也能即時生成新主題。"
   ],
   [
     "Suite of tools for creating elaborate, multi-component claude.ai HTML artifacts using modern frontend web technologies (React, Tailwind CSS, shadcn/ui). Use for complex artifacts requiring state management, routing, or shadcn/ui components - not for simple single-file HTML/JSX artifacts.",
@@ -5369,7 +5369,7 @@
   ],
   [
     "Import a memory export from another AI assistant into Claude's memory — conversationally, additively, and with the content treated as data.",
-    "把從其他 AI 助手匯出的記憶匯入 Claude 的記憶——透過對話進行、只增不刪，並把匯入內容當作資料處理。"
+    "把從其他 AI 助手匯出的記憶匯入 Claude 的記憶——通過對話進行、只增不刪，並把匯入內容當作資料處理。"
   ],
   [
     ", edit environment, right arrow",
@@ -5473,7 +5473,7 @@
   ],
   [
     "Added a live word count and a copy button to each document bar above the composer.",
-    "在輸入框上方的每個文件欄中新增實時字數統計和複製按鈕。"
+    "在輸入框上方的每個文檔欄中新增實時字數統計和複製按鈕。"
   ],
   [
     "Added a low-disk-space warning before Cowork downloads the files it needs to run.",
@@ -5501,7 +5501,7 @@
   ],
   [
     "Added a Split View submenu to the View menu for opening a new session beside or below the current one, and side panes (diff, terminal, plan, preview, and others) can now open in a window of their own.",
-    "在“查看”選單中新增“拆分查看”子選單，可在當前會話旁邊或下方開啟新會話；側邊窗格（差異、終端、計劃、預覽等）現在也可以在獨立視窗中開啟。"
+    "在“視圖”選單中新增“拆分視圖”子選單，可在當前會話旁邊或下方開啟新會話；側邊窗格（差異、終端、計劃、預覽等）現在也可以在獨立視窗中開啟。"
   ],
   [
     "Added a Troubleshooting option to import Claude Code CLI sessions found on this computer into the session list.",
@@ -5517,7 +5517,7 @@
   ],
   [
     "Added an estimated-cost view to the Usage page chart: when the organization has turned on cost estimates, the chart can switch between tokens and estimated cost per day (per week at 90 days), and days with turns that have no estimate show as gaps rather than $0.",
-    "在“用量”頁面圖表中新增預估費用查看：當組織開啟費用預估後，圖表可以在 token 與每日預估費用之間切換（90 天時按周），沒有預估值的輪次所在日期顯示為空缺而不是 $0。"
+    "在“用量”頁面圖表中新增預估費用視圖：當組織開啟費用預估後，圖表可以在 token 與每日預估費用之間切換（90 天時按周），沒有預估值的輪次所在日期顯示為空缺而不是 $0。"
   ],
   [
     "Added an inline card for multiple-choice questions from Claude, so you can pick an option and step through each question before your choices are sent as a single reply.",
@@ -5525,11 +5525,11 @@
   ],
   [
     "Added an integrated terminal pane and inline image previews in the transcript for SSH sessions.",
-    "為 SSH 會話新增整合終端窗格和對話記錄中的內聯圖片預覽。"
+    "為 SSH 會話新增集成終端窗格和對話記錄中的內聯圖片預覽。"
   ],
   [
     "Added an iOS Simulator button to the session titlebar when the agent launches an app in the simulator, so the pane is one click to reopen.",
-    "當智慧體在模擬器中啟動應用時，在會話標題欄中新增 iOS 模擬器按鈕，一鍵即可重新開啟該窗格。"
+    "當智能體在模擬器中啟動應用時，在會話標題欄中新增 iOS 模擬器按鈕，一鍵即可重新開啟該窗格。"
   ],
   [
     "Added an option to keep custom plugin marketplaces up to date automatically, and fixed a marketplace refresh reporting success before the sync ran and re-adding an existing marketplace not refreshing its contents.",
@@ -5553,23 +5553,23 @@
   ],
   [
     "Added Claude Fable 5 to the model picker for organizations with access.",
-    "為有許可權的組織在模型選擇器中新增 Claude Fable 5。"
+    "為有權限的組織在模型選擇器中新增 Claude Fable 5。"
   ],
   [
     "Added click-to-zoom and drag-to-pan to the fullscreen image viewer.",
-    "為全屏圖片查看器新增點選縮放和拖動平移。"
+    "為全屏圖片查看器新增點擊縮放和拖動平移。"
   ],
   [
     "Added Code tab features already available in the standard app: the Files panel with Show in Files, emoji autocomplete and inline prompt suggestions in the composer, interactive MCP app widgets in the conversation, and letting Claude read output from the integrated terminal panel.",
-    "新增標準應用中已有的 Code 標籤頁功能：帶“在檔案中顯示”的檔案面板、輸入框中的表情符號自動補全和內聯提示詞建議、對話中的互動式 MCP 應用小元件，以及允許 Claude 讀取整合終端面板的輸出。"
+    "新增標準應用中已有的 Code 標籤頁功能：帶“在檔案中顯示”的檔案面板、輸入框中的表情符號自動補全和內聯提示詞建議、對話中的互動式 MCP 應用小元件，以及允許 Claude 讀取集成終端面板的輸出。"
   ],
   [
     "Added comments on lines of an open file in the Files pane: click the + beside a line, or select text and choose Add comment, and the comment is sent with your next message.",
-    "新增在檔案窗格中對已開啟檔案的行新增評論：點選行旁的 +，或選中文字後選擇“新增評論”，評論會隨你的下一條訊息一起傳送。"
+    "新增在檔案窗格中對已開啟檔案的行新增評論：點擊行旁的 +，或選中文字後選擇“新增評論”，評論會隨你的下一條訊息一起傳送。"
   ],
   [
     "Added controls for project owners to remove members from a shared project and copy an invite link from the members dialog.",
-    "新增供項目所有者使用的控制元件：從共享項目中移除成員，並在成員對話方塊中複製邀請鏈接。"
+    "新增供項目所有者使用的控制元件：從共享項目中移除成員，並在成員對話框中複製邀請鏈接。"
   ],
   [
     "Added descriptive branch names for local Code sessions, derived from your first message, in place of the random adjective-noun names.",
@@ -5593,7 +5593,7 @@
   ],
   [
     "Added Excel, Word and PowerPoint previews in the Code tab when Claude's workspace isn't running yet: Excel opens in the document viewer, and opening a Word or PowerPoint file starts the workspace.",
-    "新增在 Claude 的工作區尚未執行時，於“程式碼”標籤頁預覽 Excel、Word 和 PowerPoint：Excel 在文件查看器中開啟，開啟 Word 或 PowerPoint 檔案時會啟動工作區。"
+    "新增在 Claude 的工作區尚未執行時，於“程式碼”標籤頁預覽 Excel、Word 和 PowerPoint：Excel 在文檔查看器中開啟，開啟 Word 或 PowerPoint 檔案時會啟動工作區。"
   ],
   [
     "Added file viewing to cloud sessions, so file links in the transcript open in the app, the Files pane can search the session's files, and the Background tasks panel shows background command output.",
@@ -5645,7 +5645,7 @@
   ],
   [
     "Added per-row actions to queued messages (Edit in composer, Send now, and Remove), with right-click support.",
-    "為排隊訊息新增每行操作（在輸入框中編輯、立即傳送和移除），並支援右鍵點選。"
+    "為排隊訊息新增每行操作（在輸入框中編輯、立即傳送和移除），並支援右鍵點擊。"
   ],
   [
     "Added Projects for organizing Chat conversations: create a project, start a chat inside it, or move existing chats in. Projects stays available even when your administrator has turned the Cowork tab off.",
@@ -5657,7 +5657,7 @@
   ],
   [
     "Added screenshot annotation in the composer: click a staged image, open the pencil, and draw with pen, shapes, text, and colors before sending.",
-    "新增輸入框中的截圖示註：點選已暫存的圖片，開啟鉛筆，在傳送前用畫筆、形狀、文字和顏色進行繪製。"
+    "新增輸入框中的截圖示註：點擊已暫存的圖片，開啟鉛筆，在傳送前用畫筆、形狀、文字和顏色進行繪製。"
   ],
   [
     "Added session-window restore: Claude Code session windows that were open when you quit now reopen the next time you launch the app.",
@@ -5677,7 +5677,7 @@
   ],
   [
     "Added support for background agents: long-running tasks now stay signed in after your identity provider's access token expires.",
-    "新增對後臺智慧體的支援：長時間執行的任務在你的身份提供商存取 token 過期後仍保持登入狀態。"
+    "新增對後臺智能體的支援：長時間執行的任務在你的身份提供商存取 token 過期後仍保持登入狀態。"
   ],
   [
     "Added support for Claude Opus 5.5.",
@@ -5697,11 +5697,11 @@
   ],
   [
     "Added support for mounting Windows mapped network drives into the Cowork sandbox, so shell commands and document processing can work with files on network drives, and fixed adding a mapped network-drive folder mid-session being rejected with a message to use the folder picker.",
-    "新增對將 Windows 對映網路驅動器掛載到 Cowork 沙盒的支援，使 shell 命令和文件處理可以處理網路驅動器上的檔案，並修復了會話中途新增對映網路驅動器資料夾被拒絕並提示使用資料夾選擇器的問題。"
+    "新增對將 Windows 對映網路驅動器掛載到 Cowork 沙盒的支援，使 shell 命令和文檔處理可以處理網路驅動器上的檔案，並修復了會話中途新增對映網路驅動器資料夾被拒絕並提示使用資料夾選擇器的問題。"
   ],
   [
     "Added support for the Fable model family, and for Mythos where your organization has access.",
-    "新增對 Fable 模型系列的支援，並在你所在的組織有許可權時支援 Mythos。"
+    "新增對 Fable 模型系列的支援，並在你所在的組織有權限時支援 Mythos。"
   ],
   [
     "Added support in Chat for skills from organization-provided plugins, and Chat-only users can now see and manage those plugins under Customize, matching Cowork and Code.",
@@ -5721,7 +5721,7 @@
   ],
   [
     "Added the ability to delete Cowork sessions from the sidebar, recents, and Spaces views.",
-    "新增從側邊欄、最近記錄和 Spaces 查看中刪除 Cowork 會話的功能。"
+    "新增從側邊欄、最近記錄和 Spaces 視圖中刪除 Cowork 會話的功能。"
   ],
   [
     "Added the ability to pin artifacts from the gallery or the artifact viewer, and to filter the gallery to your pinned artifacts.",
@@ -5729,7 +5729,7 @@
   ],
   [
     "Added the extended-thinking switch beside the effort control in the Cowork message box.",
-    "在 Cowork 訊息框中，思考強度控制元件旁新增了擴充套件思考開關。"
+    "在 Cowork 訊息框中，思考強度控制元件旁新增了擴展思考開關。"
   ],
   [
     "Added the Files panel to remote and SSH sessions — search the session's files and open them in the viewer — plus a Show in Files button in the file viewer.",
@@ -5737,11 +5737,11 @@
   ],
   [
     "Added the five-level effort selector for Claude Opus 5 in the model picker. Extended thinking is always on for Opus 5.",
-    "新增模型選擇器中 Claude Opus 5 的五級強度選擇器。Opus 5 始終開啟擴充套件思考。"
+    "新增模型選擇器中 Claude Opus 5 的五級強度選擇器。Opus 5 始終開啟擴展思考。"
   ],
   [
     "Added the health-data consent dialog and the Microsoft 365 work-account notice before a connector is added from a chat suggestion or the suggested-connectors card.",
-    "透過聊天建議或建議連接器卡片新增連接器之前，新增了健康資料同意對話方塊和 Microsoft 365 工作賬號提示。"
+    "通過聊天建議或建議連接器卡片新增連接器之前，新增了健康資料同意對話框和 Microsoft 365 工作賬號提示。"
   ],
   [
     "Added the inferenceVertexOAuthLoginHint managed configuration key to pre-fill the Google account chooser when signing in to Vertex AI, so users in organizations federated to a third-party identity provider land on the right account automatically.",
@@ -5753,11 +5753,11 @@
   ],
   [
     "Added the standard macOS full-screen keyboard shortcut, with an Enter Full Screen and Exit Full Screen item in the View menu.",
-    "新增標準的 macOS 全屏鍵盤快捷鍵，並在“查看”選單中加入“進入全屏”和“退出全屏”項。"
+    "新增標準的 macOS 全屏鍵盤快捷鍵，並在“視圖”選單中加入“進入全屏”和“退出全屏”項。"
   ],
   [
     "Added triple-click to select a whole code block, plus right-click menu actions to copy a code block or inline code, in Claude Code transcripts.",
-    "Claude Code 記錄中新增三擊選中整個程式碼塊，以及透過右鍵選單複製程式碼塊或行內程式碼的操作。"
+    "Claude Code 記錄中新增三擊選中整個程式碼塊，以及通過右鍵選單複製程式碼塊或行內程式碼的操作。"
   ],
   [
     "Added Ultracode to the effort slider, which selects the highest effort level and turns on dynamic workflows for the session.",
@@ -5765,11 +5765,11 @@
   ],
   [
     "Adds the account, the deal stage, and the last touch",
-    "補充客戶、交易階段和最近一次聯絡"
+    "補充客戶、交易階段和最近一次聯繫"
   ],
   [
     "Admin contact is required for Azure accounts.",
-    "Azure 賬號需要填寫管理員聯絡人。"
+    "Azure 賬號需要填寫管理員聯繫人。"
   ],
   [
     "Albania Tax Identification Number",
@@ -5817,7 +5817,7 @@
   ],
   [
     "Analyze a deploy, CI job, permission, cluster, or network path that has broken.",
-    "分析出現故障的部署、CI 任務、許可權、叢集或網路路徑。"
+    "分析出現故障的部署、CI 任務、權限、叢集或網路路徑。"
   ],
   [
     "Analyze a prospect and make a decision about the right next step using a rubric.",
@@ -5873,7 +5873,7 @@
   ],
   [
     "At most one WebSearch built-in entry is allowed",
-    "最多隻允許一個 WebSearch 內建條目"
+    "最多只允許一個 WebSearch 內建條目"
   ],
   [
     "At-risk deals flagged, with the why.",
@@ -5997,7 +5997,7 @@
   ],
   [
     "Build a chronology and a topic-by-topic question list from the documents you have, with each question tied to its source.",
-    "根據你手頭的文件，建立時間線和按主題分類的問題清單，每個問題都關聯到來源。"
+    "根據你手頭的文檔，建立時間線和按主題分類的問題清單，每個問題都關聯到來源。"
   ],
   [
     "Build a map across all the papers and PDFs on a topic including themes, methods, and findings.",
@@ -6017,15 +6017,15 @@
   ],
   [
     "Build an 'Ask the Company' agent",
-    "構建“向公司提問”智慧體"
+    "構建“向公司提問”智能體"
   ],
   [
     "Build chronologies and identify document patterns across large discovery productions.",
-    "在大批次的證據開示材料中建立時間線，並找出文件中的規律。"
+    "在大批次的證據開示材料中建立時間線，並找出文檔中的規律。"
   ],
   [
     "Build from connectors",
-    "透過連接器構建"
+    "通過連接器構建"
   ],
   [
     "Build SQL that answers your key data questions.",
@@ -6033,7 +6033,7 @@
   ],
   [
     "Building and open sourcing a local email agent using Claude Code SDK.",
-    "使用 Claude Code SDK 構建並開源了一個本地郵件智慧體。"
+    "使用 Claude Code SDK 構建並開源了一個本地郵件智能體。"
   ],
   [
     "Built an MCP that lets Claude talk directly to Unity. Created a 'Mario clone' game with one prompt.",
@@ -6113,7 +6113,7 @@
   ],
   [
     "Candidate email, offer fields, and a screenshare-ready deck.",
-    "候選人郵件、錄用信欄位，以及可直接用於螢幕共享的簡報。"
+    "候選人郵件、錄用信欄位，以及可直接用於螢幕共享的演示文稿。"
   ],
   [
     "Cannot access repository. Ensure the repository exists and the Claude GitHub App is installed.",
@@ -6145,7 +6145,7 @@
   ],
   [
     "Certification is completed through a secure link emailed to your organization's contact for the agreement. If you have your agreement's reference link, open it to request a new email. Otherwise, contact your Anthropic account executive or email certifications@anthropic.com.",
-    "認證需透過傳送到貴組織協議聯絡人郵箱的安全鏈接完成。如果你有協議的參考鏈接，請開啟它以請求傳送新郵件。否則，請聯絡你的 Anthropic 客戶經理，或傳送郵件至 certifications@anthropic.com。"
+    "認證需通過傳送到貴組織協議聯繫人郵箱的安全鏈接完成。如果你有協議的參考鏈接，請開啟它以請求傳送新郵件。否則，請聯繫你的 Anthropic 客戶經理，或傳送郵件至 certifications@anthropic.com。"
   ],
   [
     "Challenge 1: Email Management",
@@ -6181,7 +6181,7 @@
   ],
   [
     "Changed Markdown files Claude delivers to open in the document editor instead of a plain-text preview, without flashing the old viewer first.",
-    "更改了 Claude 交付的 Markdown 檔案，使其在文件編輯器而不是純文字預覽中開啟，並且不會先閃現舊的查看器。"
+    "更改了 Claude 交付的 Markdown 檔案，使其在文檔編輯器而不是純文字預覽中開啟，並且不會先閃現舊的查看器。"
   ],
   [
     "Changed Max effort to apply to the current session only, as in the Claude Code CLI, so new sessions no longer start at Max, and fixed changing the effort level in an open session also changing which model new sessions start on.",
@@ -6197,7 +6197,7 @@
   ],
   [
     "Changed permission-mode picks so they apply to the folder where you made them instead of becoming a machine-wide default.",
-    "更改了許可權模式的選擇：它們現在應用於你選擇時所在的資料夾，而不再成為整臺機器的預設值。"
+    "更改了權限模式的選擇：它們現在應用於你選擇時所在的資料夾，而不再成為整臺機器的預設值。"
   ],
   [
     "Changed routines to count against your regular usage limits instead of a separate daily included-run limit, and removed the included-runs indicator.",
@@ -6209,7 +6209,7 @@
   ],
   [
     "Changed telemetry on bootstrap-server deployments to default to disabled until the server explicitly enables it (previously only FedRAMP hosts), and added the ability to disable error and usage reporting through bootstrap configuration.",
-    "更改了引導伺服器部署的遙測：預設禁用，直到伺服器明確啟用（此前僅限 FedRAMP 主機），並新增了透過引導配置禁用錯誤和用量報告的功能。"
+    "更改了引導伺服器部署的遙測：預設禁用，直到伺服器明確啟用（此前僅限 FedRAMP 主機），並新增了通過引導配置禁用錯誤和用量報告的功能。"
   ],
   [
     "Changed the automatic move of scheduled tasks to the cloud, for accounts where it has started: the app now waits about a minute after the computer wakes, and while offline checks again each minute, instead of trying at once and then waiting hours after a failed try.",
@@ -6237,7 +6237,7 @@
   ],
   [
     "Changed the sidebar's Pinned list to show its first 20 items, with a Show more link for the rest.",
-    "調整了側邊欄的“已固定”列表：預設顯示前 20 項，其餘內容透過“顯示更多”鏈接查看。"
+    "調整了側邊欄的“已固定”列表：預設顯示前 20 項，其餘內容通過“顯示更多”鏈接查看。"
   ],
   [
     "Changed what happens when web fetch isn't available for your organization: Claude now says so instead of retrying and reporting failed fetches.",
@@ -6361,19 +6361,19 @@
   ],
   [
     "Claude plots every funder in one view — odds, award, deadline, effort — and you filter, test scenarios, ask for a prioritization, narrow down together. For decisions where no single sort order shows the full picture.",
-    "Claude 會把所有資助方放在同一查看中，展示成功機率、資助金額、截止日期和投入工作量，你可以篩選、測試不同情景、要求給出優先順序，並一起縮小範圍。適用於單一排序無法呈現全貌的決策。"
+    "Claude 會把所有資助方放在同一視圖中，展示成功機率、資助金額、截止日期和投入工作量，你可以篩選、測試不同情景、要求給出優先級，並一起縮小範圍。適用於單一排序無法呈現全貌的決策。"
   ],
   [
     "Claude pulls the borrower's filings and spreads through the S&P Global connector and reads the underwriting workbook from your deal folder. You take the ratios and exceptions into Claude for Excel to update the model, then bring the writeup into Claude for Word for the credit memo.",
-    "Claude 透過 S&P Global 連接器獲取借款人的備案檔案和財務攤開表，並從你的交易資料夾中讀取承銷工作簿。你把比率和異常項帶到 Claude for Excel 中更新模型，再把文字稿帶到 Claude for Word 中撰寫信貸備忘錄。"
+    "Claude 通過 S&P Global 連接器獲取借款人的備案檔案和財務攤開表，並從你的交易資料夾中讀取承銷工作簿。你把比率和異常項帶到 Claude for Excel 中更新模型，再把文字稿帶到 Claude for Word 中撰寫信貸備忘錄。"
   ],
   [
     "Claude pulls the release and transcript from S&P and checks them against your financial model. You take the flags into Claude for Excel to edit the cells, then open the deck in Claude for PowerPoint to build the page.",
-    "Claude 會從 S&P 獲取釋出材料和會議記錄，並與你的財務模型核對。你把標記出的問題帶到 Claude for Excel 中修改單元格，再在 Claude for PowerPoint 中開啟簡報製作頁面。"
+    "Claude 會從 S&P 獲取發佈材料和會議記錄，並與你的財務模型核對。你把標記出的問題帶到 Claude for Excel 中修改單元格，再在 Claude for PowerPoint 中開啟演示文稿製作頁面。"
   ],
   [
     "Claude reads competitor materials against your positioning, writes the win/lose/draw, and outputs a sales deck and Excel matrix.",
-    "Claude 會對照你的定位閱讀競品資料，寫出勝、負、平的結論，並輸出銷售簡報和 Excel 對比矩陣。"
+    "Claude 會對照你的定位閱讀競品資料，寫出勝、負、平的結論，並輸出銷售演示文稿和 Excel 對比矩陣。"
   ],
   [
     "Claude reads Figma data—component hierarchies, design tokens, auto-layout. Agency went from 8 hours per landing page to 30 minutes.",
@@ -6445,7 +6445,7 @@
   ],
   [
     "Comments aren’t available on live documents yet.",
-    "實時文件暫不支援評論。"
+    "實時文檔暫不支援評論。"
   ],
   [
     "Commit the working tree changes with a sensible message.",
@@ -6481,11 +6481,11 @@
   ],
   [
     "Connect Google Workspace: email, calendar, and docs",
-    "連線 Google Workspace：郵件、日曆和文件"
+    "連線 Google Workspace：郵件、日曆和文檔"
   ],
   [
     "Content rendered and shown to the user. Please do not duplicate the shown content in text because it's already visually represented.",
-    "渲染並展示給使用者的內容。請不要在文字中重複已展示的內容，因為它已透過視覺化方式呈現。"
+    "渲染並展示給使用者的內容。請不要在文字中重複已展示的內容，因為它已通過視覺化方式呈現。"
   ],
   [
     "Contributed a bug fix to open source Rust project without really knowing Rust.",
@@ -6493,7 +6493,7 @@
   ],
   [
     "Controls if and when the hover should take focus upon being triggered by this action.",
-    "控制透過此操作觸發懸停提示時，是否以及何時獲取焦點。"
+    "控制通過此操作觸發懸停提示時，是否以及何時獲取焦點。"
   ],
   [
     "Converts to Team plan",
@@ -6517,7 +6517,7 @@
   ],
   [
     "Couldn’t add a payment method. Identity verification is needed first. Contact support for help.",
-    "無法新增付款方式。需要先完成身份驗證。請聯絡支援團隊獲取幫助。"
+    "無法新增付款方式。需要先完成身份驗證。請聯繫支援團隊獲取幫助。"
   ],
   [
     "Couldn’t add a payment method. Try again.",
@@ -6533,7 +6533,7 @@
   ],
   [
     "Couldn’t download this file from this link. You can ask the person who shared it to send it.",
-    "無法透過此鏈接下載該檔案。你可以請分享者直接傳送給你。"
+    "無法通過此鏈接下載該檔案。你可以請分享者直接傳送給你。"
   ],
   [
     "Couldn’t edit this spoken message. Send your change as a new message.",
@@ -6581,7 +6581,7 @@
   ],
   [
     "Couldn’t open link. Close the open dialog, then open the link again.",
-    "無法開啟鏈接。請關閉當前開啟的對話方塊，然後重新開啟鏈接。"
+    "無法開啟鏈接。請關閉當前開啟的對話框，然後重新開啟鏈接。"
   ],
   [
     "Couldn’t reach your organization’s session host right now, so your global instructions aren’t shown.",
@@ -6617,11 +6617,11 @@
   ],
   [
     "Couldn’t start this task on your organization’s infrastructure. Contact your IT administrator if this keeps happening.",
-    "無法在你組織的基礎設施上啟動此任務。如果問題持續出現，請聯絡你的 IT 管理員。"
+    "無法在你組織的基礎設施上啟動此任務。如果問題持續出現，請聯繫你的 IT 管理員。"
   ],
   [
     "Count of code editing tool permission decisions (accept/reject) for Edit, Write, and NotebookEdit tools",
-    "Edit、Write 和 NotebookEdit 工具的程式碼編輯許可權決定（接受/拒絕）次數"
+    "Edit、Write 和 NotebookEdit 工具的程式碼編輯權限決定（接受/拒絕）次數"
   ],
   [
     "Count of lines of code modified, with the 'type' attribute indicating whether lines were added or removed and the 'model' attribute indicating which model made the change",
@@ -6629,19 +6629,19 @@
   ],
   [
     "Cowork in the cloud is turned off for your role. Ask your admin if you need it back.",
-    "你的角色已關閉雲端 Cowork。如需恢復，請聯絡管理員。"
+    "你的角色已關閉雲端 Cowork。如需恢復，請聯繫管理員。"
   ],
   [
     "Cowork pulls the borrower's filings and spreads through the S&P Global connector and reads the underwriting workbook from your deal folder. You take the ratios and exceptions into Claude for Excel to update the model, then bring the writeup into Claude for Word for the credit memo.",
-    "Cowork 透過 S&P Global 連接器獲取借款人的備案檔案和財務攤開表，並從你的交易資料夾中讀取承銷工作簿。你把比率和異常項帶到 Claude for Excel 中更新模型，再把文字稿帶到 Claude for Word 中撰寫信貸備忘錄。"
+    "Cowork 通過 S&P Global 連接器獲取借款人的備案檔案和財務攤開表，並從你的交易資料夾中讀取承銷工作簿。你把比率和異常項帶到 Claude for Excel 中更新模型，再把文字稿帶到 Claude for Word 中撰寫信貸備忘錄。"
   ],
   [
     "Cowork pulls the release and transcript from S&P and checks them against your financial model. You take the flags into Claude for Excel to edit the cells, then open the deck in Claude for PowerPoint to build the page.",
-    "Cowork 會從 S&P 獲取釋出材料和會議記錄，並與你的財務模型核對。你把標記出的問題帶到 Claude for Excel 中修改單元格，再在 Claude for PowerPoint 中開啟簡報製作頁面。"
+    "Cowork 會從 S&P 獲取發佈材料和會議記錄，並與你的財務模型核對。你把標記出的問題帶到 Claude for Excel 中修改單元格，再在 Claude for PowerPoint 中開啟演示文稿製作頁面。"
   ],
   [
     "Cowork reads competitor materials against your positioning, writes the win/lose/draw, and outputs a sales deck and Excel matrix.",
-    "Cowork 會對照你的定位閱讀競品資料，寫出勝、負、平的結論，並輸出銷售簡報和 Excel 對比矩陣。"
+    "Cowork 會對照你的定位閱讀競品資料，寫出勝、負、平的結論，並輸出銷售演示文稿和 Excel 對比矩陣。"
   ],
   [
     "cowork remote mcp push refused (local MCP tool cap)",
@@ -6661,7 +6661,7 @@
   ],
   [
     "Create a design doc that's generated from actual code that can be shared with others.",
-    "根據實際程式碼生成可與他人共享的設計文件。"
+    "根據實際程式碼生成可與他人共享的設計文檔。"
   ],
   [
     "Create a design spec from your notes, threads, and files.",
@@ -6673,7 +6673,7 @@
   ],
   [
     "Create a four-week content calendar as an Excel workbook with draft captions for each post.",
-    "建立為期四周的內容日曆，以 Excel 工作簿呈現，併為每條釋出內容附上文案草稿。"
+    "建立為期四周的內容日曆，以 Excel 工作簿呈現，併為每條發佈內容附上文案草稿。"
   ],
   [
     "Create a grant proposal outline mapped to the funder's criteria.",
@@ -6693,15 +6693,15 @@
   ],
   [
     "Create a polished client proposal deck with professional layouts data visualizations and cohesive design—then refine through feedback until it matches your standards.",
-    "建立精美的客戶方案簡報，包含專業版式、資料視覺化和統一的設計，再根據反饋不斷打磨，直到符合你的標準。"
+    "建立精美的客戶方案演示文稿，包含專業版式、資料視覺化和統一的設計，再根據反饋不斷打磨，直到符合你的標準。"
   ],
   [
     "Create a prioritized list with scores and a cut line.",
-    "建立帶評分和截止線的優先順序清單。"
+    "建立帶評分和截止線的優先級清單。"
   ],
   [
     "Create a recap for your team with all the numbers and what worked, summarized in a workbook and deck.",
-    "為團隊建立一份覆盤，涵蓋所有資料和有效做法，並整理成工作簿和簡報。"
+    "為團隊建立一份覆盤，涵蓋所有資料和有效做法，並整理成工作簿和演示文稿。"
   ],
   [
     "Create a scannable summary of budget-vs-actuals based on your data.",
@@ -6741,15 +6741,15 @@
   ],
   [
     "Create a working Excel tracker from your existing files and documents.",
-    "根據你現有的檔案和文件，建立可用的 Excel 跟蹤表。"
+    "根據你現有的檔案和文檔，建立可用的 Excel 跟蹤表。"
   ],
   [
     "Create comprehensive volunteer documentation including role descriptions, onboarding processes, communication templates, and tracking tools that professionalize volunteer management and scale your program effectively.",
-    "建立完整的志願者文件，包括崗位說明、入職流程、溝通模板和跟蹤工具，讓志願者管理更加專業，並有效擴大你的項目規模。"
+    "建立完整的志願者文檔，包括崗位說明、入職流程、溝通模板和跟蹤工具，讓志願者管理更加專業，並有效擴大你的項目規模。"
   ],
   [
     "Create customer-read release notes based on changes you shipped.",
-    "根據你已釋出的變更，建立面向客戶閱讀的釋出說明。"
+    "根據你已發佈的變更，建立面向客戶閱讀的發佈說明。"
   ],
   [
     "Create investment analyses with complete financial models, scenario planning, and risk evaluation.",
@@ -6769,7 +6769,7 @@
   ],
   [
     "Creates a new MCP tab group if none exists, creates a new Window with a new tab group containing an empty tab (which can be used for this conversation). If a MCP tab group already exists, this parameter has no effect.",
-    "如果不存在 MCP 標籤組，則建立一個新視窗，其中包含一個帶空白標籤頁的新標籤組（可用於本次對話）。如果 MCP 標籤組已存在，此引數無效。"
+    "如果不存在 MCP 標籤組，則建立一個新視窗，其中包含一個帶空白標籤頁的新標籤組（可用於本次對話）。如果 MCP 標籤組已存在，此參數無效。"
   ],
   [
     "Creating it switches the list to Group by Preset, which also shows the folders you create.",
@@ -6829,7 +6829,7 @@
   ],
   [
     "Delegate multi-step work to Claude in Cowork: set up workspaces, give context, run task loops, and use plugins for research, documents, and browser tasks.",
-    "在 Cowork 中把多步驟工作交給 Claude：設定工作區、提供上下文、執行任務迴圈，並使用外掛處理調研、文件和瀏覽器任務。"
+    "在 Cowork 中把多步驟工作交給 Claude：設定工作區、提供上下文、執行任務循環，並使用外掛處理調研、文檔和瀏覽器任務。"
   ],
   [
     "Delete section",
@@ -6849,7 +6849,7 @@
   ],
   [
     "Demonstrates MCP Apps with an interactive counter UI. The user can increment/decrement the counter.",
-    "透過互動式計數器介面演示 MCP Apps。使用者可以增加或減少計數。"
+    "通過互動式計數器介面演示 MCP Apps。使用者可以增加或減少計數。"
   ],
   [
     "Describe a one-pager, poster, or social graphic and get a design you can keep shaping in the conversation.",
@@ -6913,7 +6913,7 @@
   ],
   [
     "Draft a new hire's 30-60-90 plan based on team documents and best practices.",
-    "根據團隊文件和最佳實踐，起草新員工的 30-60-90 天計劃。"
+    "根據團隊文檔和最佳實踐，起草新員工的 30-60-90 天計劃。"
   ],
   [
     "Draft a one-page PRD (problem, goals, scope, metrics, open questions) from your ideas.",
@@ -7061,11 +7061,11 @@
   ],
   [
     "Failed to delete extension",
-    "無法刪除擴充套件"
+    "無法刪除擴展"
   ],
   [
     "Failed to load extensions",
-    "無法載入擴充套件"
+    "無法載入擴展"
   ],
   [
     "Failed to load order",
@@ -7093,7 +7093,7 @@
   ],
   [
     "Failed to update extension settings",
-    "無法更新擴充套件設定"
+    "無法更新擴展設定"
   ],
   [
     "Failed to update your answers. Try again.",
@@ -7301,7 +7301,7 @@
   ],
   [
     "Fixed a session preset's permission mode not being applied when the preset also changed the model.",
-    "修復了會話預設同時更改模型時，預設的許可權模式未生效的問題。"
+    "修復了會話預設同時更改模型時，預設的權限模式未生效的問題。"
   ],
   [
     "Fixed a startup error on some Linux systems, most often repackaged or containerized installs, that left the app without a tray icon and recurred on every system theme change.",
@@ -7329,7 +7329,7 @@
   ],
   [
     "Fixed an error caused by Claude trying to read a document creation skill that was not available.",
-    "修復了 Claude 嘗試讀取不可用的文件建立技能而導致的錯誤。"
+    "修復了 Claude 嘗試讀取不可用的文檔建立技能而導致的錯誤。"
   ],
   [
     "Fixed an extra tab opening in the system browser when navigating with the Artifacts pane open.",
@@ -7345,7 +7345,7 @@
   ],
   [
     "Fixed an issue where permission prompts and in-session questions could silently stop appearing after an input-handling error, by updating the bundled Claude Code CLI to 2.1.209.",
-    "透過將內建的 Claude Code CLI 更新到 2.1.209，修復了輸入處理出錯後許可權提示和會話內提問可能悄悄停止出現的問題。"
+    "通過將內建的 Claude Code CLI 更新到 2.1.209，修復了輸入處理出錯後權限提示和會話內提問可能悄悄停止出現的問題。"
   ],
   [
     "Fixed an issue where signing in could leave the app unable to start sessions until it was restarted.",
@@ -7357,7 +7357,7 @@
   ],
   [
     "Fixed an unanswered permission or plan-approval prompt in a cloud session sometimes being treated as approved after the session's environment disconnected.",
-    "修復了在雲端會話的環境斷開連線後，未回答的許可權或計劃批准提示有時被視為已批准的問題。"
+    "修復了在雲端會話的環境斷開連線後，未回答的權限或計劃批准提示有時被視為已批准的問題。"
   ],
   [
     "Fixed app settings, and the app's record of session worktrees, being discarded when those files had been re-saved with a UTF-8 byte-order mark by an external editor.",
@@ -7409,7 +7409,7 @@
   ],
   [
     "Fixed being unable to disable, delete, or uninstall plugins from GitHub-connected marketplaces, or to remove those marketplaces.",
-    "修復了無法禁用、刪除或解除安裝來自 GitHub 連線的市場的外掛，或無法移除這些市場的問題。"
+    "修復了無法禁用、刪除或卸載來自 GitHub 連線的市場的外掛，或無法移除這些市場的問題。"
   ],
   [
     "Fixed branch switches on large repositories failing after an uncommitted-changes stash timed out, and restored your stashed changes when a switch fails.",
@@ -7421,7 +7421,7 @@
   ],
   [
     "Fixed browser, computer use, and website access permission prompts in Dispatch sometimes being denied on their own before you could answer.",
-    "修復了排程中瀏覽器、電腦使用和網站存取的許可權提示有時在你回答之前就被自動拒絕的問題。"
+    "修復了排程中瀏覽器、電腦使用和網站存取的權限提示有時在你回答之前就被自動拒絕的問題。"
   ],
   [
     "Fixed built-in connectors staying disconnected after a crash — existing sessions now reconnect them automatically, and disconnecting a built-in connector now signs it out and keeps it disconnected across restarts.",
@@ -7461,7 +7461,7 @@
   ],
   [
     "Fixed Claude Desktop on Linux entering a crash-and-relaunch loop that consumed heavy processor time when automatic session restore ran into persistent graphics failures.",
-    "修復了 Linux 上的 Claude Desktop 在自動會話恢復遇到持續的圖形故障時，進入佔用大量處理器時間的崩潰並重啟迴圈的問題。"
+    "修復了 Linux 上的 Claude Desktop 在自動會話恢復遇到持續的圖形故障時，進入佔用大量處理器時間的崩潰並重啟循環的問題。"
   ],
   [
     "Fixed Claude in Chrome file uploads failing for files in the session's shared folders and outputs.",
@@ -7521,11 +7521,11 @@
   ],
   [
     "Fixed commands in the built-in terminal failing with error -1743 when controlling other apps on macOS, instead of showing the Automation permission prompt.",
-    "修復了在 macOS 上控制其他應用時，內建終端中的命令因錯誤 -1743 失敗，而不是顯示“自動化”許可權提示的問題。"
+    "修復了在 macOS 上控制其他應用時，內建終端中的命令因錯誤 -1743 失敗，而不是顯示“自動化”權限提示的問題。"
   ],
   [
     "Fixed computer use on macOS refusing every click after you had taken a screenshot or while a screen recording was running.",
-    "修復了在截圖後或螢幕錄製期間，macOS 上的電腦使用拒絕每次點選的問題。"
+    "修復了在截圖後或螢幕錄製期間，macOS 上的電腦使用拒絕每次點擊的問題。"
   ],
   [
     "Fixed Computer Use teach mode where the Next and Exit buttons sometimes stopped responding until you switched apps and back, and cleared up teach-mode visuals so the screen-edge glow no longer flickers and the status indicator no longer sticks after you exit a guide.",
@@ -7549,7 +7549,7 @@
   ],
   [
     "Fixed copy and paste problems: transcript text pasted into rich-text apps lost the spaces around inline code, bold, and italics and mangled code blocks, and Cmd+C after selecting text in the Plan view copied nothing.",
-    "修復了複製貼上的問題：貼上到富文字應用中的對話記錄文字丟失了行內程式碼、粗體和斜體周圍的空格並弄亂了程式碼塊，以及在計劃查看中選中文字後 Cmd+C 沒有複製任何內容。"
+    "修復了複製貼上的問題：貼上到富文字應用中的對話記錄文字丟失了行內程式碼、粗體和斜體周圍的空格並弄亂了程式碼塊，以及在計劃視圖中選中文字後 Cmd+C 沒有複製任何內容。"
   ],
   [
     "Fixed copying part of a reply that contains math pasting scrambled text instead of the formula.",
@@ -7573,7 +7573,7 @@
   ],
   [
     "Fixed Cowork sometimes pulling you back to the bottom of a task after you had scrolled up, for example when a sub-agent step finished.",
-    "修復了 Cowork 有時在你向上滾動後又把你拉回任務底部的問題，例如子智慧體步驟完成時。"
+    "修復了 Cowork 有時在你向上滾動後又把你拉回任務底部的問題，例如子智能體步驟完成時。"
   ],
   [
     "Fixed Cowork tasks being unable to read or update existing artifacts.",
@@ -7601,19 +7601,19 @@
   ],
   [
     "Fixed document tools in cloud sessions acting on your local files instead of the session's files.",
-    "修復了雲端會話中的文件工具作用於你的本地檔案而不是會話檔案的問題。"
+    "修復了雲端會話中的文檔工具作用於你的本地檔案而不是會話檔案的問題。"
   ],
   [
     "Fixed documents Claude creates not reliably opening in the editor.",
-    "修復了 Claude 建立的文件不能可靠地在編輯器中開啟的問題。"
+    "修復了 Claude 建立的文檔不能可靠地在編輯器中開啟的問題。"
   ],
   [
     "Fixed documents showing an internal file id instead of their title, including in export filenames and approval prompts.",
-    "修復了文件顯示內部檔案 ID 而不是標題的問題，包括在匯出檔名和批准提示中。"
+    "修復了文檔顯示內部檔案 ID 而不是標題的問題，包括在匯出檔名和批准提示中。"
   ],
   [
     "Fixed Download in the chat's file pane failing for a document Claude saved to your project.",
-    "修復了聊天檔案窗格中，下載 Claude 儲存到你項目中的文件時失敗的問題。"
+    "修復了聊天檔案窗格中，下載 Claude 儲存到你項目中的文檔時失敗的問題。"
   ],
   [
     "Fixed Duplicate saving an empty copy of a configuration, and Claude API key sign-in overwriting a saved configuration, when the configuration's file could not be read, for example while another program briefly had it locked.",
@@ -7625,7 +7625,7 @@
   ],
   [
     "Fixed editing a sent message starting from text missing parts of what you sent, attached files disappearing when you typed a reply to Claude's question card, a removed text file still being kept among the chat's files, and large documents from a connected app blocking sending.",
-    "修復了編輯已傳送訊息時起始文字缺少部分已傳送內容、在回覆 Claude 的提問卡片時附件消失、已移除的文字檔案仍保留在聊天檔案中，以及來自已連線應用的大型文件阻止傳送的問題。"
+    "修復了編輯已傳送訊息時起始文字缺少部分已傳送內容、在回覆 Claude 的提問卡片時附件消失、已移除的文字檔案仍保留在聊天檔案中，以及來自已連線應用的大型文檔阻止傳送的問題。"
   ],
   [
     "Fixed enforcement of the managed Auto mode opt-out.",
@@ -7649,7 +7649,7 @@
   ],
   [
     "Fixed folder access and cross-session requests being rejected after you approved them when permission mode was Auto or Bypass permissions.",
-    "修復了在許可權模式為自動或繞過許可權時，資料夾存取和跨會話請求在你批准後仍被拒絕的問題。"
+    "修復了在權限模式為自動或繞過權限時，資料夾存取和跨會話請求在你批准後仍被拒絕的問題。"
   ],
   [
     "Fixed folder and file names containing a dollar sign being misread, which broke file references.",
@@ -7681,7 +7681,7 @@
   ],
   [
     "Fixed installed extensions failing to load and showing an endless loading state.",
-    "修復了已安裝的擴充套件無法載入並一直顯示載入狀態的問題。"
+    "修復了已安裝的擴展無法載入並一直顯示載入狀態的問題。"
   ],
   [
     "Fixed keyboard shortcut conflicts failing silently. Assigning a shortcut already held by another app now tells you and keeps your previous shortcut working, and Quick Entry registration errors now appear in Settings.",
@@ -7701,7 +7701,7 @@
   ],
   [
     "Fixed macOS asking for notification permission as soon as the app launched, instead of when the first notification is about to appear.",
-    "修復了 macOS 在應用一啟動就請求通知許可權，而不是在第一條通知即將出現時才請求的問題。"
+    "修復了 macOS 在應用一啟動就請求通知權限，而不是在第一條通知即將出現時才請求的問題。"
   ],
   [
     "Fixed managed connectors and SSO sign-in requesting broader OAuth scopes than the administrator configured.",
@@ -7721,7 +7721,7 @@
   ],
   [
     "Fixed MCP connectors failing to connect through gateways that optionally request a TLS client certificate, even though the connection test passed.",
-    "修復了 MCP 連接器透過可選請求 TLS 客戶端證書的閘道器連線失敗，即使連線測試已透過的問題。"
+    "修復了 MCP 連接器通過可選請求 TLS 客戶端證書的閘道器連線失敗，即使連線測試已通過的問題。"
   ],
   [
     "Fixed memory use on macOS growing steadily while working with files, which could end with the system reporting it had run out of application memory.",
@@ -7777,7 +7777,7 @@
   ],
   [
     "Fixed organization plugins sometimes failing to open right after app launch, and the plugin directory now offers Install again after an uninstall.",
-    "修復了應用啟動後組織外掛有時無法開啟的問題；解除安裝後，外掛目錄現在會重新提供“安裝”選項。"
+    "修復了應用啟動後組織外掛有時無法開啟的問題；卸載後，外掛目錄現在會重新提供“安裝”選項。"
   ],
   [
     "Fixed organization plugins sometimes not opening from the Directory right after launch or update.",
@@ -7789,15 +7789,15 @@
   ],
   [
     "Fixed permission requests and questions not appearing in popped-out windows and split panes after the main window switched away from the Code tab.",
-    "修復了主視窗切換離開“程式碼”標籤頁後，許可權請求和提問不顯示在彈出視窗和分屏窗格中的問題。"
+    "修復了主視窗切換離開“程式碼”標籤頁後，權限請求和提問不顯示在彈出視窗和分屏窗格中的問題。"
   ],
   [
     "Fixed Plan mode skipping permission prompts when the Bypass permissions option is on and the session fell back to an older bundled Claude Code CLI while an update downloaded.",
-    "修復了在開啟“繞過許可權”選項、且會話在更新下載期間回退到較舊的內建 Claude Code CLI 時，規劃模式會跳過許可權提示的問題。"
+    "修復了在開啟“繞過權限”選項、且會話在更新下載期間回退到較舊的內建 Claude Code CLI 時，規劃模式會跳過權限提示的問題。"
   ],
   [
     "Fixed plugin connectors sometimes missing from the Connectors list and tool permission prompts when they were slow to start.",
-    "修復了外掛連接器啟動緩慢時有時沒有出現在連接器列表和工具許可權提示中的問題。"
+    "修復了外掛連接器啟動緩慢時有時沒有出現在連接器列表和工具權限提示中的問題。"
   ],
   [
     "Fixed plugin hooks silently doing nothing on Windows.",
@@ -7813,7 +7813,7 @@
   ],
   [
     "Fixed popovers, dialogs, and the rewind picker not appearing — and typed characters jumping to the end of the composer — when a Code session is opened in its own window.",
-    "修復了在獨立視窗中開啟 Code 會話時，彈出框、對話方塊和回退選擇器不顯示，以及輸入的字元跳到輸入框末尾的問題。"
+    "修復了在獨立視窗中開啟 Code 會話時，彈出框、對話框和回退選擇器不顯示，以及輸入的字元跳到輸入框末尾的問題。"
   ],
   [
     "Fixed pressing Enter not sending your message when an @mention had no matching results.",
@@ -7833,7 +7833,7 @@
   ],
   [
     "Fixed Quick Entry: prompts sent while the app was still loading could be lost, files sent to an existing chat lost their names (leaving text, code, and Office documents unreadable to Claude), and using it right after an app update could crash the app.",
-    "修復了快速輸入：應用仍在載入時傳送的提示詞可能丟失，傳送到現有聊天的檔案會丟失檔名（導致 Claude 無法讀取文字、程式碼和 Office 文件），以及在應用更新後立即使用可能導致應用崩潰。"
+    "修復了快速輸入：應用仍在載入時傳送的提示詞可能丟失，傳送到現有聊天的檔案會丟失檔名（導致 Claude 無法讀取文字、程式碼和 Office 文檔），以及在應用更新後立即使用可能導致應用崩潰。"
   ],
   [
     "Fixed rare freezes when a transcript contained very large whitespace-padded messages or tool output.",
@@ -7853,7 +7853,7 @@
   ],
   [
     "Fixed reinstalling Claude on Windows failing after an uninstall when IT had installed it for all users.",
-    "修復了在 Windows 上，當 IT 部門為所有使用者安裝 Claude 後，解除安裝再重新安裝會失敗的問題。"
+    "修復了在 Windows 上，當 IT 部門為所有使用者安裝 Claude 後，卸載再重新安裝會失敗的問題。"
   ],
   [
     "Fixed reloading or reopening a temporary chat rebuilding the page a moment after it loads, which could discard text typed early.",
@@ -7869,11 +7869,11 @@
   ],
   [
     "Fixed remote sessions re-prompting for access to folders you had already trusted.",
-    "修復了遠端會話重複詢問已信任資料夾的存取許可權的問題。"
+    "修復了遠端會話重複詢問已信任資料夾的存取權限的問題。"
   ],
   [
     "Fixed remote SSH sessions getting stuck in a reconnect loop on very large messages, being lost when the computer woke from sleep mid-reconnect, and occasionally sending the same input twice after reconnecting.",
-    "修復了遠端 SSH 會話在超大訊息上陷入重新連線迴圈、在重新連線過程中電腦從睡眠中喚醒時丟失，以及重新連線後偶爾重複傳送相同輸入的問題。"
+    "修復了遠端 SSH 會話在超大訊息上陷入重新連線循環、在重新連線過程中電腦從睡眠中喚醒時丟失，以及重新連線後偶爾重複傳送相同輸入的問題。"
   ],
   [
     "Fixed renaming a session while its title was still generating — the generated title no longer overwrites the name you set.",
@@ -7881,7 +7881,7 @@
   ],
   [
     "Fixed resuming Code sessions when the working folder had moved or been deleted — sessions saved with a ~ path no longer show as missing or re-prompt for trust, and a deleted remote folder now reports clearly and offers a Fork session button instead of retrying in a loop.",
-    "修復了工作資料夾被移動或刪除時恢復 Code 會話的問題：以 ~ 路徑儲存的會話不再顯示為丟失或重複詢問是否信任；已刪除的遠端資料夾現在會給出明確提示，並提供“分叉會話”按鈕，而不是迴圈重試。"
+    "修復了工作資料夾被移動或刪除時恢復 Code 會話的問題：以 ~ 路徑儲存的會話不再顯示為丟失或重複詢問是否信任；已刪除的遠端資料夾現在會給出明確提示，並提供“分叉會話”按鈕，而不是循環重試。"
   ],
   [
     "Fixed rewinding in forked and background sessions sometimes restoring a corrupted or truncated file.",
@@ -7897,7 +7897,7 @@
   ],
   [
     "Fixed scheduled tasks failing with an error after a permission approval.",
-    "修復了定時任務在許可權批准後報錯失敗的問題。"
+    "修復了定時任務在權限批准後報錯失敗的問題。"
   ],
   [
     "Fixed scheduled tasks firing many duplicate runs at once when the computer wakes from sleep.",
@@ -7929,7 +7929,7 @@
   ],
   [
     "Fixed sessions failing on every message with an API error caused by certain web search results or earlier extended thinking in the conversation's history.",
-    "修復了會話歷史中的某些網頁搜尋結果或先前的擴充套件思考導致每條訊息都出現 API 錯誤而失敗的問題。"
+    "修復了會話歷史中的某些網頁搜尋結果或先前的擴展思考導致每條訊息都出現 API 錯誤而失敗的問題。"
   ],
   [
     "Fixed sessions failing to resume, reporting their conversation history as missing, after Claude had moved the session into a worktree.",
@@ -7965,7 +7965,7 @@
   ],
   [
     "Fixed sessions started right after the app opened sometimes running in a more permissive mode than your saved permission mode.",
-    "修復了應用剛開啟後立即啟動的會話，有時以比你已儲存的許可權模式更寬鬆的模式執行的問題。"
+    "修復了應用剛開啟後立即啟動的會話，有時以比你已儲存的權限模式更寬鬆的模式執行的問題。"
   ],
   [
     "Fixed sessions started while configured MCP servers were still connecting having no connector tools until a new conversation was started.",
@@ -7993,7 +7993,7 @@
   ],
   [
     "Fixed shell-exported custom request headers not reaching Claude Code sessions.",
-    "修復了透過 shell 匯出的自定義請求頭無法傳遞到 Claude Code 會話的問題。"
+    "修復了通過 shell 匯出的自定義請求頭無法傳遞到 Claude Code 會話的問題。"
   ],
   [
     "Fixed sign-in failing with external identity providers that reject the offline_access scope — admins can now disable the automatic append.",
@@ -8001,7 +8001,7 @@
   ],
   [
     "Fixed sign-in timing out with identity providers (such as PingFederate) that redirect via a rendered page after authentication.",
-    "修復了身份提供商（如 PingFederate）在認證後透過渲染頁面重定向時登入超時的問題。"
+    "修復了身份提供商（如 PingFederate）在認證後通過渲染頁面重定向時登入超時的問題。"
   ],
   [
     "Fixed sites on a private network (VPN, Tailscale, or intranet hosts) loading without their styles, scripts, or data in the built-in browser, and URLs typed into the built-in browser in cloud sessions not reaching private-network sites.",
@@ -8017,7 +8017,7 @@
   ],
   [
     "Fixed SSH sessions being restarted, and their running turns killed, when the remote server was slow to answer the first contact after a reconnect.",
-    "修復了重新連線後遠端伺服器對首次聯絡響應緩慢時，SSH 會話被重啟、正在執行的輪次被終止的問題。"
+    "修復了重新連線後遠端伺服器對首次聯繫響應緩慢時，SSH 會話被重啟、正在執行的輪次被終止的問題。"
   ],
   [
     "Fixed SSH sessions losing a task that was still running when the app reconnected after an app update.",
@@ -8029,7 +8029,7 @@
   ],
   [
     "Fixed stacked permission prompts sliding up under the mouse pointer right after one is answered, which could send the next click to the wrong prompt.",
-    "修復了疊放的許可權提示在其中一個被回答後立刻上滑到滑鼠指標下方，可能導致下一次點選落到錯誤提示上的問題。"
+    "修復了疊放的權限提示在其中一個被回答後立刻上滑到滑鼠指標下方，可能導致下一次點擊落到錯誤提示上的問題。"
   ],
   [
     "Fixed starting a chat inside a project showing a blank screen until the response finished, and leaving the chat without its project name or title.",
@@ -8037,7 +8037,7 @@
   ],
   [
     "Fixed starting a session and swapping repositories stalling in organizations with very large repository lists: the pickers now load repositories page by page, find the rest as you type, say when more are available by searching, and report a failed search instead of showing empty results.",
-    "修復了在倉庫列表非常龐大的組織中，開始會話和切換倉庫時卡住的問題：選擇器現在分頁載入倉庫，輸入時可查詢其餘倉庫，在有更多倉庫可用時提示透過搜尋查詢，並在搜尋失敗時報告錯誤而不是顯示空結果。"
+    "修復了在倉庫列表非常龐大的組織中，開始會話和切換倉庫時卡住的問題：選擇器現在分頁載入倉庫，輸入時可查詢其餘倉庫，在有更多倉庫可用時提示通過搜尋查詢，並在搜尋失敗時報告錯誤而不是顯示空結果。"
   ],
   [
     "Fixed stored sign-ins being lost when the system keychain was temporarily locked.",
@@ -8045,7 +8045,7 @@
   ],
   [
     "Fixed subagents failing with an invalid model error on third-party inference providers.",
-    "修復了子智慧體在第三方推理提供商上因無效模型錯誤而失敗的問題。"
+    "修復了子智能體在第三方推理提供商上因無效模型錯誤而失敗的問題。"
   ],
   [
     "Fixed switching models staying blocked for the rest of the session when an organization-managed plugin's marketplace or a plugin hook failed to load.",
@@ -8077,11 +8077,11 @@
   ],
   [
     "Fixed the app being left with no usable window: a failure during startup now shows an error dialog and records the details to a file, and a window the system shut down under low memory reloads instead of staying blank.",
-    "修復了應用沒有可用視窗的問題：啟動期間的故障現在會顯示錯誤對話方塊並將詳情記錄到檔案，被系統因記憶體不足關閉的視窗會重新載入而不是保持空白。"
+    "修復了應用沒有可用視窗的問題：啟動期間的故障現在會顯示錯誤對話框並將詳情記錄到檔案，被系統因記憶體不足關閉的視窗會重新載入而不是保持空白。"
   ],
   [
     "Fixed the app closing and then failing to reopen on some Windows-on-ARM (Snapdragon) PCs installed from the Microsoft Store package.",
-    "修復了在部分透過 Microsoft Store 安裝包安裝的 Windows on ARM（驍龍）電腦上，應用關閉後無法重新開啟的問題。"
+    "修復了在部分通過 Microsoft Store 安裝包安裝的 Windows on ARM（驍龍）電腦上，應用關閉後無法重新開啟的問題。"
   ],
   [
     "Fixed the app continuously re-fetching its configuration from the configuration server and re-testing the inference connection while the inference provider rejects the configured API key.",
@@ -8113,7 +8113,7 @@
   ],
   [
     "Fixed the app freezing when Claude Code updated its configuration file during concurrent use, and web pages in the Browser pane freezing the app with alert and confirm dialogs.",
-    "修復了併發使用期間 Claude Code 更新其配置檔案時應用卡死，以及瀏覽器窗格中的網頁透過 alert 和 confirm 對話方塊導致應用卡死的問題。"
+    "修復了併發使用期間 Claude Code 更新其配置檔案時應用卡死，以及瀏覽器窗格中的網頁通過 alert 和 confirm 對話框導致應用卡死的問題。"
   ],
   [
     "Fixed the app losing administrator-enabled features, such as the Chat tab, for the rest of the session when the organization's configuration server was unreachable at launch. It now retries in the background and recovers.",
@@ -8165,7 +8165,7 @@
   ],
   [
     "Fixed the built-in Microsoft 365 connector publishing an invalid schema for updating a calendar event's end time.",
-    "修復了內建 Microsoft 365 連接器在更新日曆事件結束時間時釋出無效架構的問題。"
+    "修復了內建 Microsoft 365 連接器在更新日曆事件結束時間時發佈無效架構的問題。"
   ],
   [
     "Fixed the chat showing an error screen instead of the conversation when Claude created or linked a file whose name contains a percent sign.",
@@ -8181,15 +8181,15 @@
   ],
   [
     "Fixed the Code tab wrongly asking you to install Git on Macs that have Apple's Command Line Tools but not Xcode.",
-    "修復了在裝有 Apple 命令列工具但沒有 Xcode 的 Mac 上，Code 標籤頁錯誤地要求你安裝 Git 的問題。"
+    "修復了在裝有 Apple 命令行工具但沒有 Xcode 的 Mac 上，Code 標籤頁錯誤地要求你安裝 Git 的問題。"
   ],
   [
     "Fixed the Code tab's agent detection, output styles, and other desktop features sometimes needing you to sign in to your Claude account again after a single network or server error while that sign-in was being renewed.",
-    "修復了在續期登入期間出現單次網路或伺服器錯誤後，“程式碼”標籤頁的智慧體檢測、輸出風格及其他桌面功能有時需要你重新登入 Claude 賬號的問題。"
+    "修復了在續期登入期間出現單次網路或伺服器錯誤後，“程式碼”標籤頁的智能體檢測、輸出風格及其他桌面功能有時需要你重新登入 Claude 賬號的問題。"
   ],
   [
     "Fixed the computer-use permission prompts in Cowork and Claude Code sessions accepting a keyboard shortcut aimed at the message box or another surface, and added a brief delay so a send keystroke that lands just as the prompt appears cannot approve it.",
-    "修復了 Cowork 和 Claude Code 會話中的電腦使用許可權提示會接受針對訊息框或其他介面的鍵盤快捷鍵的問題，並增加了短暫延遲，使恰好在提示出現時按下的傳送鍵不會將其批准。"
+    "修復了 Cowork 和 Claude Code 會話中的電腦使用權限提示會接受針對訊息框或其他介面的鍵盤快捷鍵的問題，並增加了短暫延遲，使恰好在提示出現時按下的傳送鍵不會將其批准。"
   ],
   [
     "Fixed the context window indicator and token count staying at the pre-compaction value after compacting a conversation.",
@@ -8205,7 +8205,7 @@
   ],
   [
     "Fixed the Cowork readiness check appearing to hang for minutes when a network-redirected profile folder is unreachable, and reporting a computer as unsupported because of an encrypted leftover folder from an uninstalled Claude version.",
-    "修復了當網路重定向的使用者配置資料夾無法存取時 Cowork 就緒檢查看似卡住數分鐘的問題，以及因已解除安裝的 Claude 版本遺留的加密資料夾而將電腦報告為不受支援的問題。"
+    "修復了當網路重定向的使用者配置資料夾無法存取時 Cowork 就緒檢查看似卡住數分鐘的問題，以及因已卸載的 Claude 版本遺留的加密資料夾而將電腦報告為不受支援的問題。"
   ],
   [
     "Fixed the diagnostic report's network reachability check and the Setup window's connectivity test reporting a server on a non-default port as unreachable, and the firewall allowlist omitting that port.",
@@ -8217,7 +8217,7 @@
   ],
   [
     "Fixed the document editor sometimes attributing your own typing to Claude while autosaving.",
-    "修復了文件編輯器在自動儲存時有時把你自己的輸入歸因於 Claude 的問題。"
+    "修復了文檔編輯器在自動儲存時有時把你自己的輸入歸因於 Claude 的問題。"
   ],
   [
     "Fixed the earlier conversation being discarded when you chose Go back after a failed task resume, or edited a message right after the app restarted.",
@@ -8233,7 +8233,7 @@
   ],
   [
     "Fixed the integrated terminal eventually failing to open new shells after the app had been running for several days on macOS.",
-    "修復了在 macOS 上應用連續執行數天後，整合終端最終無法開啟新 shell 的問題。"
+    "修復了在 macOS 上應用連續執行數天後，集成終端最終無法開啟新 shell 的問題。"
   ],
   [
     "Fixed the menu bar usage menu showing an empty progress bar for extra usage when the spend cap is unlimited.",
@@ -8241,7 +8241,7 @@
   ],
   [
     "Fixed the message input staying stuck in a sending state when a folder access dialog went unanswered.",
-    "修復了資料夾存取對話方塊無人應答時，訊息輸入框一直卡在傳送狀態的問題。"
+    "修復了資料夾存取對話框無人應答時，訊息輸入框一直卡在傳送狀態的問題。"
   ],
   [
     "Fixed the Microsoft 365 connector failing to sign in on Macs enrolled with Microsoft Company Portal.",
@@ -8269,7 +8269,7 @@
   ],
   [
     "Fixed the row under the composer (Add folder, permission mode, model) disappearing after switching a session to automatic approvals.",
-    "修復了將會話切換為自動批准後，輸入框下方的一行（新增資料夾、許可權模式、模型）消失的問題。"
+    "修復了將會話切換為自動批准後，輸入框下方的一行（新增資料夾、權限模式、模型）消失的問題。"
   ],
   [
     "Fixed the scheduled-task prompt editor not being announced to screen readers as a labeled multiline text box.",
@@ -8281,11 +8281,11 @@
   ],
   [
     "Fixed the session page reloading after you connect a connector that signs in through the browser.",
-    "修復了連線需要透過瀏覽器登入的連接器後會話頁面重新載入的問題。"
+    "修復了連線需要通過瀏覽器登入的連接器後會話頁面重新載入的問題。"
   ],
   [
     "Fixed the Setup panel being locked when only the auto-update policy was deployed via MDM.",
-    "修復了僅透過 MDM 部署自動更新策略時“設定”面板被鎖定的問題。"
+    "修復了僅通過 MDM 部署自動更新策略時“設定”面板被鎖定的問題。"
   ],
   [
     "Fixed the side chat answering once and then failing with an authentication error for the rest of a long session.",
@@ -8321,7 +8321,7 @@
   ],
   [
     "Fixed tool errors blaming an organization policy when a site was actually blocked by your own site permissions or settings.",
-    "修復了當站點實際上是被你自己的站點許可權或設定阻止時，工具錯誤卻歸咎於組織策略的問題。"
+    "修復了當站點實際上是被你自己的站點權限或設定阻止時，工具錯誤卻歸咎於組織策略的問題。"
   ],
   [
     "Fixed two causes of repeated requests to sign in again: a brief network interruption no longer signs the Code tab out while Chat stays signed in, and a sign-in renewal is no longer thrown away when the server's answer arrives just after a 30-second limit.",
@@ -8345,7 +8345,7 @@
   ],
   [
     "Fixed very high memory use, and a blank or unresponsive window, when opening or reconnecting sessions with very large transcripts or many subagents.",
-    "修復了開啟或重新連線對話記錄非常大或子智慧體很多的會話時，記憶體佔用極高以及視窗空白或無響應的問題。"
+    "修復了開啟或重新連線對話記錄非常大或子智能體很多的會話時，記憶體佔用極高以及視窗空白或無響應的問題。"
   ],
   [
     "Fixed Windows file paths showing garbled characters in the folder access approval card, and reduced unnecessary folder access denials when allowed workspace folders are configured.",
@@ -8357,7 +8357,7 @@
   ],
   [
     "Fixed working documents disappearing from the Documents panel after a temporary disk error.",
-    "修復了臨時磁碟錯誤後工作文件從“文件”面板中消失的問題。"
+    "修復了臨時磁碟錯誤後工作文檔從“文檔”面板中消失的問題。"
   ],
   [
     "Fixed workspace setup failing on every launch after a corrupted download, including with the offline installer.",
@@ -8729,7 +8729,7 @@
   ],
   [
     "Improved the read/unread toggle on sidebar sessions: it now works on the currently open session, has a larger click target, and shows a tooltip describing what a click will do.",
-    "改進了側邊欄會話的已讀/未讀切換：現在可用於當前開啟的會話，點選區域更大，並會顯示提示說明點選後的效果。"
+    "改進了側邊欄會話的已讀/未讀切換：現在可用於當前開啟的會話，點擊區域更大，並會顯示提示說明點擊後的效果。"
   ],
   [
     "Improved the time it takes to start a session.",
@@ -8773,7 +8773,7 @@
   ],
   [
     "Integration to Google Workspace: email, calendar, and docs",
-    "整合 Google Workspace：郵件、日曆和文件"
+    "集成 Google Workspace：郵件、日曆和文檔"
   ],
   [
     "Interactive counter UI for the mcp_apps_counter tool",
@@ -8865,7 +8865,7 @@
   ],
   [
     "Is prerelease",
-    "是否為預釋出版本"
+    "是否為預發佈版本"
   ],
   [
     "Israel VAT",
@@ -8957,11 +8957,11 @@
   ],
   [
     "Learn how to maximize your Claude experience through effective prompting, document uploads, search functionality, customization options, and advanced features like extended thinking and research mode.",
-    "瞭解如何透過高效編寫提示詞、上傳文件、搜尋功能、自定義選項，以及擴充套件思考和研究模式等高階功能，充分發揮 Claude 的價值。"
+    "瞭解如何通過高效編寫提示詞、上傳文檔、搜尋功能、自定義選項，以及擴展思考和研究模式等高階功能，充分發揮 Claude 的價值。"
   ],
   [
     "Learn to evaluate published statistics by checking them against raw data.",
-    "學習對照原始資料來檢驗已釋出的統計數字。"
+    "學習對照原始資料來檢驗已發佈的統計數字。"
   ],
   [
     "Learn to use Claude for everyday work, from your first conversation and effective prompting to projects, artifacts, skills, and connected tools.",
@@ -8989,7 +8989,7 @@
   ],
   [
     "Limit the number of macro expansions to the specified number, to prevent e.g. infinite macro loops. If set to Infinity, the macro expander will try to fully expand as in LaTeX.",
-    "將宏展開次數限制為指定數量，以防止出現無限宏迴圈等情況。如果設為 Infinity，宏展開器會像 LaTeX 一樣嘗試完全展開。"
+    "將宏展開次數限制為指定數量，以防止出現無限宏循環等情況。如果設為 Infinity，宏展開器會像 LaTeX 一樣嘗試完全展開。"
   ],
   [
     "Line, or line:column",
@@ -8997,7 +8997,7 @@
   ],
   [
     "Lined document",
-    "帶線條的文件"
+    "帶線條的文檔"
   ],
   [
     "Lined process shape",
@@ -9013,15 +9013,15 @@
   ],
   [
     "Live documents can’t be copied yet.",
-    "實時文件暫不支援複製。"
+    "實時文檔暫不支援複製。"
   ],
   [
     "Live documents can’t be renamed yet.",
-    "實時文件暫不支援重新命名。"
+    "實時文檔暫不支援重新命名。"
   ],
   [
     "Live documents can’t be shared publicly yet.",
-    "實時文件暫不支援公開分享。"
+    "實時文檔暫不支援公開分享。"
   ],
   [
     "Live features unavailable",
@@ -9061,7 +9061,7 @@
   ],
   [
     "Loop limit step",
-    "迴圈限制步驟"
+    "循環限制步驟"
   ],
   [
     "Low severity",
@@ -9097,7 +9097,7 @@
   ],
   [
     "Material issues flagged and the diligence summary drafted, every line cited to the source document.",
-    "標出重大問題並起草盡職調查摘要，每一行都註明來源文件。"
+    "標出重大問題並起草盡職調查摘要，每一行都註明來源文檔。"
   ],
   [
     "Mauritania Tax Identification Number",
@@ -9125,7 +9125,7 @@
   ],
   [
     "Member org extensions fetch failed",
-    "獲取成員組織的擴充套件失敗"
+    "獲取成員組織的擴展失敗"
   ],
   [
     "Memory action failed.",
@@ -9157,7 +9157,7 @@
   ],
   [
     "Meta-schema for $data reference (JSON AnySchema extension proposal)",
-    "$data 引用的元模式（JSON AnySchema 擴充套件提案）"
+    "$data 引用的元模式（JSON AnySchema 擴展提案）"
   ],
   [
     "Method not allowed.",
@@ -9173,7 +9173,7 @@
   ],
   [
     "Microphone permission denied.",
-    "麥克風許可權被拒絕。"
+    "麥克風權限被拒絕。"
   ],
   [
     "Missing Host header",
@@ -9201,7 +9201,7 @@
   ],
   [
     "Move cursor to a logical position in the view",
-    "將游標移動到查看中的邏輯位置"
+    "將游標移動到視圖中的邏輯位置"
   ],
   [
     "Multiple processes",
@@ -9389,7 +9389,7 @@
   ],
   [
     "Note: region parameters are not supported for external sites — this is the full view.",
-    "注意：外部網站不支援區域引數——此處顯示的是完整查看。"
+    "注意：外部網站不支援區域參數——此處顯示的是完整視圖。"
   ],
   [
     "Nothing to show yet",
@@ -9485,7 +9485,7 @@
   ],
   [
     "Opens the docs and decks linked to the invite",
-    "開啟邀請中鏈接的文件和簡報"
+    "開啟邀請中鏈接的文檔和演示文稿"
   ],
   [
     "Optional filename for exported GIF (default: 'recording-[timestamp].gif'). For 'export' action only.",
@@ -9497,11 +9497,11 @@
   ],
   [
     "Optional name prefix to filter by. Omit to list all groups.",
-    "可選的名稱字首，用於篩選。省略則列出所有群組。"
+    "可選的名稱前綴，用於篩選。省略則列出所有群組。"
   ],
   [
     "Optional name prefix to filter by. Omit to list all roles.",
-    "可選的名稱字首，用於篩選。留空則列出所有角色。"
+    "可選的名稱前綴，用於篩選。留空則列出所有角色。"
   ],
   [
     "Optional URL pattern to filter requests. Only requests whose URL as listed (auth values shown as REDACTED) contains this string will be returned (e.g., '/api/' to filter API calls, 'example.com' to filter by domain).",
@@ -9513,7 +9513,7 @@
   ],
   [
     "Optional. A product or vendor name to search the desktop extension directory for, such as Figma.",
-    "可選。用於在桌面擴充套件目錄中搜尋的產品或供應商名稱，例如 Figma。"
+    "可選。用於在桌面擴展目錄中搜尋的產品或供應商名稱，例如 Figma。"
   ],
   [
     "Optional. A system or vendor name to search the public connector directory for, such as Salesforce or Gong. Leave unset to only list what is installed.",
@@ -9529,7 +9529,7 @@
   ],
   [
     "Optional. true also lists the desktop extensions in the Connectors table (the organization's uploads and its allowlist). Leave unset unless the admin asks about desktop extensions or the allowlist.",
-    "可選。設為 true 時，還會在連接器表中列出桌面擴充套件（組織上傳的擴充套件及其許可名單）。除非管理員詢問桌面擴充套件或許可名單，否則請留空。"
+    "可選。設為 true 時，還會在連接器表中列出桌面擴展（組織上傳的擴展及其許可名單）。除非管理員詢問桌面擴展或許可名單，否則請留空。"
   ],
   [
     "Organization verified",
@@ -9541,11 +9541,11 @@
   ],
   [
     "Other agents",
-    "其他智慧體"
+    "其他智能體"
   ],
   [
     "Package your brand guidelines into a skill to create presentations, spreadsheets, or documents that automatically match your preferred style.",
-    "把你的品牌規範打包成技能，即可建立自動符合你偏好風格的簡報、電子表格或文件。"
+    "把你的品牌規範打包成技能，即可建立自動符合你偏好風格的演示文稿、電子表格或文檔。"
   ],
   [
     "Panel content",
@@ -9573,19 +9573,19 @@
   ],
   [
     "Paste notes or a draft and get a short deck you can edit, present, or export to PowerPoint.",
-    "貼上筆記或草稿，即可獲得一份可編輯、可演示或匯出為 PowerPoint 的簡短簡報。"
+    "貼上筆記或草稿，即可獲得一份可編輯、可演示或匯出為 PowerPoint 的簡短演示文稿。"
   ],
   [
     "Paste open-text survey responses and get the themes, how often each came up, and a readout deck for leadership.",
-    "貼上開放式問卷回答，即可獲得各主題、每個主題出現的頻率，以及一份面向管理層的彙報簡報。"
+    "貼上開放式問卷回答，即可獲得各主題、每個主題出現的頻率，以及一份面向管理層的彙報演示文稿。"
   ],
   [
     "Paste reviews, survey comments, or social mentions and get the themes, ranked by what needs attention this week.",
-    "貼上評價、問卷意見或社交媒體提及內容，即可獲得按本週關注優先順序排序的主題。"
+    "貼上評價、問卷意見或社交媒體提及內容，即可獲得按本週關注優先級排序的主題。"
   ],
   [
     "Paste this week's and last week's numbers and get a short deck that flags the big moves and what to do about them.",
-    "貼上本週和上週的資料，即可獲得一份簡短的簡報，標出重大變動及應對建議。"
+    "貼上本週和上週的資料，即可獲得一份簡短的演示文稿，標出重大變動及應對建議。"
   ],
   [
     "Paste your ideas and turn them into slides",
@@ -9609,7 +9609,7 @@
   ],
   [
     "Permission mode was still loading, so your message wasn’t sent. Check the mode, then send again.",
-    "許可權模式仍在載入，因此你的訊息未傳送。請檢查模式後重新傳送。"
+    "權限模式仍在載入，因此你的訊息未傳送。請檢查模式後重新傳送。"
   ],
   [
     "Peruvian RUC number",
@@ -9657,7 +9657,7 @@
   ],
   [
     "Presentation title",
-    "簡報標題"
+    "演示文稿標題"
   ],
   [
     "Previous change in changes",
@@ -9705,7 +9705,7 @@
   ],
   [
     "Published the v2 bootstrap-response JSON schema (nested format). The v1 flat schema remains supported.",
-    "釋出了 v2 引導響應 JSON 架構（巢狀格式）。v1 扁平架構仍受支援。"
+    "發佈了 v2 引導響應 JSON 架構（巢狀格式）。v1 扁平架構仍受支援。"
   ],
   [
     "Pull guidance, KPIs, and commentary out of an earnings transcript and put the highlights on a slide.",
@@ -9721,11 +9721,11 @@
   ],
   [
     "Pull your quarterly revenue from scattered board decks, then grab GDP and inflation data from FRED. Claude creates a comparison chart showing how your growth stacks up against the macro environment.",
-    "從分散的董事會簡報中提取你的季度營收，再從 FRED 獲取 GDP 和通脹資料。Claude 會生成對比圖表，展示你的增長與宏觀環境相比如何。"
+    "從分散的董事會演示文稿中提取你的季度營收，再從 FRED 獲取 GDP 和通脹資料。Claude 會生成對比圖表，展示你的增長與宏觀環境相比如何。"
   ],
   [
     "Pull your quarterly revenue from scattered board decks, then grab GDP and inflation data from FRED. Cowork creates a comparison chart showing how your growth stacks up against the macro environment.",
-    "從分散的董事會簡報中提取你的季度營收，再從 FRED 獲取 GDP 和通脹資料。Cowork 會生成對比圖表，展示你的增長與宏觀環境相比如何。"
+    "從分散的董事會演示文稿中提取你的季度營收，再從 FRED 獲取 GDP 和通脹資料。Cowork 會生成對比圖表，展示你的增長與宏觀環境相比如何。"
   ],
   [
     "Pulls in the design files under review",
@@ -9753,19 +9753,19 @@
   ],
   [
     "Read and manage GitLab projects, issues, merge requests, and pipelines. Claude can search code, comment on merge requests, and check pipeline status via the REST API.",
-    "讀取和管理 GitLab 的項目、議題、合併請求和流水線。Claude 可以透過 REST API 搜尋程式碼、評論合併請求，並查看流水線狀態。"
+    "讀取和管理 GitLab 的項目、議題、合併請求和流水線。Claude 可以通過 REST API 搜尋程式碼、評論合併請求，並查看流水線狀態。"
   ],
   [
     "Read and search pages and databases Claude has been shared with. Claude can pull context from a Notion doc or append to a page you point it at.",
-    "讀取和搜尋已與 Claude 共享的頁面和資料庫。Claude 可以從 Notion 文件中獲取上下文，或向你指定的頁面追加內容。"
+    "讀取和搜尋已與 Claude 共享的頁面和資料庫。Claude 可以從 Notion 文檔中獲取上下文，或向你指定的頁面追加內容。"
   ],
   [
     "Read channels and messages, and post on your behalf. Claude can search conversation history, summarize a thread, and post updates.",
-    "讀取頻道和訊息，並代你釋出內容。Claude 可以搜尋對話歷史、總結一個討論串，併發布動態。"
+    "讀取頻道和訊息，並代你發佈內容。Claude 可以搜尋對話歷史、總結一個討論串，併發布動態。"
   ],
   [
     "Read contacts, companies, deals, and tickets from your HubSpot CRM. Claude can look up a record, trace deal history, and answer pipeline questions.",
-    "讀取你的 HubSpot CRM 中的聯絡人、公司、交易和工單。Claude 可以查詢記錄、追溯交易歷史，並解答銷售管道相關問題。"
+    "讀取你的 HubSpot CRM 中的聯繫人、公司、交易和工單。Claude 可以查詢記錄、追溯交易歷史，並解答銷售管道相關問題。"
   ],
   [
     "Read more",
@@ -9849,7 +9849,7 @@
   ],
   [
     "Removed a temporary vendor-specific exception from custom connector validation: OAuth authorization server metadata that declares an issuer not matching the metadata URL now fails validation again.",
-    "從自定義連接器驗證中移除了一項針對特定供應商的臨時例外：OAuth 授權伺服器後設資料中宣告的頒發者與後設資料 URL 不匹配時，現在會再次驗證失敗。"
+    "從自定義連接器驗證中移除了一項針對特定供應商的臨時例外：OAuth 授權伺服器元數據中聲明的頒發者與元數據 URL 不匹配時，現在會再次驗證失敗。"
   ],
   [
     "Rename section",
@@ -9905,7 +9905,7 @@
   ],
   [
     "Represents a document",
-    "表示一份文件"
+    "表示一份文檔"
   ],
   [
     "Represents a manual task",
@@ -9973,7 +9973,7 @@
   ],
   [
     "Routines are off for your organization. Ask your admin to check Organization settings → Capabilities.",
-    "你的組織已關閉例行程式。請聯絡管理員檢查“組織設定 → 功能”。"
+    "你的組織已關閉例行程式。請聯繫管理員檢查“組織設定 → 功能”。"
   ],
   [
     "Run these in a terminal, then come back and paste the guide above.",
@@ -10025,7 +10025,7 @@
   ],
   [
     "Scholarly literature graph — OpenAlex works/authors/venues/citations, arXiv metadata.",
-    "學術文獻圖譜：OpenAlex 的作品、作者、發表渠道與引用，arXiv 後設資料。"
+    "學術文獻圖譜：OpenAlex 的作品、作者、發表渠道與引用，arXiv 元數據。"
   ],
   [
     "Score, embed, and generate DNA sequences with Evo 2, a long-context genomic foundation model",
@@ -10037,7 +10037,7 @@
   ],
   [
     "Search Gong call recordings, transcripts, and conversation intelligence. Claude can pull call summaries, deal activity, and stats to ground answers in real customer conversations.",
-    "搜尋 Gong 的通話錄音、文字記錄和對話智慧分析。Claude 可以獲取通話摘要、交易動態和統計資料，讓回答基於真實的客戶對話。"
+    "搜尋 Gong 的通話錄音、文字記錄和對話智能分析。Claude 可以獲取通話摘要、交易動態和統計資料，讓回答基於真實的客戶對話。"
   ],
   [
     "Section name",
@@ -10085,7 +10085,7 @@
   ],
   [
     "Sent by a subagent",
-    "由子智慧體傳送"
+    "由子智能體傳送"
   ],
   [
     "Sent message",
@@ -10157,7 +10157,7 @@
   ],
   [
     "Show orange circles at click locations (default: true)",
-    "在點選位置顯示橙色圓圈（預設：true）"
+    "在點擊位置顯示橙色圓圈（預設：true）"
   ],
   [
     "Show orange progress bar at bottom (default: true)",
@@ -10249,7 +10249,7 @@
   ],
   [
     "Speaker notes can’t be saved in this view. They are kept on this screen only, so copy them before you close this tab.",
-    "此查看無法儲存演講者備註。備註僅保留在此螢幕上，請在關閉此標籤頁前複製。"
+    "此視圖無法儲存演講者備註。備註僅保留在此螢幕上，請在關閉此標籤頁前複製。"
   ],
   [
     "Speaker notes for ",
@@ -10381,7 +10381,7 @@
   ],
   [
     "Synthesize feedback from call transcripts, Slack, CRM notes, and Linear issues to identify cross-platform patterns and generate prioritized product ideas.",
-    "綜合通話記錄、Slack、CRM 備註和 Linear 問題中的反饋，找出跨平臺的規律，並生成按優先順序排序的產品想法。"
+    "綜合通話記錄、Slack、CRM 備註和 Linear 問題中的反饋，找出跨平臺的規律，並生成按優先級排序的產品想法。"
   ],
   [
     "Tab ID to execute the action on. Must be a tab in the current group. Use tabs_context_mcp first if you don't have a valid tab ID.",
@@ -10469,7 +10469,7 @@
   ],
   [
     "Tagged document",
-    "帶標記的文件"
+    "帶標記的文檔"
   ],
   [
     "Tagged process",
@@ -10541,7 +10541,7 @@
   ],
   [
     "The code goes to the contact on file — not to whoever opened the link. If this should be assigned to you instead, ask your Anthropic account executive to re-issue the link to your email.",
-    "驗證碼會傳送給備案的聯絡人，而不是開啟鏈接的人。如果應改為分配給你，請讓你的 Anthropic 客戶經理將鏈接重新傳送到你的郵箱。"
+    "驗證碼會傳送給備案的聯繫人，而不是開啟鏈接的人。如果應改為分配給你，請讓你的 Anthropic 客戶經理將鏈接重新傳送到你的郵箱。"
   ],
   [
     "The code itself may still be valid and functional. ",
@@ -10585,7 +10585,7 @@
   ],
   [
     "The default marketplace's id, from list_org_marketplaces (a removed one can be named by id too).",
-    "預設市場的 id，取自 list_org_marketplaces（已移除的市場也可以透過 id 指定）。"
+    "預設市場的 id，取自 list_org_marketplaces（已移除的市場也可以通過 id 指定）。"
   ],
   [
     "The deviceId from list_connected_browsers.",
@@ -10593,7 +10593,7 @@
   ],
   [
     "The document store is no longer available to this artifact.",
-    "此 Artifact 已無法使用文件儲存。"
+    "此 Artifact 已無法使用文檔儲存。"
   ],
   [
     "The environment's id, from list_cloud_environments.",
@@ -10601,7 +10601,7 @@
   ],
   [
     "The extension's id exactly as list_org_connectors returns it (desktop_extensions or desktop_extension_matches). Names are not accepted: they are publisher-chosen and can look alike.",
-    "擴充套件的 id，必須與 list_org_connectors 返回的完全一致（desktop_extensions 或 desktop_extension_matches）。不接受名稱：名稱由釋出者自行指定，可能相似而難以區分。"
+    "擴展的 id，必須與 list_org_connectors 返回的完全一致（desktop_extensions 或 desktop_extension_matches）。不接受名稱：名稱由發佈者自行指定，可能相似而難以區分。"
   ],
   [
     "The file's path, as list_project_files returns it.",
@@ -10613,7 +10613,7 @@
   ],
   [
     "The form couldn't be loaded. Try again, contact your Anthropic account executive, or email certifications@anthropic.com.",
-    "無法載入表單。請重試，或聯絡你的 Anthropic 客戶經理，或傳送郵件至 certifications@anthropic.com。"
+    "無法載入表單。請重試，或聯繫你的 Anthropic 客戶經理，或傳送郵件至 certifications@anthropic.com。"
   ],
   [
     "The group's UUID, from get_group_spend_limits.",
@@ -10693,11 +10693,11 @@
   ],
   [
     "The permission action to grant, for example claude_code or web_search. Get the valid list from get_roles_configuration. Use actions instead for several.",
-    "要授予的許可權操作，例如 claude_code 或 web_search。有效列表可從 get_roles_configuration 獲取。如需指定多個，請改用 actions。"
+    "要授予的權限操作，例如 claude_code 或 web_search。有效列表可從 get_roles_configuration 獲取。如需指定多個，請改用 actions。"
   ],
   [
     "The permission action to revoke. Must match an existing entry from list_role_permissions.",
-    "要撤銷的許可權操作。必須與 list_role_permissions 中已有的某一項一致。"
+    "要撤銷的權限操作。必須與 list_role_permissions 中已有的某一項一致。"
   ],
   [
     "The position at which to start",
@@ -10705,7 +10705,7 @@
   ],
   [
     "The presentation failed to load",
-    "簡報載入失敗"
+    "演示文稿載入失敗"
   ],
   [
     "The principal_id to unassign, matching an entry from list_role_assignments.",
@@ -10729,7 +10729,7 @@
   ],
   [
     "The room channel is no longer available to this view.",
-    "此查看已無法使用該房間頻道。"
+    "此視圖已無法使用該房間頻道。"
   ],
   [
     "The sandbox VM didn’t start Claude Code",
@@ -10737,7 +10737,7 @@
   ],
   [
     "The self capability is not available to this view.",
-    "此查看不支援 self 能力。"
+    "此視圖不支援 self 能力。"
   ],
   [
     "The Sentry MCP server has a 38% error rate over the past 7 days, up from 5% baseline.",
@@ -10745,11 +10745,11 @@
   ],
   [
     "The server accepts a published client metadata URL",
-    "伺服器接受已釋出的客戶端後設資料 URL"
+    "伺服器接受已發佈的客戶端元數據 URL"
   ],
   [
     "The text document in which to start",
-    "起始的文字文件"
+    "起始的文字文檔"
   ],
   [
     "The themes across your calls, counted and quoted.",
@@ -10769,7 +10769,7 @@
   ],
   [
     "These tools were read live from your connected server. Review the descriptions, parameters, and annotations — this is what the directory listing and Claude will see.",
-    "這些工具是從你已連線的伺服器實時讀取的。請檢查其描述、引數和註解，目錄列表和 Claude 將看到的就是這些內容。"
+    "這些工具是從你已連線的伺服器實時讀取的。請檢查其描述、參數和註解，目錄列表和 Claude 將看到的就是這些內容。"
   ],
   [
     "They’ll get an email with a link to this artifact.",
@@ -10797,11 +10797,11 @@
   ],
   [
     "This certification form couldn't be found. The link may have been revoked or replaced—check for a more recent email from Anthropic, contact your Anthropic account executive, or email certifications@anthropic.com.",
-    "找不到此認證表單。鏈接可能已被撤銷或替換——請查看 Anthropic 發來的最新郵件，聯絡你的 Anthropic 客戶經理，或傳送郵件至 certifications@anthropic.com。"
+    "找不到此認證表單。鏈接可能已被撤銷或替換——請查看 Anthropic 發來的最新郵件，聯繫你的 Anthropic 客戶經理，或傳送郵件至 certifications@anthropic.com。"
   ],
   [
     "This certification link has expired. Contact your Anthropic account executive for a new one, or email certifications@anthropic.com.",
-    "此認證鏈接已過期。請聯絡你的 Anthropic 客戶經理索取新鏈接，或傳送郵件至 certifications@anthropic.com。"
+    "此認證鏈接已過期。請聯繫你的 Anthropic 客戶經理索取新鏈接，或傳送郵件至 certifications@anthropic.com。"
   ],
   [
     "This channel is public. Everyone with access to it, even people who join later, will be able to view and comment on this artifact, and Claude will be able to view it.",
@@ -10821,7 +10821,7 @@
   ],
   [
     "This chart isn't in the block's published charts — republish the block with this chart declared.",
-    "此圖表不在該區塊已釋出的圖表中，請宣告此圖表後重新發布該區塊。"
+    "此圖表不在該區塊已發佈的圖表中，請聲明此圖表後重新發布該區塊。"
   ],
   [
     "This chart slot wasn't created by this widget's chart surface.",
@@ -10845,11 +10845,11 @@
   ],
   [
     "This folder uses a different permission mode, so your message wasn’t sent. Check the mode, then send again.",
-    "此資料夾使用了不同的許可權模式，因此你的訊息未傳送。請檢查模式後重新傳送。"
+    "此資料夾使用了不同的權限模式，因此你的訊息未傳送。請檢查模式後重新傳送。"
   ],
   [
     "This form is locked after too many code requests. Contact your Anthropic account executive for a new link, or email certifications@anthropic.com.",
-    "由於驗證碼請求次數過多，此表單已被鎖定。請聯絡你的 Anthropic 客戶經理索取新鏈接，或傳送郵件至 certifications@anthropic.com。"
+    "由於驗證碼請求次數過多，此表單已被鎖定。請聯繫你的 Anthropic 客戶經理索取新鏈接，或傳送郵件至 certifications@anthropic.com。"
   ],
   [
     "This group comes from an environment, so it can’t be deleted here.",
@@ -10937,7 +10937,7 @@
   ],
   [
     "This task needs a feature that’s turned off for your role. Ask your admin if you need it back.",
-    "此任務需要一項已對你的角色關閉的功能。如需恢復，請聯絡管理員。"
+    "此任務需要一項已對你的角色關閉的功能。如需恢復，請聯繫管理員。"
   ],
   [
     "This task wasn’t started in the cloud automatically. Select New session on the card to start it there.",
@@ -10945,7 +10945,7 @@
   ],
   [
     "This task wasn’t started in the cloud, because this session’s permission mode isn’t carried over automatically. Select New session on the card to start it there.",
-    "此任務未在雲端啟動，因為此會話的許可權模式不會自動沿用。請在卡片上選擇“新建會話”，在雲端啟動它。"
+    "此任務未在雲端啟動，因為此會話的權限模式不會自動沿用。請在卡片上選擇“新建會話”，在雲端啟動它。"
   ],
   [
     "This tax ID wasn’t removed. Tax ID changes are limited. Try again later.",
@@ -10965,7 +10965,7 @@
   ],
   [
     "This view cannot edit the document.",
-    "此查看無法編輯文件。"
+    "此視圖無法編輯文檔。"
   ],
   [
     "Three board-ready slides built from the variance workbook.",
@@ -11061,7 +11061,7 @@
   ],
   [
     "Turn last quarter's numbers and your notes into a QBR deck with account health, results, and recommendations.",
-    "把上季度的資料和你的筆記整理成季度業務回顧簡報，包含客戶健康度、成果和建議。"
+    "把上季度的資料和你的筆記整理成季度業務回顧演示文稿，包含客戶健康度、成果和建議。"
   ],
   [
     "Turn meeting notes or transcripts into clear action items and a follow up email.",
@@ -11081,7 +11081,7 @@
   ],
   [
     "Turn standard company information and a new hire's specific details into a personalized welcome guide. Claude organizes logistics, schedules, and key contacts into one clear document that helps new employees feel prepared from day one.",
-    "把公司通用資訊和新員工的個人情況整合為一份個性化的入職指南。Claude 會將事務安排、日程和關鍵聯絡人整理成一份清晰的文件，幫助新員工從第一天起就做好準備。"
+    "把公司通用資訊和新員工的個人情況集成為一份個性化的入職指南。Claude 會將事務安排、日程和關鍵聯繫人整理成一份清晰的文檔，幫助新員工從第一天起就做好準備。"
   ],
   [
     "Type after ? to search file contents",
@@ -11093,7 +11093,7 @@
   ],
   [
     "Type your budget split and the thing that might change, and Claude draws three scenarios next to each other with a toggle between dollars and percentages. Click any scenario for a one-line read on where the real pressure lands.",
-    "輸入你的預算分配和可能發生變化的因素，Claude 會並排繪製三種情景，並支援在金額和百分比之間切換。點選任一情景，即可用一句話瞭解真正的壓力落在哪裡。"
+    "輸入你的預算分配和可能發生變化的因素，Claude 會並排繪製三種情景，並支援在金額和百分比之間切換。點擊任一情景，即可用一句話瞭解真正的壓力落在哪裡。"
   ],
   [
     "Uganda Tax Identification Number",
@@ -11105,7 +11105,7 @@
   ],
   [
     "Unable to preview this document. The file may be corrupted or in an unsupported format.",
-    "無法預覽此文件。檔案可能已損壞或格式不受支援。"
+    "無法預覽此文檔。檔案可能已損壞或格式不受支援。"
   ],
   [
     "Unable to validate organization",
@@ -11113,7 +11113,7 @@
   ],
   [
     "Understand a competitor's approach by analyzing their products, features, and positioning.",
-    "透過分析競爭對手的產品、功能和定位，瞭解其策略。"
+    "通過分析競爭對手的產品、功能和定位，瞭解其策略。"
   ],
   [
     "Understand existing formulas and structure then add new data while preserving the original logic.",
@@ -11201,7 +11201,7 @@
   ],
   [
     "Updated the Code tab's composer to the redesigned card, with the + menu first in the row under the box, ahead of permission mode and model.",
-    "“程式碼”標籤頁的輸入框更新為重新設計的卡片樣式，輸入框下方一行中 + 選單排在最前，位於許可權模式和模型之前。"
+    "“程式碼”標籤頁的輸入框更新為重新設計的卡片樣式，輸入框下方一行中 + 選單排在最前，位於權限模式和模型之前。"
   ],
   [
     "Updated the embedded Claude Code engine to the latest version.",
@@ -11209,7 +11209,7 @@
   ],
   [
     "Updated the in-session artifact panel: switch between a session's published artifacts from the title dropdown, see when an artifact was last updated, copy a share link, and open, share, or delete the artifact from the overflow menu.",
-    "更新了會話內 Artifacts 面板：可從標題下拉選單在會話已釋出的 Artifacts 之間切換，查看 Artifacts 的最後更新時間，複製分享鏈接，並透過溢位選單開啟、分享或刪除 Artifacts。"
+    "更新了會話內 Artifacts 面板：可從標題下拉選單在會話已發佈的 Artifacts 之間切換，查看 Artifacts 的最後更新時間，複製分享鏈接，並通過溢位選單開啟、分享或刪除 Artifacts。"
   ],
   [
     "Updated the model picker to show restricted models as non-selectable with an explanatory badge, and to reflect your organization's allowed default model.",
@@ -11245,11 +11245,11 @@
   ],
   [
     "Used Claude Code + Chrome extension to fight with customer service automatically.",
-    "使用 Claude Code 搭配 Chrome 擴充套件，自動與客服交涉。"
+    "使用 Claude Code 搭配 Chrome 擴展，自動與客服交涉。"
   ],
   [
     "User denied Geolocation",
-    "使用者拒絕了地理位置許可權"
+    "使用者拒絕了地理位置權限"
   ],
   [
     "Using Aiera for earnings intelligence and market analysis",
@@ -11301,7 +11301,7 @@
   ],
   [
     "Using Egnyte for data room management with Claude",
-    "透過 Claude 使用 Egnyte 管理資料室"
+    "通過 Claude 使用 Egnyte 管理資料室"
   ],
   [
     "Using FactSet for comprehensive financial research",
@@ -11353,7 +11353,7 @@
   ],
   [
     "Using the ToolUniverse Extension in Claude",
-    "在 Claude 中使用 ToolUniverse 擴充套件"
+    "在 Claude 中使用 ToolUniverse 擴展"
   ],
   [
     "Uzbekistan TIN",
@@ -11389,7 +11389,7 @@
   ],
   [
     "View docs",
-    "查看文件"
+    "查看文檔"
   ],
   [
     "View image",
@@ -11413,7 +11413,7 @@
   ],
   [
     "Waiting for the presentation. Press Present in the main window: the presentation plays there (full screen where it can) and this window follows along with the clock, the slide on screen, what comes next and its notes.",
-    "正在等待演示。請在主視窗中點選“演示”：演示將在主視窗播放（儘可能全屏），本視窗會同步顯示時鐘、當前幻燈片、下一頁內容及其備註。"
+    "正在等待演示。請在主視窗中點擊“演示”：演示將在主視窗播放（儘可能全屏），本視窗會同步顯示時鐘、當前幻燈片、下一頁內容及其備註。"
   ],
   [
     "Warm the transcript renderer.",
@@ -11493,11 +11493,11 @@
   ],
   [
     "What moved, why, and which ship caused it.",
-    "哪些指標變動了、原因是什麼，以及是哪次釋出導致的。"
+    "哪些指標變動了、原因是什麼，以及是哪次發佈導致的。"
   ],
   [
     "What shipped, what slipped, and what the next on-call needs to know.",
-    "哪些已釋出、哪些延期了，以及下一位值班人員需要了解什麼。"
+    "哪些已發佈、哪些延期了，以及下一位值班人員需要了解什麼。"
   ],
   [
     "What should this animation show?",
@@ -11525,11 +11525,11 @@
   ],
   [
     "What should this document be about?",
-    "這份文件應該寫什麼？"
+    "這份文檔應該寫什麼？"
   ],
   [
     "What should this Google Doc be about?",
-    "這份 Google 文件應該寫什麼？"
+    "這份 Google 文檔應該寫什麼？"
   ],
   [
     "What should this Google Sheet work out?",
@@ -11585,7 +11585,7 @@
   ],
   [
     "Where you win, where you're exposed, what they shipped.",
-    "你的優勢在哪裡、短板在哪裡，以及對手釋出了什麼。"
+    "你的優勢在哪裡、短板在哪裡，以及對手發佈了什麼。"
   ],
   [
     "Whether the banner is shown.",
@@ -11601,7 +11601,7 @@
   ],
   [
     "Which integration: github.",
-    "要操作的整合：github。"
+    "要操作的集成：github。"
   ],
   [
     "Which module(s) to load. Pick all that fit.",
@@ -11629,7 +11629,7 @@
   ],
   [
     "With Claude as your research assistant, find relevant research, prioritize what to read, and organize evidence as you work through papers.",
-    "讓 Claude 擔任你的研究助手，幫你查詢相關研究、確定閱讀優先順序，並在研讀論文時整理證據。"
+    "讓 Claude 擔任你的研究助手，幫你查詢相關研究、確定閱讀優先級，並在研讀論文時整理證據。"
   ],
   [
     "Write landing page, email, or ad copy that follows brand guidelines.",
@@ -11665,7 +11665,7 @@
   ],
   [
     "You don't have permission to submit. Ask an org admin to submit this MCP server.",
-    "你沒有提交許可權。請讓組織管理員提交此 MCP 伺服器。"
+    "你沒有提交權限。請讓組織管理員提交此 MCP 伺服器。"
   ],
   [
     "You hit the Free plan’s 5-hour message limit. Pro has more usage and more Claude models.",
@@ -11681,11 +11681,11 @@
   ],
   [
     "You’re subscribed via iOS app",
-    "你透過 iOS 應用訂閱"
+    "你通過 iOS 應用訂閱"
   ],
   [
     "You’re viewing a saved version of a live document — it may have changed since",
-    "你正在查看實時文件的已儲存版本，此後它可能已發生更改"
+    "你正在查看實時文檔的已儲存版本，此後它可能已發生更改"
   ],
   [
     "You've requested several codes in a short time. Wait a few minutes and try again.",
@@ -11693,11 +11693,11 @@
   ],
   [
     "Your account team didn’t include a billing account for the tenants below. Add your Azure billing account ID and admin contact here. If you answer No on a tenant instead, your account executive will follow up.",
-    "你的客戶團隊沒有為下列租戶提供賬單賬戶。請在此處新增你的 Azure 賬單賬戶 ID 和管理員聯絡人。如果你對某個租戶選擇“否”，你的客戶經理會後續跟進。"
+    "你的客戶團隊沒有為下列租戶提供賬單賬戶。請在此處新增你的 Azure 賬單賬戶 ID 和管理員聯繫人。如果你對某個租戶選擇“否”，你的客戶經理會後續跟進。"
   ],
   [
     "Your account team manages your tax ID. Contact them to change it.",
-    "你的稅號由客戶團隊管理。如需更改，請聯絡他們。"
+    "你的稅號由客戶團隊管理。如需更改，請聯繫他們。"
   ],
   [
     "Your comment isn’t in this tab",
@@ -11733,15 +11733,15 @@
   ],
   [
     "Your organization’s session host isn’t accepting this sign-in right now, so your global instructions aren’t shown. Contact your IT administrator.",
-    "你組織的會話主機目前不接受此次登入，因此無法顯示你的全域性指令。請聯絡你的 IT 管理員。"
+    "你組織的會話主機目前不接受此次登入，因此無法顯示你的全域性指令。請聯繫你的 IT 管理員。"
   ],
   [
     "Your organization’s session host isn’t accepting this sign-in right now, so your memory isn’t shown. Contact your IT administrator.",
-    "你組織的會話主機目前不接受此次登入，因此無法顯示你的記憶。請聯絡你的 IT 管理員。"
+    "你組織的會話主機目前不接受此次登入，因此無法顯示你的記憶。請聯繫你的 IT 管理員。"
   ],
   [
     "Your organization’s session host isn’t accepting this sign-in right now, so your skills aren’t shown. Contact your IT administrator.",
-    "你組織的會話主機目前不接受此次登入，因此無法顯示你的技能。請聯絡你的 IT 管理員。"
+    "你組織的會話主機目前不接受此次登入，因此無法顯示你的技能。請聯繫你的 IT 管理員。"
   ],
   [
     "Your organization’s session host needs you to sign in again before it shows your global instructions.",
@@ -11757,15 +11757,15 @@
   ],
   [
     "Your organization’s session host sent an answer this app can’t read, so your global instructions aren’t shown. Contact your IT administrator.",
-    "你組織的會話主機返回了此應用無法識別的響應，因此無法顯示你的全域性指令。請聯絡你的 IT 管理員。"
+    "你組織的會話主機返回了此應用無法識別的響應，因此無法顯示你的全域性指令。請聯繫你的 IT 管理員。"
   ],
   [
     "Your organization’s session host sent an answer this app can’t read, so your memory isn’t shown. Contact your IT administrator.",
-    "你組織的會話主機返回了此應用無法識別的響應，因此無法顯示你的記憶。請聯絡你的 IT 管理員。"
+    "你組織的會話主機返回了此應用無法識別的響應，因此無法顯示你的記憶。請聯繫你的 IT 管理員。"
   ],
   [
     "Your organization’s session host sent an answer this app can’t read, so your skills aren’t shown. Contact your IT administrator.",
-    "你組織的會話主機返回了此應用無法識別的響應，因此無法顯示你的技能。請聯絡你的 IT 管理員。"
+    "你組織的會話主機返回了此應用無法識別的響應，因此無法顯示你的技能。請聯繫你的 IT 管理員。"
   ],
   [
     "Your organization’s subscription is paused, and this invoice can’t be paid in the app anymore. Support can help you settle it.",
@@ -11777,7 +11777,7 @@
   ],
   [
     "Your perf framework published as a skill every manager runs.",
-    "把你的績效評估框架釋出為技能，供每位經理使用。"
+    "把你的績效評估框架發佈為技能，供每位經理使用。"
   ],
   [
     "Your prompt is back on the New session page.",
@@ -11797,7 +11797,7 @@
   ],
   [
     "Your tool permissions",
-    "你的工具許可權"
+    "你的工具權限"
   ],
   [
     "Zambia Tax Identification Number",
@@ -11873,7 +11873,7 @@
   ],
   [
     "A deck you can present, restyle with a design system and export to PowerPoint.",
-    "可直接演示、能用設計系統一鍵換風格、並可匯出為 PowerPoint 的簡報。"
+    "可直接演示、能用設計系統一鍵換風格、並可匯出為 PowerPoint 的演示文稿。"
   ],
   [
     "Screens, flows and graphics laid out as artboards on one canvas you can edit by hand.",
@@ -11909,7 +11909,7 @@
   ],
   [
     "Leave the document",
-    "離開文件"
+    "離開文檔"
   ],
   [
     "Open the comment",
@@ -11977,11 +11977,11 @@
   ],
   [
     "Mention a person, a date, a tab or another doc",
-    "提及人員、日期、標籤頁或其他文件"
+    "提及人員、日期、標籤頁或其他文檔"
   ],
   [
     "Mention a person, a date, a tab or another document",
-    "提及人員、日期、標籤頁或其他文件"
+    "提及人員、日期、標籤頁或其他文檔"
   ],
   [
     "Emoji, by name",
@@ -12377,7 +12377,7 @@
   ],
   [
     "Click to cycle this track: flexible share, fixed 240px, content-sized",
-    "點選切換此軌道：彈性分配、固定 240px、按內容大小"
+    "點擊切換此軌道：彈性分配、固定 240px、按內容大小"
   ],
   [
     "Add a flexible column",
@@ -12529,7 +12529,7 @@
   ],
   [
     "Detach — edit font, weight, size, line height and letter spacing on this text",
-    "解除關聯——單獨編輯此文字的字型、字重、字號、行高和字間距"
+    "解除關聯——單獨編輯此文字的字體、字重、字號、行高和字間距"
   ],
   [
     "Style default",
@@ -12537,7 +12537,7 @@
   ],
   [
     "System font",
-    "系統字型"
+    "系統字體"
   ],
   [
     "Line height · Letter spacing",
@@ -12705,23 +12705,23 @@
   ],
   [
     "PowerPoint, current fonts (.pptx)",
-    "PowerPoint，保留當前字型（.pptx）"
+    "PowerPoint，保留當前字體（.pptx）"
   ],
   [
     "PowerPoint, basic fonts (.pptx)",
-    "PowerPoint，使用基礎字型（.pptx）"
+    "PowerPoint，使用基礎字體（.pptx）"
   ],
   [
     "Basic fonts work on any computer",
-    "基礎字型在任何電腦上都能正常顯示"
+    "基礎字體在任何電腦上都能正常顯示"
   ],
   [
     "This presentation’s HTML couldn’t be read.",
-    "無法讀取此簡報的 HTML。"
+    "無法讀取此演示文稿的 HTML。"
   ],
   [
     "This presentation's HTML couldn't be read.",
-    "無法讀取此簡報的 HTML。"
+    "無法讀取此演示文稿的 HTML。"
   ],
   [
     "Previous slide (←)",
@@ -12737,19 +12737,19 @@
   ],
   [
     "No slides to show in this view.",
-    "此查看中沒有可顯示的幻燈片。"
+    "此視圖中沒有可顯示的幻燈片。"
   ],
   [
     "This presentation has no slides yet. Add one, or let Claude add some.",
-    "此簡報還沒有幻燈片。可以自己新增，也可以讓 Claude 新增。"
+    "此演示文稿還沒有幻燈片。可以自己新增，也可以讓 Claude 新增。"
   ],
   [
     "Couldn’t load this presentation",
-    "無法載入此簡報"
+    "無法載入此演示文稿"
   ],
   [
     "Couldn't load this presentation",
-    "無法載入此簡報"
+    "無法載入此演示文稿"
   ],
   [
     "Try now",
@@ -12785,7 +12785,7 @@
   ],
   [
     "Failed to Load Document",
-    "文件載入失敗"
+    "文檔載入失敗"
   ],
   [
     "There may be an issue with the content you’re trying to load.",
@@ -12861,7 +12861,7 @@
   ],
   [
     "Claude checks each tool call and runs ones that pass its safety checks. Choose Auto from this menu anytime.",
-    "Claude 會檢查每次工具呼叫，只執行透過安全檢查的操作。你隨時可以在這個選單裡選擇“自動”。"
+    "Claude 會檢查每次工具呼叫，只執行通過安全檢查的操作。你隨時可以在這個選單裡選擇“自動”。"
   ],
   [
     "New from a template",
@@ -12925,7 +12925,7 @@
   ],
   [
     "Account name (required): e.g. Production, Staging, Data team",
-    "賬戶名稱（必填）：例如 生產環境、預釋出環境、資料團隊"
+    "賬戶名稱（必填）：例如 生產環境、預發佈環境、資料團隊"
   ],
   [
     "Account research",
@@ -12965,7 +12965,7 @@
   ],
   [
     "Admin contact",
-    "管理員聯絡人"
+    "管理員聯繫人"
   ],
   [
     "Agencies & staffing",
@@ -12973,7 +12973,7 @@
   ],
   [
     "Agent version",
-    "智慧體版本"
+    "智能體版本"
   ],
   [
     "All PRs",
@@ -13037,7 +13037,7 @@
   ],
   [
     "Anthropic's agentic coding tool",
-    "Anthropic 的智慧程式設計工具"
+    "Anthropic 的智能程式設計工具"
   ],
   [
     "Anthropic-held client credentials",
@@ -13053,7 +13053,7 @@
   ],
   [
     "Assemble your QBR deck",
-    "製作季度業務回顧簡報"
+    "製作季度業務回顧演示文稿"
   ],
   [
     "Audit a folder of visual assets against your guidelines",
@@ -13081,7 +13081,7 @@
   ],
   [
     "Body parameter",
-    "請求體引數"
+    "請求體參數"
   ],
   [
     "Books & reading",
@@ -13133,7 +13133,7 @@
   ],
   [
     "Build the competitive comparison doc",
-    "撰寫競品對比文件"
+    "撰寫競品對比文檔"
   ],
   [
     "Business & management",
@@ -13153,15 +13153,15 @@
   ],
   [
     "Calls go to a third-party API we’re authorized to integrate (e.g. Zapier-style)",
-    "呼叫我們獲授權整合的第三方 API（例如 Zapier 這類）"
+    "呼叫我們獲授權集成的第三方 API（例如 Zapier 這類）"
   ],
   [
     "Categorize and prioritize your inbox, with draft responses for urgent items.",
-    "對收件箱分類並排定優先順序，併為緊急事項起草回覆。"
+    "對收件箱分類並排定優先級，併為緊急事項起草回覆。"
   ],
   [
     "Check a job description before you post it",
-    "釋出前檢查職位描述"
+    "發佈前檢查職位描述"
   ],
   [
     "Claude Code helps you get better at coding and think deeper about code.",
@@ -13173,7 +13173,7 @@
   ],
   [
     "Claude can navigate, click buttons, and fill forms—right in your browser.",
-    "Claude 可以直接在你的瀏覽器中瀏覽、點選按鈕和填寫表單。"
+    "Claude 可以直接在你的瀏覽器中瀏覽、點擊按鈕和填寫表單。"
   ],
   [
     "Clean a data file",
@@ -13181,7 +13181,7 @@
   ],
   [
     "Clickable prototype from real components",
-    "用真實元件做可點選原型"
+    "用真實元件做可點擊原型"
   ],
   [
     "Clinical & pharma",
@@ -13265,7 +13265,7 @@
   ],
   [
     "Create a sales proposal presentation",
-    "製作銷售提案簡報"
+    "製作銷售提案演示文稿"
   ],
   [
     "Create a volunteer management system",
@@ -13397,7 +13397,7 @@
   ],
   [
     "Draft release notes",
-    "起草釋出說明"
+    "起草發佈說明"
   ],
   [
     "Draft the incident postmortem",
@@ -13405,7 +13405,7 @@
   ],
   [
     "Draft user-facing release notes each time a PR merges to the main branch.",
-    "每次有 PR 合入主分支時，起草面向使用者的釋出說明。"
+    "每次有 PR 合入主分支時，起草面向使用者的發佈說明。"
   ],
   [
     "Draft your reports' performance reviews",
@@ -13465,7 +13465,7 @@
   ],
   [
     "Feedback synthesis to prioritized themes",
-    "把反饋歸納成按優先順序排列的主題"
+    "把反饋歸納成按優先級排列的主題"
   ],
   [
     "Film & TV",
@@ -13589,7 +13589,7 @@
   ],
   [
     "Internal integration secret",
-    "內部整合金鑰"
+    "內部集成金鑰"
   ],
   [
     "Internal storage",
@@ -13677,7 +13677,7 @@
   ],
   [
     "Multiple documents",
-    "多個文件"
+    "多個文檔"
   ],
   [
     "Music & podcasts",
@@ -13693,7 +13693,7 @@
   ],
   [
     "No arguments",
-    "無引數"
+    "無參數"
   ],
   [
     "None (public client)",
@@ -13721,7 +13721,7 @@
   ],
   [
     "OAuth with a published client_id metadata document",
-    "使用已釋出的 client_id 後設資料文件的 OAuth"
+    "使用已發佈的 client_id 元數據文檔的 OAuth"
   ],
   [
     "On-call handoff brief",
@@ -13749,7 +13749,7 @@
   ],
   [
     "PRD from a problem statement",
-    "根據問題陳述寫產品需求文件"
+    "根據問題陳述寫產品需求文檔"
   ],
   [
     "PRs per user",
@@ -13785,7 +13785,7 @@
   ],
   [
     "Permission key",
-    "許可權鍵"
+    "權限鍵"
   ],
   [
     "Philosophy & religion",
@@ -13821,7 +13821,7 @@
   ],
   [
     "Prep scattered documents for a compliance audit",
-    "為合規審計整理零散文件"
+    "為合規審計整理零散文檔"
   ],
   [
     "Prep the vendor negotiation",
@@ -13893,7 +13893,7 @@
   ],
   [
     "Read contacts and deals from the deprecated CRM.",
-    "從已棄用的 CRM 讀取聯絡人和交易。"
+    "從已棄用的 CRM 讀取聯繫人和交易。"
   ],
   [
     "Read metrics and alerts from the org's Grafana.",
@@ -13957,7 +13957,7 @@
   ],
   [
     "Remove this group’s access to",
-    "移除此群組的存取許可權："
+    "移除此群組的存取權限："
   ],
   [
     "Removes override",
@@ -13977,7 +13977,7 @@
   ],
   [
     "Resynthesize memory (team only)",
-    "重新整合記憶（僅團隊）"
+    "重新集成記憶（僅團隊）"
   ],
   [
     "Review a data room",
@@ -14017,7 +14017,7 @@
   ],
   [
     "SOX & controls documentation",
-    "SOX 與內控文件"
+    "SOX 與內控文檔"
   ],
   [
     "Scan for outdated packages, security patches, and breaking changes.",
@@ -14157,7 +14157,7 @@
   ],
   [
     "Turn your notes into a slide deck",
-    "把你的筆記變成簡報"
+    "把你的筆記變成演示文稿"
   ],
   [
     "Typically blocks listing — explain in Additional notes",
@@ -14165,7 +14165,7 @@
   ],
   [
     "Understand and extend an inherited spreadsheet",
-    "理解並擴充套件接手的電子表格"
+    "理解並擴展接手的電子表格"
   ],
   [
     "Update your CRM using a call transcript",
@@ -14173,7 +14173,7 @@
   ],
   [
     "Update your financial model after earnings",
-    "財報釋出後更新你的財務模型"
+    "財報發佈後更新你的財務模型"
   ],
   [
     "Users supply their own URL or client details when connecting (e.g. Snowflake)",
@@ -14237,7 +14237,7 @@
   ],
   [
     "Write a design doc from the source code",
-    "根據原始碼撰寫設計文件"
+    "根據原始碼撰寫設計文檔"
   ],
   [
     "Write a job posting",
@@ -14277,7 +14277,7 @@
   ],
   [
     "Write the design doc or RFC",
-    "撰寫設計文件或 RFC"
+    "撰寫設計文檔或 RFC"
   ],
   [
     "Write the sprint retro and on-call handoff",
@@ -14465,7 +14465,7 @@
   ],
   [
     "Browse your published and shared artifacts",
-    "瀏覽你釋出和共享的 Artifacts"
+    "瀏覽你發佈和共享的 Artifacts"
   ],
   [
     "Monitor and autofix any issues with the current PR",
@@ -14525,11 +14525,11 @@
   ],
   [
     "Manage IDE integrations and show status",
-    "管理 IDE 整合並顯示狀態"
+    "管理 IDE 集成並顯示狀態"
   ],
   [
     "Import config from another AI coding agent",
-    "從其他 AI 程式設計智慧體匯入配置"
+    "從其他 AI 程式設計智能體匯入配置"
   ],
   [
     "Open your keyboard shortcuts file",
@@ -14537,11 +14537,11 @@
   ],
   [
     "Grant Claude agent access to your Design projects",
-    "授予 Claude 智慧體存取你的 Design 項目的許可權"
+    "授予 Claude 智能體存取你的 Design 項目的權限"
   ],
   [
     "Revoke Claude agent access to your Design projects",
-    "撤銷 Claude 智慧體對你的 Design 項目的存取許可權"
+    "撤銷 Claude 智能體對你的 Design 項目的存取權限"
   ],
   [
     "Authorize design-system access for /design-sync with your claude.ai account",
@@ -14573,7 +14573,7 @@
   ],
   [
     "Discover Claude Code features through quick interactive lessons",
-    "透過簡短的互動課程瞭解 Claude Code 的功能"
+    "通過簡短的互動課程瞭解 Claude Code 的功能"
   ],
   [
     "Rename the current conversation",
@@ -14641,7 +14641,7 @@
   ],
   [
     "Manage allow and deny tool permission rules",
-    "管理工具許可權的允許和拒絕規則"
+    "管理工具權限的允許和拒絕規則"
   ],
   [
     "Enable plan mode or view the current session plan",
@@ -14657,7 +14657,7 @@
   ],
   [
     "List, create, and delete loops",
-    "列出、建立和刪除迴圈任務"
+    "列出、建立和刪除循環任務"
   ],
   [
     "Create a branch of the current conversation at this point",
@@ -14665,7 +14665,7 @@
   ],
   [
     "Spawn a background agent that inherits the full conversation",
-    "派生一個繼承完整對話的後臺智慧體"
+    "派生一個繼承完整對話的後臺智能體"
   ],
   [
     "Copy this conversation into a new background session and keep working here",
@@ -14713,7 +14713,7 @@
   ],
   [
     "Create and manage scheduled remote Claude Code agents",
-    "建立和管理定時執行的遠端 Claude Code 智慧體"
+    "建立和管理定時執行的遠端 Claude Code 智能體"
   ],
   [
     "Switch to the latest version (conversation continues)",
@@ -14729,7 +14729,7 @@
   ],
   [
     "Choose the default environment for cloud agents",
-    "選擇雲端智慧體的預設環境"
+    "選擇雲端智能體的預設環境"
   ],
   [
     "Upgrade to Max for higher rate limits and more Opus",
@@ -14757,7 +14757,7 @@
   ],
   [
     "Toggle focus view: just your prompt, summary, and response",
-    "切換專注查看：只顯示你的提示、摘要和回覆"
+    "切換專注視圖：只顯示你的提示、摘要和回覆"
   ],
   [
     "Generate a report analyzing your Claude Code sessions",
@@ -14769,7 +14769,7 @@
   ],
   [
     "Research and plan a large-scale change, then execute it in parallel across 5–30 isolated worktree agents that each open a PR.",
-    "調研並規劃一項大規模更改，然後由 5–30 個相互隔離的工作樹智慧體並行執行，每個各開一個 PR。"
+    "調研並規劃一項大規模更改，然後由 5–30 個相互隔離的工作樹智能體並行執行，每個各開一個 PR。"
   ],
   [
     "Enable debug logging for this session and help diagnose issues",
@@ -14781,7 +14781,7 @@
   ],
   [
     "List subagents, teammates, and other Claude sessions you can message",
-    "列出你可以發訊息的子智慧體、隊友和其他 Claude 會話"
+    "列出你可以發訊息的子智能體、隊友和其他 Claude 會話"
   ],
   [
     "Send this session to the background and free the terminal",

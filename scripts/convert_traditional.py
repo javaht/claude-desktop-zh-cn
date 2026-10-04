@@ -56,10 +56,31 @@ CC = {"zh-TW": OpenCC("s2twp"), "zh-HK": _ChainedCC(OpenCC("s2t"), OpenCC("s2hk"
 # 游→遊、斗→鬥、托→託、温→溫 等），但台/港标准字形就是常用写法
 # （干擾、若干、臨床、游標、漏斗、托特包；s2hk 的香港字形表偏好 户/温），永远放行
 EXTRA_WHITELIST = set("群峰床游干斗托温")
-# 少量 OpenCC 处理不到/处理不当的固定修正:
-# 「天后」被 OpenCC 当专名保护（"N 天后失效"应为「天後」）;
-# 台/港写「夥伴」而非「伙伴」; s2hk 会把 兌/脫 反转成简化字形（现有 HK 词库用 兌/脫）
-STATIC_RULES = {"天后": "天後", "伙伴": "夥伴", "兑": "兌", "脱": "脫"}
+
+# 通用固定修正: 「天后」被 OpenCC 当专名保护（"N 天后失效"应为「天後」）;
+# 台/港写「夥伴」; OpenCC 会把"只"(仅)转成量词「隻」; s2hk 把 兌/脫 反转成简化字形
+STATIC_RULES_COMMON = {"天后": "天後", "伙伴": "夥伴", "隻": "只", "兑": "兌", "脱": "脫"}
+# 各语言术语表：方向全部以仓库现有人工译文的实际用法为准（见各条目的语料计数）。
+# TW 主要是抑制 s2twp 的过度本地化（语料用「權限/通過/智能/點擊/發佈/擴展」）;
+# HK 主要是补上 s2hk 缺失的词汇层转换（它只做字形，不做 词汇→香港习惯用词）
+STATIC_RULES = {
+    "zh-TW": {
+        "許可權": "權限", "透過": "通過", "文件": "檔案", "聯絡": "聯繫",
+        "擴充套件": "擴展", "釋出": "發佈", "智慧": "智能", "優先順序": "優先級",
+        "點選": "點擊", "字型": "字體", "整合": "集成", "稽核": "審核",
+        "命令列": "命令行", "對話方塊": "對話框", "引數": "參數", "迴圈": "循環",
+        "字首": "前綴", "後設資料": "元數據", "執行緒": "線程", "萬用字元": "通配符",
+        "激活": "啟用", "階別": "級別", "宣告": "聲明", "解除安裝": "卸載",
+    },
+    "zh-HK": {
+        "登錄": "登入", "服務器": "伺服器", "設置": "設定", "保存": "儲存",
+        "支持": "支援", "搜索": "搜尋", "啓": "啟", "羣": "群", "牀": "床",
+        "激活": "啟用", "錶": "表", "裏": "裡",
+    },
+}
+# 预掩码：OpenCC 会把下列简体词合并/改写成另一个词（文档→文件、视图→檢視、
+# 演示文稿→簡報），转换后无法再区分，须在转换前摘出、转换后按语料写法放回
+PRE_MASKS = {"zh-TW": {"文档": "文檔", "视图": "視圖", "演示文稿": "演示文稿"}, "zh-HK": {}}
 
 HAN = re.compile(r"[\u4e00-\u9fff]")
 TAG = re.compile(r"</?[A-Za-z][A-Za-z0-9_]*\s*/?>")
@@ -180,19 +201,31 @@ class Converter:
     术语校正用正则单趟替换（最长源优先），规则之间不会级联;
     最后做"残留清扫": OpenCC 偶发漏转的简体嫌疑字（不在白名单的）按 s2t 单字兜底。"""
 
-    def __init__(self, cc, cmap: dict[str, str] | None = None, fixmap: dict[str, str] | None = None):
+    def __init__(self, cc, cmap: dict[str, str] | None = None, fixmap: dict[str, str] | None = None,
+                 premask: dict[str, str] | None = None):
         self.cc = cc
         self.cmap = cmap or {}
         self.fixmap = fixmap or {}
+        self.premask = premask or {}
         self._re = re.compile("|".join(map(re.escape, sorted(self.cmap, key=len, reverse=True)))) if self.cmap else None
+        self._pre = re.compile("|".join(map(re.escape, sorted(self.premask, key=len, reverse=True)))) if self.premask else None
 
     def flat_text(self, s: str) -> str:
+        sent: dict[str, str] = {}
+        if self._pre:  # 预掩码: 摘出 OpenCC 会错误合并的词
+            def mask(m):
+                tok = f"\ue000{len(sent)}\ue001"
+                sent[tok] = self.premask[m.group(0)]
+                return tok
+            s = self._pre.sub(mask, s)
         t = self.cc.convert(s)
         if self._re:
             t = self._re.sub(lambda m: self.cmap[m.group(0)], t)
         for ch, rep in self.fixmap.items():
             if ch in t:
                 t = t.replace(ch, rep)
+        for tok, form in sent.items():  # 最后放回掩码词，避免被规则表波及
+            t = t.replace(tok, form)
         return t
 
     def __call__(self, s: str) -> str:
@@ -490,11 +523,12 @@ def main():
         print(f"  {tag} 字形白名单: {''.join(sorted(wl)) or '（无）'}")
         pairs_fe = [(v, targets[tag]["fe"][k]) for k, v in cn_fe.items()
                     if k in targets[tag]["fe"] and has_cjk(targets[tag]["fe"][k])]
-        cmap, agree = learn_corrections(pairs_fe, Converter(cc, fixmap=fixmap), wl)
-        cmap.update(STATIC_RULES)
+        cmap, agree = learn_corrections(pairs_fe, Converter(cc, fixmap=fixmap, premask=PRE_MASKS[tag]), wl)
+        cmap.update(STATIC_RULES_COMMON)
+        cmap.update(STATIC_RULES[tag])
         print(f"  {tag}: 术语校正 {len(cmap)} 条, 现有条目转换一致率 {agree:.1%}")
         print(f"    {'; '.join(f'{a}→{b}' for a, b in sorted(cmap.items(), key=lambda x: -len(x[0])))}")
-        converters[tag] = Converter(cc, cmap, fixmap)
+        converters[tag] = Converter(cc, cmap, fixmap, PRE_MASKS[tag])
         banned_map[tag] = SIMPLIFIED - wl
 
     total_bad = 0

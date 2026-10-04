@@ -4046,5 +4046,1081 @@
   [
     "You're running Claude through your organization's own inference provider (127.0.0.1:15721). Your conversations are sent there, not to Anthropic, and are governed by your organization's agreement with that provider.",
     "你正在通过你组织自己的推理提供商（127.0.0.1:15721）运行 Claude。你的对话会发送到该提供商而非 Anthropic，并受你的组织与该提供商的协议约束。"
+  ],
+  [
+    "Profile photo",
+    "头像"
+  ],
+  [
+    "PNG, JPEG, or WebP, up to 10MB.",
+    "PNG、JPEG 或 WebP，最大 10MB。"
+  ],
+  [
+    "Report profile photo",
+    "举报头像"
+  ],
+  [
+    "To delete your account, please cancel your Claude Pro subscription first.",
+    "要删除账户，请先取消你的 Claude Pro 订阅。"
+  ],
+  [
+    "To delete your account, please cancel your Claude Max subscription first.",
+    "要删除账户，请先取消你的 Claude Max 订阅。"
+  ],
+  [
+    "On track. You should reach tomorrow’s reset with room to spare.",
+    "进度正常。到明天重置时，你的额度应该还有富余。"
+  ],
+  [
+    "On track. You should reach today’s reset with room to spare.",
+    "进度正常。到今天重置时，你的额度应该还有富余。"
+  ],
+  [
+    "Limit resets",
+    "限额重置"
+  ],
+  [
+    "Full reset",
+    "完全重置"
+  ],
+  [
+    "5-hour reset",
+    "5 小时重置"
+  ],
+  [
+    "None right now. When you get one, it shows up here.",
+    "目前没有。获得后会显示在这里。"
+  ],
+  [
+    "Cloud session credits",
+    "云端会话额度"
+  ],
+  [
+    "Applies automatically to cloud sessions. After it’s used or expires, your plan’s regular usage applies.",
+    "自动用于云端会话。用完或过期后，按你套餐的常规用量计算。"
+  ],
+  [
+    "Reset for free",
+    "免费重置"
+  ],
+  [
+    "Allow Claude to search for relevant details in past chats.",
+    "允许 Claude 在过去的聊天中搜索相关细节。"
+  ],
+  [
+    "Areas",
+    "领域"
+  ],
+  [
+    "A confirmation has been emailed to you. Your Anthropic account executive will review and confirm coverage.",
+    "确认邮件已发送给你。你的 Anthropic 客户经理将审核并确认覆盖范围。"
+  ],
+  [
+    "About additional billing emails",
+    "关于附加账单邮箱"
+  ],
+  [
+    "About tax exemption",
+    "关于免税"
+  ],
+  [
+    "Account Settings",
+    "账户设置"
+  ],
+  [
+    "Active threads",
+    "进行中的讨论串"
+  ],
+  [
+    "Add a brief reason for declining this account.",
+    "请简要说明拒绝此账户的原因。"
+  ],
+  [
+    "Additional billing emails",
+    "附加账单邮箱"
+  ],
+  [
+    "Additional notes",
+    "补充说明"
+  ],
+  [
+    "Additional request headers",
+    "附加请求头"
+  ],
+  [
+    "All checks have passed",
+    "所有检查均已通过"
+  ],
+  [
+    "Already connected",
+    "已连接"
+  ],
+  [
+    "Anyone can use this server without signing in or providing credentials.",
+    "任何人都无需登录或提供凭据即可使用此服务器。"
+  ],
+  [
+    "Approve plan",
+    "批准计划"
+  ],
+  [
+    "Reject plan",
+    "拒绝计划"
+  ],
+  [
+    "Review plan",
+    "审阅计划"
+  ],
+  [
+    "Authentication methods",
+    "身份验证方式"
+  ],
+  [
+    "Authentication requirement",
+    "身份验证要求"
+  ],
+  [
+    "Available to your organization",
+    "可供你的组织使用"
+  ],
+  [
+    "Back to billing details",
+    "返回账单详情"
+  ],
+  [
+    "Back to file history",
+    "返回文件历史"
+  ],
+  [
+    "Back to repo list",
+    "返回仓库列表"
+  ],
+  [
+    "Back to review",
+    "返回审阅"
+  ],
+  [
+    "Base branch",
+    "基准分支"
+  ],
+  [
+    "Head branch",
+    "头分支"
+  ],
+  [
+    "Target branch",
+    "目标分支"
+  ],
+  [
+    "Both models answer the same prompt, independently. Vote on each pair.",
+    "两个模型各自独立回答同一个提示。请对每一组投票。"
+  ],
+  [
+    "Both retrieves and modifies data",
+    "既读取也修改数据"
+  ],
+  [
+    "Retrieves data but never modifies it",
+    "读取数据，但从不修改"
+  ],
+  [
+    "Creates or modifies data but does not read it",
+    "创建或修改数据，但不读取"
+  ],
+  [
+    "Read / write capabilities",
+    "读/写能力"
+  ],
+  [
+    "Read and write",
+    "读写"
+  ],
+  [
+    "Read only",
+    "只读"
+  ],
+  [
+    "Write only",
+    "只写"
+  ],
+  [
+    "Billing contact first name",
+    "账单联系人名字"
+  ],
+  [
+    "Billing contact last name",
+    "账单联系人姓氏"
+  ],
+  [
+    "Billing contact phone",
+    "账单联系人电话"
+  ],
+  [
+    "Build info",
+    "构建信息"
+  ],
+  [
+    "Can't reach the Claude extension.",
+    "无法连接到 Claude 扩展。"
+  ],
+  [
+    "Certification is completed through a secure link emailed to your organization's primary contact.",
+    "认证需通过发送给你组织主要联系人的安全链接完成。"
+  ],
+  [
+    "Certification links are sent by email",
+    "认证链接将通过邮件发送"
+  ],
+  [
+    "Certify and submit",
+    "认证并提交"
+  ],
+  [
+    "Claude is no longer waiting for this permission",
+    "Claude 已不再等待此权限"
+  ],
+  [
+    "Claude will return soon",
+    "Claude 很快就会回来"
+  ],
+  [
+    "Claude connects without credentials first, then prompts to sign in if the server requires it.",
+    "Claude 会先在不使用凭据的情况下连接，如果服务器需要再提示登录。"
+  ],
+  [
+    "Close this window and try again from the desktop app.",
+    "关闭此窗口，然后从桌面应用重试。"
+  ],
+  [
+    "Close video",
+    "关闭视频"
+  ],
+  [
+    "Collapse all",
+    "全部折叠"
+  ],
+  [
+    "Expand all",
+    "全部展开"
+  ],
+  [
+    "Comments resolved",
+    "评论已解决"
+  ],
+  [
+    "Completed threads",
+    "已完成的讨论串"
+  ],
+  [
+    "Company information",
+    "公司信息"
+  ],
+  [
+    "Context breakdown",
+    "上下文明细"
+  ],
+  [
+    "Continue to certification",
+    "继续认证"
+  ],
+  [
+    "Continue to platform IDs",
+    "继续填写平台 ID"
+  ],
+  [
+    "Couldn't confirm your answer",
+    "无法确认你的回答"
+  ],
+  [
+    "Couldn’t load this page. Go back to the artifact and try again.",
+    "无法加载此页面。请返回 Artifact 后重试。"
+  ],
+  [
+    "Go back to the artifact and try again.",
+    "请返回 Artifact 后重试。"
+  ],
+  [
+    "Returning to the artifact…",
+    "正在返回 Artifact…"
+  ],
+  [
+    "Create new file",
+    "新建文件"
+  ],
+  [
+    "New file name",
+    "新文件名"
+  ],
+  [
+    "Credit available on this organization. To move it, name the destination organization in your reason and your account executive will complete the transfer.",
+    "此组织可用的额度。如需转移，请在理由中注明目标组织，你的客户经理会完成转移。"
+  ],
+  [
+    "Current limit comes from",
+    "当前限额来自"
+  ],
+  [
+    "New limit comes from",
+    "新限额来自"
+  ],
+  [
+    "Custom icon URL",
+    "自定义图标 URL"
+  ],
+  [
+    "Custom monthly limit",
+    "自定义月度限额"
+  ],
+  [
+    "Custom monthly limits",
+    "自定义月度限额"
+  ],
+  [
+    "Default monthly limit",
+    "默认月度限额"
+  ],
+  [
+    "Customize Claude",
+    "自定义 Claude"
+  ],
+  [
+    "Customize Claude Cowork",
+    "自定义 Claude Cowork"
+  ],
+  [
+    "Data policy",
+    "数据政策"
+  ],
+  [
+    "Default folder",
+    "默认文件夹"
+  ],
+  [
+    "Default local folder",
+    "默认本地文件夹"
+  ],
+  [
+    "Default for plugins",
+    "插件默认值"
+  ],
+  [
+    "Delete block",
+    "删除块"
+  ],
+  [
+    "Delete marketplace",
+    "删除市场"
+  ],
+  [
+    "Delivery failed — try again.",
+    "发送失败——请重试。"
+  ],
+  [
+    "Describe the change you want...",
+    "描述你想要的更改..."
+  ],
+  [
+    "Describe what your plugin does and its key features...",
+    "描述你的插件功能及其主要特性..."
+  ],
+  [
+    "A clear, concise description of what your plugin does.",
+    "清晰简洁地描述你的插件的功能。"
+  ],
+  [
+    "Dismiss guest pass",
+    "关闭访客通行证"
+  ],
+  [
+    "Download Claude for your desktop or mobile device.",
+    "为你的桌面或移动设备下载 Claude。"
+  ],
+  [
+    "Download as CSV",
+    "下载为 CSV"
+  ],
+  [
+    "Download it now",
+    "立即下载"
+  ],
+  [
+    "Download progress",
+    "下载进度"
+  ],
+  [
+    "Email address for communications about your plugin.",
+    "用于接收与你的插件相关沟通的邮箱地址。"
+  ],
+  [
+    "Email addresses look like name@company.com.",
+    "邮箱地址的格式类似 name@company.com。"
+  ],
+  [
+    "Email the certification link",
+    "通过邮件发送认证链接"
+  ],
+  [
+    "Request your certification link",
+    "申请你的认证链接"
+  ],
+  [
+    "Resend Certification Email",
+    "重新发送认证邮件"
+  ],
+  [
+    "If a certification matches, we have emailed the registered contact.",
+    "如果有匹配的认证，我们已向登记的联系人发送邮件。"
+  ],
+  [
+    "Enter an account name.",
+    "请输入账户名称。"
+  ],
+  [
+    "Enter name",
+    "输入名称"
+  ],
+  [
+    "Error displaying content - Raw result:",
+    "显示内容出错 - 原始结果："
+  ],
+  [
+    "Everyone in this project can read what Claude says about this session.",
+    "此项目中的所有人都可以阅读 Claude 关于此会话的说明。"
+  ],
+  [
+    "Example use cases",
+    "示例用例"
+  ],
+  [
+    "Export is temporarily unavailable on this account for your security. Contact support to verify your identity.",
+    "为保护你的安全，此账户暂时无法导出。请联系支持团队验证你的身份。"
+  ],
+  [
+    "Extension ID",
+    "扩展 ID"
+  ],
+  [
+    "Fetching the session’s pending plan…",
+    "正在获取会话的待审阅计划…"
+  ],
+  [
+    "The session has no pending plan to review.",
+    "此会话没有待审阅的计划。"
+  ],
+  [
+    "The plan changed in the session since this was shown — nothing was sent. Reopen to fetch the current plan.",
+    "显示此内容后会话中的计划已更改——未发送任何内容。请重新打开以获取当前计划。"
+  ],
+  [
+    "Plan too large to show in full — open the session to read the rest. Approval is disabled for truncated plans.",
+    "计划太大，无法完整显示——请打开会话阅读其余部分。截断的计划无法批准。"
+  ],
+  [
+    "Find it under Setup → My Domain.",
+    "在“设置 → 我的域”下查找。"
+  ],
+  [
+    "Hide model names",
+    "隐藏模型名称"
+  ],
+  [
+    "High priority",
+    "高优先级"
+  ],
+  [
+    "Hold responses",
+    "暂停回复"
+  ],
+  [
+    "In a moment, open the link in your email again.",
+    "请稍后再次打开邮件中的链接。"
+  ],
+  [
+    "Include everything below the folder.",
+    "包含该文件夹下的所有内容。"
+  ],
+  [
+    "Interview progress",
+    "面试进度"
+  ],
+  [
+    "Invite domain",
+    "邀请域名"
+  ],
+  [
+    "Learn more about Anthropic",
+    "进一步了解 Anthropic"
+  ],
+  [
+    "Learn more about project knowledge",
+    "进一步了解项目知识库"
+  ],
+  [
+    "Learn more about using Claude for Chrome safely",
+    "进一步了解如何安全使用 Claude for Chrome"
+  ],
+  [
+    "Left to assign",
+    "待分配"
+  ],
+  [
+    "License type",
+    "许可证类型"
+  ],
+  [
+    "Link to plugin",
+    "插件链接"
+  ],
+  [
+    "Loading debug information",
+    "正在加载调试信息"
+  ],
+  [
+    "Members on this seat type",
+    "此席位类型的成员"
+  ],
+  [
+    "Memory file content",
+    "记忆文件内容"
+  ],
+  [
+    "Message session",
+    "给会话发消息"
+  ],
+  [
+    "Model comparison",
+    "模型对比"
+  ],
+  [
+    "Name or email (optional)",
+    "姓名或邮箱（可选）"
+  ],
+  [
+    "No platforms are available to add. Remove this card.",
+    "没有可添加的平台。请移除此卡片。"
+  ],
+  [
+    "No preference",
+    "无偏好"
+  ],
+  [
+    "No structured data available.",
+    "没有可用的结构化数据。"
+  ],
+  [
+    "Open Claude to answer this",
+    "打开 Claude 以回答"
+  ],
+  [
+    "Open a new role",
+    "打开新角色"
+  ],
+  [
+    "Open in Claude ↗",
+    "在 Claude 中打开 ↗"
+  ],
+  [
+    "Optional description of what this role is for and who should have it.",
+    "可选：说明此角色的用途以及应分配给谁。"
+  ],
+  [
+    "Org name",
+    "组织名称"
+  ],
+  [
+    "Organization Settings",
+    "组织设置"
+  ],
+  [
+    "Organization setting",
+    "组织设置"
+  ],
+  [
+    "Over by",
+    "超出"
+  ],
+  [
+    "Panel settings",
+    "面板设置"
+  ],
+  [
+    "Paste as",
+    "粘贴为"
+  ],
+  [
+    "Persist session across runs",
+    "在多次运行之间保留会话"
+  ],
+  [
+    "Reuse the same session each time so Claude keeps memory between runs.",
+    "每次都复用同一个会话，让 Claude 在多次运行之间保留记忆。"
+  ],
+  [
+    "Plugin description",
+    "插件描述"
+  ],
+  [
+    "Plugin details",
+    "插件详情"
+  ],
+  [
+    "Plugin homepage",
+    "插件主页"
+  ],
+  [
+    "Plugin information",
+    "插件信息"
+  ],
+  [
+    "Plugin links",
+    "插件链接"
+  ],
+  [
+    "Plugins deleted with it",
+    "随之删除的插件"
+  ],
+  [
+    "Press 1-4 to apply",
+    "按 1-4 应用"
+  ],
+  [
+    "Pricing applies to these accounts going forward. To add or remove an account, contact your account executive.",
+    "定价将从现在起适用于这些账户。如需添加或移除账户，请联系你的客户经理。"
+  ],
+  [
+    "Primary use cases",
+    "主要用例"
+  ],
+  [
+    "Privacy policy URL",
+    "隐私政策 URL"
+  ],
+  [
+    "Project knowledge capacity",
+    "项目知识库容量"
+  ],
+  [
+    "Provide details about your plugin that will be displayed in the directory.",
+    "提供将在目录中显示的插件详情。"
+  ],
+  [
+    "Provide examples of how users can use your plugin.",
+    "提供用户如何使用你的插件的示例。"
+  ],
+  [
+    "Provide licensing and legal information for your plugin.",
+    "提供你的插件的许可和法律信息。"
+  ],
+  [
+    "Provide the links for your plugin.",
+    "提供你的插件的相关链接。"
+  ],
+  [
+    "Provide your contact details for communications about your plugin.",
+    "提供用于沟通插件相关事宜的联系方式。"
+  ],
+  [
+    "Provided by your account team",
+    "由你的客户团队提供"
+  ],
+  [
+    "Read the transcript",
+    "阅读对话记录"
+  ],
+  [
+    "Reason for declining",
+    "拒绝原因"
+  ],
+  [
+    "Reconnect Claude to Google Drive",
+    "将 Claude 重新连接到 Google Drive"
+  ],
+  [
+    "Connect Claude to Google Drive",
+    "将 Claude 连接到 Google Drive"
+  ],
+  [
+    "Remove plugin",
+    "移除插件"
+  ],
+  [
+    "Remove recording",
+    "移除录制"
+  ],
+  [
+    "Remove this account",
+    "移除此账户"
+  ],
+  [
+    "Remove this billing account",
+    "移除此账单账户"
+  ],
+  [
+    "Remove this tenant",
+    "移除此租户"
+  ],
+  [
+    "Remove tool",
+    "移除工具"
+  ],
+  [
+    "Request a new export. If this happens again, contact support.",
+    "请申请新的导出。如果再次发生，请联系支持团队。"
+  ],
+  [
+    "Requested by",
+    "申请人"
+  ],
+  [
+    "Requested connectors",
+    "申请的连接器"
+  ],
+  [
+    "Requested seat",
+    "申请的席位"
+  ],
+  [
+    "Requester domain",
+    "申请人域名"
+  ],
+  [
+    "Requester email",
+    "申请人邮箱"
+  ],
+  [
+    "Required when the server asks",
+    "服务器要求时必填"
+  ],
+  [
+    "Resynthesize memory",
+    "重新整合记忆"
+  ],
+  [
+    "Review what Claude will see",
+    "检查 Claude 将看到的内容"
+  ],
+  [
+    "Seat type",
+    "席位类型"
+  ],
+  [
+    "Seat type ID",
+    "席位类型 ID"
+  ],
+  [
+    "Seats on your agreement",
+    "你协议中的席位"
+  ],
+  [
+    "Select a server in the Connection step first.",
+    "请先在“连接”步骤中选择服务器。"
+  ],
+  [
+    "Select the surfaces where you would like your plugin to be supported.",
+    "选择你希望插件支持的平台。"
+  ],
+  [
+    "Self-tested",
+    "已自测"
+  ],
+  [
+    "Sends your note and this modal's debug data (conversation and API usage logs) to Anthropic.",
+    "将你的备注以及此窗口的调试数据（对话和 API 用量日志）发送给 Anthropic。"
+  ],
+  [
+    "Sent to the session.",
+    "已发送到会话。"
+  ],
+  [
+    "Server connection",
+    "服务器连接"
+  ],
+  [
+    "Server requires no auth to list and call tools",
+    "服务器列出和调用工具无需身份验证"
+  ],
+  [
+    "Session running",
+    "会话运行中"
+  ],
+  [
+    "Shared via Claude, an AI assistant from Anthropic",
+    "通过 Claude（Anthropic 的 AI 助手）共享"
+  ],
+  [
+    "Sharing opens here.",
+    "共享在这里打开。"
+  ],
+  [
+    "Sign in to Claude, then open this again from the artifact.",
+    "请登录 Claude，然后从 Artifact 中再次打开。"
+  ],
+  [
+    "Sign in to claude.ai to use the side panel.",
+    "登录 claude.ai 以使用侧边面板。"
+  ],
+  [
+    "Sign-in failed",
+    "登录失败"
+  ],
+  [
+    "Something went wrong!",
+    "出错了！"
+  ],
+  [
+    "Spent so far this month",
+    "本月至今已支出"
+  ],
+  [
+    "Steer the session…",
+    "引导会话…"
+  ],
+  [
+    "Submission details",
+    "提交详情"
+  ],
+  [
+    "Submitter email",
+    "提交者邮箱"
+  ],
+  [
+    "Summary of your calendar, emails, and messages.",
+    "你的日历、邮件和消息摘要。"
+  ],
+  [
+    "Supported platforms",
+    "支持的平台"
+  ],
+  [
+    "Switch accounts to continue",
+    "切换账户以继续"
+  ],
+  [
+    "Tell us more…",
+    "告诉我们更多…"
+  ],
+  [
+    "Tell us why (required)",
+    "告诉我们原因（必填）"
+  ],
+  [
+    "Test URL",
+    "测试 URL"
+  ],
+  [
+    "Test failed",
+    "测试失败"
+  ],
+  [
+    "Testing access",
+    "正在测试访问"
+  ],
+  [
+    "Thank you for the feedback!",
+    "感谢你的反馈！"
+  ],
+  [
+    "The URL to your plugin repository.",
+    "你的插件仓库的 URL。"
+  ],
+  [
+    "The public homepage or documentation site for your plugin.",
+    "你的插件的公开主页或文档站点。"
+  ],
+  [
+    "The accounts your pricing and provisioning will apply to. Discounts are not applied retroactively to accounts added later.",
+    "你的定价和配置将适用的账户。折扣不会追溯应用于之后添加的账户。"
+  ],
+  [
+    "The file for this export could not be found. Request a new export.",
+    "找不到此导出的文件。请申请新的导出。"
+  ],
+  [
+    "The local folder Claude starts in for this project’s work, without asking you. Claude may run commands in that folder without asking.",
+    "Claude 在此项目工作时默认启动的本地文件夹，不会询问你。Claude 可能会在该文件夹中直接运行命令而不询问。"
+  ],
+  [
+    "This is a payer (management) account",
+    "这是付款方（管理）账户"
+  ],
+  [
+    "This link has been used. Please request a new export.",
+    "此链接已被使用。请申请新的导出。"
+  ],
+  [
+    "This link has expired. Please request a new export.",
+    "此链接已过期。请申请新的导出。"
+  ],
+  [
+    "This link has reached its download limit. Request a new export.",
+    "此链接已达到下载次数上限。请申请新的导出。"
+  ],
+  [
+    "This link is incomplete",
+    "此链接不完整"
+  ],
+  [
+    "This link isn't valid",
+    "此链接无效"
+  ],
+  [
+    "This link was created for a different user or team.",
+    "此链接是为其他用户或团队创建的。"
+  ],
+  [
+    "This link was revoked",
+    "此链接已被撤销"
+  ],
+  [
+    "This page must be opened from claude.com. Close this window and sign in there.",
+    "此页面必须从 claude.com 打开。请关闭此窗口并在那里登录。"
+  ],
+  [
+    "This section opens in a full page.",
+    "此部分会在完整页面中打开。"
+  ],
+  [
+    "This will remove Claude’s access. You can reconnect at any time.",
+    "这将移除 Claude 的访问权限。你可以随时重新连接。"
+  ],
+  [
+    "Today’s brief",
+    "今日简报"
+  ],
+  [
+    "Too many downloads are in progress. In a moment, open the link in your email again.",
+    "正在进行的下载过多。请稍后再次打开邮件中的链接。"
+  ],
+  [
+    "Too many requests",
+    "请求过多"
+  ],
+  [
+    "Too many verification codes were sent",
+    "发送的验证码过多"
+  ],
+  [
+    "Try making a change and see it live on the right:",
+    "试着做个修改，在右侧实时查看效果："
+  ],
+  [
+    "Unread activity",
+    "未读动态"
+  ],
+  [
+    "Upgrade your Teams workspace under this agreement.",
+    "在此协议下升级你的 Teams 工作区。"
+  ],
+  [
+    "Use the email associated with your lab or institution.",
+    "请使用与你的实验室或机构关联的邮箱。"
+  ],
+  [
+    "Use your saved memory in this panel’s replies. Fixed once the chat starts.",
+    "在此面板的回复中使用你保存的记忆。聊天开始后无法更改。"
+  ],
+  [
+    "Users connect and sign in before any tools or resources are available.",
+    "用户需先连接并登录，才能使用任何工具或资源。"
+  ],
+  [
+    "Verify it’s you",
+    "验证是你本人"
+  ],
+  [
+    "Verify your institutional email",
+    "验证你的机构邮箱"
+  ],
+  [
+    "Waiting for both responses to finish",
+    "正在等待两个回复完成"
+  ],
+  [
+    "Waiting for the full tool request…",
+    "正在等待完整的工具请求…"
+  ],
+  [
+    "We could not find this link. Make sure you are logged in with the account that requested the link.",
+    "找不到此链接。请确保你使用申请该链接的账户登录。"
+  ],
+  [
+    "Welcome to Claude via AWS Marketplace",
+    "欢迎通过 AWS Marketplace 使用 Claude"
+  ],
+  [
+    "What's wrong with this response?",
+    "这个回复有什么问题？"
+  ],
+  [
+    "Where Remote Control starts on your device without asking. Claude may run commands there without asking.",
+    "远程控制在你设备上默认启动的位置，不会询问你。Claude 可能会在那里直接运行命令而不询问。"
+  ],
+  [
+    "Where do I find these IDs?",
+    "在哪里找到这些 ID？"
+  ],
+  [
+    "Where to find your IDs",
+    "在哪里找到你的 ID"
+  ],
+  [
+    "Which response do you prefer?",
+    "你更喜欢哪个回复？"
+  ],
+  [
+    "Why reject? (sent to the session)",
+    "为什么拒绝？（将发送到会话）"
+  ],
+  [
+    "Write a document with Claude",
+    "与 Claude 一起写文档"
+  ],
+  [
+    "You should check your name is not already taken. You may not use brand names you do not own in the name of your plugin.",
+    "请确认你的名称未被占用。插件名称中不得使用你不拥有的品牌名。"
+  ],
+  [
+    "You're signed into claude.ai as a different account.",
+    "你在 claude.ai 上登录的是另一个账户。"
+  ],
+  [
+    "You've been invited to try Claude",
+    "你受邀试用 Claude"
+  ],
+  [
+    "You've received a gift subscription to Claude. Sign in to redeem your gift.",
+    "你收到了一份 Claude 礼品订阅。请登录以兑换。"
+  ],
+  [
+    "Your account executive will review added tenants before they’re provisioned.",
+    "你的客户经理会在配置前审核新添加的租户。"
+  ],
+  [
+    "Your account executive will review this addition before it’s provisioned.",
+    "你的客户经理会在配置前审核此次添加。"
+  ],
+  [
+    "Your export should begin downloading automatically.",
+    "你的导出应会自动开始下载。"
+  ],
+  [
+    "Your organization's encryption key is disabled or revoked. Re-enable it, then open the link in your email again.",
+    "你组织的加密密钥已被禁用或撤销。请重新启用，然后再次打开邮件中的链接。"
+  ],
+  [
+    "Your pick",
+    "你的选择"
+  ],
+  [
+    "Your work email",
+    "你的工作邮箱"
+  ],
+  [
+    "You’re giving feedback on a new version of Claude.",
+    "你正在对新版本的 Claude 提供反馈。"
+  ],
+  [
+    "You’re signed in to Claude with a different account than this artifact tab. Switch accounts in Claude, then try again from the artifact.",
+    "你在 Claude 中登录的账户与此 Artifact 标签页不同。请在 Claude 中切换账户，然后从 Artifact 中重试。"
   ]
 ]

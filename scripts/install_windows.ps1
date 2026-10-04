@@ -185,8 +185,8 @@ function Read-InteractiveSelection {
         Write-Host "请选择要安装的语言："
     }
     Write-Host "[1] 简体中文"
-    Write-Host "[2] 繁体中文（中国台湾）"
-    Write-Host "[3] 繁体中文（中国香港）"
+    Write-Host "[2] 繁體中文（台灣）"
+    Write-Host "[3] 繁體中文（香港）"
     Write-Host "[Q] 退出"
     Write-Host ""
 
@@ -249,8 +249,8 @@ function Get-LanguageLabel {
     param([string]$Code)
     switch ($Code) {
         "zh-CN" { return "简体中文" }
-        "zh-TW" { return "繁体中文（中国台湾）" }
-        "zh-HK" { return "繁体中文（中国香港）" }
+        "zh-TW" { return "繁體中文（台灣）" }
+        "zh-HK" { return "繁體中文（香港）" }
         default { return $Code }
     }
 }
@@ -1532,6 +1532,10 @@ function Get-OnlineDomTranslationScript {
     if ($Language -eq "zh-CN") {
         $selectedText = "已选择 `$1 项"
         $deleteSelectedText = "删除 `$1 个所选项目"
+        $deleteSessionsText = "删除 `$1 个会话？"
+        $deleteNamedSessionText = '“$1”将被永久删除。此操作无法撤消。'
+        $archiveSelectedTasksText = "归档所选任务？"
+        $archiveTasksMovedText = '$1 个任务将被移至“已归档”。'
         $updatedMinuteText = "`$1 分钟前更新"
         $updatedHourText = "`$1 小时前更新"
         $updatedDayText = "`$1 天前更新"
@@ -1553,6 +1557,10 @@ function Get-OnlineDomTranslationScript {
     } else {
         $selectedText = "已選擇 `$1 項"
         $deleteSelectedText = "刪除 `$1 個所選項目"
+        $deleteSessionsText = "刪除 `$1 個工作階段？"
+        $deleteNamedSessionText = '「$1」將被永久刪除。此操作無法復原。'
+        $archiveSelectedTasksText = "歸檔所選任務？"
+        $archiveTasksMovedText = '$1 個任務將被移至「已歸檔」。'
         $updatedMinuteText = "`$1 分鐘前更新"
         $updatedHourText = "`$1 小時前更新"
         $updatedDayText = "`$1 天前更新"
@@ -1574,6 +1582,10 @@ function Get-OnlineDomTranslationScript {
     }
     $selectedTextJson = $selectedText | ConvertTo-Json -Compress
     $deleteSelectedTextJson = $deleteSelectedText | ConvertTo-Json -Compress
+    $deleteSessionsTextJson = $deleteSessionsText | ConvertTo-Json -Compress
+    $deleteNamedSessionTextJson = $deleteNamedSessionText | ConvertTo-Json -Compress
+    $archiveSelectedTasksTextJson = $archiveSelectedTasksText | ConvertTo-Json -Compress
+    $archiveTasksMovedTextJson = $archiveTasksMovedText | ConvertTo-Json -Compress
     $updatedMinuteTextJson = $updatedMinuteText | ConvertTo-Json -Compress
     $updatedHourTextJson = $updatedHourText | ConvertTo-Json -Compress
     $updatedDayTextJson = $updatedDayText | ConvertTo-Json -Compress
@@ -1644,7 +1656,7 @@ function Get-OnlineDomTranslationScript {
     $addedMonthRulesJson = ($addedMonthRuleParts + $monthDayRuleParts) -join ','
     $template = @'
 (()=>{try{
-const L=__LANGUAGE__,M=__MAPPING__,ST=__SELECTED_TEXT__,DST=__DELETE_SELECTED_TEXT__,UMI=__UPDATED_MINUTE_TEXT__,UH=__UPDATED_HOUR_TEXT__,UD=__UPDATED_DAY_TEXT__,UW=__UPDATED_WEEK_TEXT__,UMO=__UPDATED_MONTH_TEXT__,UY=__UPDATED_YEAR_TEXT__,AS=__AGO_SECOND__,AMN=__AGO_MINUTE__,AH=__AGO_HOUR__,ADY=__AGO_DAY__,AWK=__AGO_WEEK__,ADDMI=__ADDED_MINUTE__,ADDH=__ADDED_HOUR__,ADDD=__ADDED_DAY__,ADDW=__ADDED_WEEK__,ADDMO=__ADDED_MONTH__,ADDY=__ADDED_YEAR__,LMM=__LEGACY_MEMORY_MIGRATION_TEXT__,LMMP=__LEGACY_MEMORY_PREFIX_TEXT__,PH=__PAST_HOUR__,PD=__PAST_DAY__,PW=__PAST_WEEK__,PMO=__PAST_MONTH__,PY=__PAST_YEAR__,HSB=__HIDE_SIDEBAR__,SSB=__SHOW_SIDEBAR__,DIPT=__DELETE_ITEMS_PERMANENTLY__,DSTT=__DELETE_SELECTED_TITLE__,DCT=__DELETE_CHAT_TITLE__,OIT=__ORG_INFERENCE_TEXT__;
+const L=__LANGUAGE__,M=__MAPPING__,ST=__SELECTED_TEXT__,DST=__DELETE_SELECTED_TEXT__,DSESST=__DELETE_SESSIONS_TEXT__,DNST=__DELETE_NAMED_SESSION_TEXT__,ASTT=__ARCHIVE_SELECTED_TASKS_TEXT__,ATMT=__ARCHIVE_TASKS_MOVED_TEXT__,UMI=__UPDATED_MINUTE_TEXT__,UH=__UPDATED_HOUR_TEXT__,UD=__UPDATED_DAY_TEXT__,UW=__UPDATED_WEEK_TEXT__,UMO=__UPDATED_MONTH_TEXT__,UY=__UPDATED_YEAR_TEXT__,AS=__AGO_SECOND__,AMN=__AGO_MINUTE__,AH=__AGO_HOUR__,ADY=__AGO_DAY__,AWK=__AGO_WEEK__,ADDMI=__ADDED_MINUTE__,ADDH=__ADDED_HOUR__,ADDD=__ADDED_DAY__,ADDW=__ADDED_WEEK__,ADDMO=__ADDED_MONTH__,ADDY=__ADDED_YEAR__,LMM=__LEGACY_MEMORY_MIGRATION_TEXT__,LMMP=__LEGACY_MEMORY_PREFIX_TEXT__,PH=__PAST_HOUR__,PD=__PAST_DAY__,PW=__PAST_WEEK__,PMO=__PAST_MONTH__,PY=__PAST_YEAR__,HSB=__HIDE_SIDEBAR__,SSB=__SHOW_SIDEBAR__,DIPT=__DELETE_ITEMS_PERMANENTLY__,DSTT=__DELETE_SELECTED_TITLE__,DCT=__DELETE_CHAT_TITLE__,OIT=__ORG_INFERENCE_TEXT__;
 localStorage.setItem("spa:locale",L);
 document.documentElement&&document.documentElement.setAttribute("lang",L);
 const N=s=>(s||"").replace(/\s+/g," ").trim();
@@ -1673,8 +1685,12 @@ const G=[
 [/^(\d+) selected$/,ST],
 [/^Delete (\d+) selected item$/,DST],
 [/^Delete (\d+) selected items$/,DST],
-[/^Delete (\d+) sessions?\?$/,"删除 $1 个会话？"],
+[/^Delete (\d+) sessions?\?$/,DSESST],
 [/^(\d+) items? will be permanently deleted\.\s*This can(?:not|[’']t) be undone\.$/,DIPT],
+[/^[“\"](.+?)[”\"] will be permanently deleted\. This can[’']t be undone\.$/,DNST],
+[/^Archive selected task\?$/,ASTT],
+[/^Archive selected tasks\?$/,ASTT],
+[/^(\d+) tasks? will be moved to Archived\.$/,ATMT],
 [/^Updated (\d+) minutes? ago$/,UMI],
 [/^Updated (\d+) hours? ago$/,UH],
 [/^Updated (\d+) days? ago$/,UD],
@@ -1720,11 +1736,10 @@ new MutationObserver(()=>{clearTimeout(window.__claudeZhDomTimer);window.__claud
             @('你确定要删除 $1 个聊天吗？此操作无法撤消。', '你確定要刪除 $1 個聊天嗎？此操作無法復原。'),
             @('你确定要永久删除这些聊天吗？此操作无法撤消。', '你確定要永久刪除這些聊天嗎？此操作無法復原。'),
             @('你确定要永久删除此聊天吗？此操作无法撤消。', '你確定要永久刪除此聊天嗎？此操作無法復原。'),
-            @('要归档 $1 个任务吗？你可以在“已归档”标签页中找到它。', '要歸檔 $1 個任務嗎？你可以在“已歸檔”標籤頁中找到它。'),
-            @('要归档 $1 个任务吗？你可以在“已归档”标签页中找到它们。', '要歸檔 $1 個任務嗎？你可以在“已歸檔”標籤頁中找到它們。'),
+            @('要归档 $1 个任务吗？你可以在“已归档”标签页中找到它。', '要歸檔 $1 個任務嗎？你可以在「已歸檔」標籤頁中找到它。'),
+            @('要归档 $1 个任务吗？你可以在“已归档”标签页中找到它们。', '要歸檔 $1 個任務嗎？你可以在「已歸檔」標籤頁中找到它們。'),
             @('连接还需要填写 $1 个字段', $connectTarget),
             @('将 $1 个聊天移至项目', '將 $1 個聊天移至項目'),
-            @('删除 $1 个会话？', '刪除 $1 個會話？'),
             @('还需要填写 $1 个字段', '還需要填寫 $1 個欄位'),
             @('删除 $1 个聊天', '刪除 $1 個聊天'),
             @('早上好，$1', '早安，$1'),
@@ -1740,7 +1755,7 @@ new MutationObserver(()=>{clearTimeout(window.__claudeZhDomTimer);window.__claud
         )
         foreach ($override in $gTargetOverrides) { $template = $template.Replace($override[0], $override[1]) }
     }
-    return $template.Replace("__LANGUAGE__", $languageJson).Replace("__MAPPING__", $mappingJson).Replace("__SELECTED_TEXT__", $selectedTextJson).Replace("__DELETE_SELECTED_TEXT__", $deleteSelectedTextJson).Replace("__UPDATED_MINUTE_TEXT__", $updatedMinuteTextJson).Replace("__UPDATED_HOUR_TEXT__", $updatedHourTextJson).Replace("__UPDATED_DAY_TEXT__", $updatedDayTextJson).Replace("__UPDATED_WEEK_TEXT__", $updatedWeekTextJson).Replace("__UPDATED_MONTH_TEXT__", $updatedMonthTextJson).Replace("__UPDATED_YEAR_TEXT__", $updatedYearTextJson).Replace("__AGO_SECOND__", $agoSecondTextJson).Replace("__AGO_MINUTE__", $agoMinuteTextJson).Replace("__AGO_HOUR__", $agoHourTextJson).Replace("__AGO_DAY__", $agoDayTextJson).Replace("__AGO_WEEK__", $agoWeekTextJson).Replace("__ADDED_MINUTE__", $addedMinuteTextJson).Replace("__ADDED_HOUR__", $addedHourTextJson).Replace("__ADDED_DAY__", $addedDayTextJson).Replace("__ADDED_WEEK__", $addedWeekTextJson).Replace("__ADDED_MONTH__", $addedMonthTextJson).Replace("__ADDED_YEAR__", $addedYearTextJson).Replace("__ADDED_MONTH_RULES__", $addedMonthRulesJson).Replace("__LEGACY_MEMORY_MIGRATION_TEXT__", $legacyMemoryMigrationTextJson).Replace("__LEGACY_MEMORY_PREFIX_TEXT__", $legacyMemoryPrefixTextJson).Replace("__PAST_HOUR__", $pastHourTextJson).Replace("__PAST_DAY__", $pastDayTextJson).Replace("__PAST_WEEK__", $pastWeekTextJson).Replace("__PAST_MONTH__", $pastMonthTextJson).Replace("__PAST_YEAR__", $pastYearTextJson).Replace("__HIDE_SIDEBAR__", $hideSidebarShortcutTextJson).Replace("__SHOW_SIDEBAR__", $showSidebarShortcutTextJson).Replace("__DELETE_ITEMS_PERMANENTLY__", $deleteItemsPermanentlyTextJson).Replace("__DELETE_SELECTED_TITLE__", $deleteSelectedTitleJson).Replace("__DELETE_CHAT_TITLE__", $deleteChatTitleJson).Replace("__ORG_INFERENCE_TEXT__", $orgInferenceTextJson)
+    return $template.Replace("__LANGUAGE__", $languageJson).Replace("__MAPPING__", $mappingJson).Replace("__SELECTED_TEXT__", $selectedTextJson).Replace("__DELETE_SELECTED_TEXT__", $deleteSelectedTextJson).Replace("__DELETE_SESSIONS_TEXT__", $deleteSessionsTextJson).Replace("__DELETE_NAMED_SESSION_TEXT__", $deleteNamedSessionTextJson).Replace("__ARCHIVE_SELECTED_TASKS_TEXT__", $archiveSelectedTasksTextJson).Replace("__ARCHIVE_TASKS_MOVED_TEXT__", $archiveTasksMovedTextJson).Replace("__UPDATED_MINUTE_TEXT__", $updatedMinuteTextJson).Replace("__UPDATED_HOUR_TEXT__", $updatedHourTextJson).Replace("__UPDATED_DAY_TEXT__", $updatedDayTextJson).Replace("__UPDATED_WEEK_TEXT__", $updatedWeekTextJson).Replace("__UPDATED_MONTH_TEXT__", $updatedMonthTextJson).Replace("__UPDATED_YEAR_TEXT__", $updatedYearTextJson).Replace("__AGO_SECOND__", $agoSecondTextJson).Replace("__AGO_MINUTE__", $agoMinuteTextJson).Replace("__AGO_HOUR__", $agoHourTextJson).Replace("__AGO_DAY__", $agoDayTextJson).Replace("__AGO_WEEK__", $agoWeekTextJson).Replace("__ADDED_MINUTE__", $addedMinuteTextJson).Replace("__ADDED_HOUR__", $addedHourTextJson).Replace("__ADDED_DAY__", $addedDayTextJson).Replace("__ADDED_WEEK__", $addedWeekTextJson).Replace("__ADDED_MONTH__", $addedMonthTextJson).Replace("__ADDED_YEAR__", $addedYearTextJson).Replace("__ADDED_MONTH_RULES__", $addedMonthRulesJson).Replace("__LEGACY_MEMORY_MIGRATION_TEXT__", $legacyMemoryMigrationTextJson).Replace("__LEGACY_MEMORY_PREFIX_TEXT__", $legacyMemoryPrefixTextJson).Replace("__PAST_HOUR__", $pastHourTextJson).Replace("__PAST_DAY__", $pastDayTextJson).Replace("__PAST_WEEK__", $pastWeekTextJson).Replace("__PAST_MONTH__", $pastMonthTextJson).Replace("__PAST_YEAR__", $pastYearTextJson).Replace("__HIDE_SIDEBAR__", $hideSidebarShortcutTextJson).Replace("__SHOW_SIDEBAR__", $showSidebarShortcutTextJson).Replace("__DELETE_ITEMS_PERMANENTLY__", $deleteItemsPermanentlyTextJson).Replace("__DELETE_SELECTED_TITLE__", $deleteSelectedTitleJson).Replace("__DELETE_CHAT_TITLE__", $deleteChatTitleJson).Replace("__ORG_INFERENCE_TEXT__", $orgInferenceTextJson)
 }
 
 function Remove-ExistingOnlineDomTranslationPatch {

@@ -159,8 +159,8 @@ elif [ -z "${CLAUDE_LANG:-}" ]; then
     echo "请选择要安装的语言："
   fi
   echo "  [1] 简体中文"
-  echo "  [2] 繁体中文（中国台湾）"
-  echo "  [3] 繁体中文（中国香港）"
+  echo "  [2] 繁體中文（台灣）"
+  echo "  [3] 繁體中文（香港）"
   echo
   read -rp "请输入选项 [1/2/3，默认 1]: " choice
   case "${choice:-1}" in

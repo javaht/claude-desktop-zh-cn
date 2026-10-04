@@ -1634,8 +1634,8 @@ function Get-OnlineDomTranslationScript {
     $pastWeekTextJson = $pastWeekText | ConvertTo-Json -Compress
     $pastMonthTextJson = $pastMonthText | ConvertTo-Json -Compress
     $pastYearTextJson = $pastYearText | ConvertTo-Json -Compress
-    $hideSidebarShortcutText = if ($Language -eq "zh-CN") { "隐藏侧边栏 ⌘ B" } else { "隱藏側邊欄 ⌘ B" }
-    $showSidebarShortcutText = if ($Language -eq "zh-CN") { "显示侧边栏 ⌘ B" } else { "顯示側邊欄 ⌘ B" }
+    $hideSidebarShortcutText = if ($Language -eq "zh-CN") { "隐藏侧边栏 Ctrl+B" } else { "隱藏側邊欄 Ctrl+B" }
+    $showSidebarShortcutText = if ($Language -eq "zh-CN") { "显示侧边栏 Ctrl+B" } else { "顯示側邊欄 Ctrl+B" }
     $deleteItemsPermanentlyText = if ($Language -eq "zh-CN") { "`$1 项内容将被永久删除。此操作无法撤消。" } else { "`$1 項內容將被永久刪除。此操作無法復原。" }
     $deleteSelectedTitle = if ($Language -eq "zh-CN") { "删除所选项？" } else { "刪除所選項？" }
     $deleteChatTitle = if ($Language -eq "zh-CN") { "删除聊天？" } else { "刪除聊天？" }
@@ -1732,14 +1732,15 @@ new MutationObserver(()=>{clearTimeout(window.__claudeZhDomTimer);window.__claud
     # 列表按长度降序排列，避免"删除 $1 个聊天"先替换破坏"你确定要删除…"长串匹配。
     if ($Language -ne "zh-CN") {
         $connectTarget = if ($Language -eq "zh-TW") { '連線還需要填寫 $1 個欄位' } else { '連接還需要填寫 $1 個欄位' }
+        $moveProjectTarget = if ($Language -eq "zh-TW") { '將 $1 個聊天移至專案' } else { '將 $1 個聊天移至項目' }
         $gTargetOverrides = @(
             @('你确定要删除 $1 个聊天吗？此操作无法撤消。', '你確定要刪除 $1 個聊天嗎？此操作無法復原。'),
             @('你确定要永久删除这些聊天吗？此操作无法撤消。', '你確定要永久刪除這些聊天嗎？此操作無法復原。'),
             @('你确定要永久删除此聊天吗？此操作无法撤消。', '你確定要永久刪除此聊天嗎？此操作無法復原。'),
-            @('要归档 $1 个任务吗？你可以在“已归档”标签页中找到它。', '要歸檔 $1 個任務嗎？你可以在「已歸檔」標籤頁中找到它。'),
-            @('要归档 $1 个任务吗？你可以在“已归档”标签页中找到它们。', '要歸檔 $1 個任務嗎？你可以在「已歸檔」標籤頁中找到它們。'),
+            @('要归档 $1 个任务吗？你可以在“已归档”标签页中找到它。', '要歸檔 $1 個任務嗎？你可以在「已封存」分頁中找到它。'),
+            @('要归档 $1 个任务吗？你可以在“已归档”标签页中找到它们。', '要歸檔 $1 個任務嗎？你可以在「已封存」分頁中找到它們。'),
             @('连接还需要填写 $1 个字段', $connectTarget),
-            @('将 $1 个聊天移至项目', '將 $1 個聊天移至項目'),
+            @('将 $1 个聊天移至项目', $moveProjectTarget),
             @('还需要填写 $1 个字段', '還需要填寫 $1 個欄位'),
             @('删除 $1 个聊天', '刪除 $1 個聊天'),
             @('早上好，$1', '早安，$1'),

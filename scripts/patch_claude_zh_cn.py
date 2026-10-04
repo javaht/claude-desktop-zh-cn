@@ -590,6 +590,7 @@ def build_online_dom_translation_script(lang_code: str, mapping: dict[str, str])
         ensure_ascii=False,
         separators=(",", ":"),
     )
+    mod_key = "⌘ " if sys.platform == "darwin" else "Ctrl+"
     if lang_code == "zh-CN":
         selected_text = "已选择 $1 项"
         delete_selected_text = "删除 $1 个所选项目"
@@ -622,8 +623,8 @@ def build_online_dom_translation_script(lang_code: str, mapping: dict[str, str])
         past_week_text = "过去 $1 周"
         past_month_text = "过去 $1 个月"
         past_year_text = "过去 $1 年"
-        hide_sidebar_shortcut_text = "隐藏侧边栏 ⌘ B"
-        show_sidebar_shortcut_text = "显示侧边栏 ⌘ B"
+        hide_sidebar_shortcut_text = f"隐藏侧边栏 {mod_key}B"
+        show_sidebar_shortcut_text = f"显示侧边栏 {mod_key}B"
         delete_items_permanently_text = "$1 项内容将被永久删除。此操作无法撤消。"
         delete_selected_title = "删除所选项？"
         delete_chat_title = "删除聊天？"
@@ -660,8 +661,8 @@ def build_online_dom_translation_script(lang_code: str, mapping: dict[str, str])
         past_week_text = "過去 $1 週"
         past_month_text = "過去 $1 個月"
         past_year_text = "過去 $1 年"
-        hide_sidebar_shortcut_text = "隱藏側邊欄 ⌘ B"
-        show_sidebar_shortcut_text = "顯示側邊欄 ⌘ B"
+        hide_sidebar_shortcut_text = f"隱藏側邊欄 {mod_key}B"
+        show_sidebar_shortcut_text = f"顯示側邊欄 {mod_key}B"
         delete_items_permanently_text = "$1 項內容將被永久刪除。此操作無法復原。"
         delete_selected_title = "刪除所選項？"
         delete_chat_title = "刪除聊天？"
@@ -819,10 +820,10 @@ def build_online_dom_translation_script(lang_code: str, mapping: dict[str, str])
             ("你确定要删除 $1 个聊天吗？此操作无法撤消。", "你確定要刪除 $1 個聊天嗎？此操作無法復原。"),
             ("你确定要永久删除这些聊天吗？此操作无法撤消。", "你確定要永久刪除這些聊天嗎？此操作無法復原。"),
             ("你确定要永久删除此聊天吗？此操作无法撤消。", "你確定要永久刪除此聊天嗎？此操作無法復原。"),
-            ("要归档 $1 个任务吗？你可以在“已归档”标签页中找到它。", "要歸檔 $1 個任務嗎？你可以在「已歸檔」標籤頁中找到它。"),
-            ("要归档 $1 个任务吗？你可以在“已归档”标签页中找到它们。", "要歸檔 $1 個任務嗎？你可以在「已歸檔」標籤頁中找到它們。"),
+            ("要归档 $1 个任务吗？你可以在“已归档”标签页中找到它。", "要歸檔 $1 個任務嗎？你可以在「已封存」分頁中找到它。"),
+            ("要归档 $1 个任务吗？你可以在“已归档”标签页中找到它们。", "要歸檔 $1 個任務嗎？你可以在「已封存」分頁中找到它們。"),
             ("连接还需要填写 $1 个字段", "連線還需要填寫 $1 個欄位" if lang_code == "zh-TW" else "連接還需要填寫 $1 個欄位"),
-            ("将 $1 个聊天移至项目", "將 $1 個聊天移至項目"),
+            ("将 $1 个聊天移至项目", "將 $1 個聊天移至專案" if lang_code == "zh-TW" else "將 $1 個聊天移至項目"),
             ("删除 $1 个会话？", "刪除 $1 個工作階段？"),
             ("还需要填写 $1 个字段", "還需要填寫 $1 個欄位"),
             ("删除 $1 个聊天", "刪除 $1 個聊天"),

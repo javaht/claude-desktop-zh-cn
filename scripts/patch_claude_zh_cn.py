@@ -758,7 +758,7 @@ def build_online_dom_translation_script(lang_code: str, mapping: dict[str, str])
         f'[/^Show sidebar\\s*(?:⌘|Ctrl\\+?)\\s*B$/i,"{show_sidebar_shortcut_text}"],'
         f'{dynamic_rules}];'
         'const R=s=>{const n=N(s);if(M[n])return M[n];for(const [r,t] of G){const m=n.match(r);'
-        'if(m)return t.replace("$1",m[1])}};'
+        'if(m)return t.replace(/\\$(\\d)/g,(_,i)=>m[i]||"")}};'
         'const X=new Set(["SCRIPT","STYLE","NOSCRIPT"]),C="pre,code,kbd,samp,var,[data-language],[data-testid*=code-block],[data-testid*=code-cell],[data-testid*=code-snippet],.cm-editor,.monaco-editor,.hljs",P=\'[data-testid="user-message"],.standard-markdown,.progressive-markdown,[data-testid="chat-input"],[data-testid="conway-composer-input"],[data-testid="conway-user-message"] .user-bubble,[data-testid="conway-output-cell"]\';'
         'const SL=/^\\/?[a-z][a-z0-9_]*(?:-[a-z0-9_]+)+(?:\\s*(?:Custom command|Slash command))?$/i;'
         # Stop climbing once an ancestor's text has whitespace it did not match on: an

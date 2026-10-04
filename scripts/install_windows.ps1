@@ -1493,7 +1493,7 @@ function Get-OnlineTranslationMap {
     Write-Host "  loading online DOM translation sources" -ForegroundColor DarkGray
     $en = Get-Content $enPath -Raw -Encoding UTF8 | ConvertFrom-Json
     $zh = Get-Content $Pack["Frontend"] -Raw -Encoding UTF8 | ConvertFrom-Json
-    $mapping = [ordered]@{}
+    $mapping = New-Object System.Collections.Specialized.OrderedDictionary ([System.StringComparer]::Ordinal)
 
     Write-Host "  collecting frontend i18n DOM strings" -ForegroundColor DarkGray
     foreach ($property in $en.PSObject.Properties) {
@@ -1700,7 +1700,7 @@ __ADDED_MONTH_RULES__,
 [/^Past (\d+) months?$/,PMO],
 [/^Past (\d+) years?$/,PY]
 ];
-const R=s=>{const n=N(s);if(M[n])return M[n];for(const [r,t] of G){const m=n.match(r);if(m)return t.replace("$1",m[1])}};
+const R=s=>{const n=N(s);if(M[n])return M[n];for(const [r,t] of G){const m=n.match(r);if(m)return t.replace(/\$(\d)/g,(_,i)=>m[i]||"")}};
 const X=new Set(["SCRIPT","STYLE","NOSCRIPT"]),C="pre,code,kbd,samp,var,[data-language],[data-testid*=code-block],[data-testid*=code-cell],[data-testid*=code-snippet],.cm-editor,.monaco-editor,.hljs",P='[data-testid="user-message"],.standard-markdown,.progressive-markdown,[data-testid="chat-input"],[data-testid="conway-composer-input"],[data-testid="conway-user-message"] .user-bubble,[data-testid="conway-output-cell"]';
 const SL=/^\/?[a-z][a-z0-9_]*(?:-[a-z0-9_]+)+(?:\s*(?:Custom command|Slash command))?$/i;
 function K(n){let e=n.nodeType===1?n:n.parentElement;for(let i=0;e&&i<5;e=e.parentElement,i++){const t=N(e.textContent);if(SL.test(t))return true;if(/\s/.test(t))break}return false}
@@ -2478,7 +2478,7 @@ function Get-MainProcessMenuRoleReplacementPairs {
 function Convert-PairsToHashtable {
     param([object[]]$Pairs)
 
-    $map = [ordered]@{}
+    $map = New-Object System.Collections.Specialized.OrderedDictionary ([System.StringComparer]::Ordinal)
     foreach ($pair in $Pairs) {
         $map[$pair[0]] = $pair[1]
     }

@@ -186,7 +186,7 @@ def patch_language_display_names(app: Path) -> None:
         raise SystemExit(f"Cannot find frontend index bundle in {assets_dir}")
 
     marker = "__claudeZhLabelPatch"
-    patch = ';(()=>{const e=Intl.DisplayNames&&Intl.DisplayNames.prototype;if(!e||e.__claudeZhLabelPatch)return;const n=e.of;e.of=function(e){const t=String(e);return t==="zh-CN"?"简体中文":t==="zh-HK"?"繁体中文（中国香港）":t==="zh-TW"?"繁体中文（中国台湾）":n.call(this,e)},Object.defineProperty(e,"__claudeZhLabelPatch",{value:!0})})();'
+    patch = ';(()=>{const e=Intl.DisplayNames&&Intl.DisplayNames.prototype;if(!e||e.__claudeZhLabelPatch)return;const n=e.of;e.of=function(e){const t=String(e);return t==="zh-CN"?"简体中文":t==="zh-HK"?"繁體中文（香港）":t==="zh-TW"?"繁體中文（台灣）":n.call(this,e)},Object.defineProperty(e,"__claudeZhLabelPatch",{value:!0})})();'
     for path in candidates:
         text = path.read_text(encoding="utf-8")
         if marker in text:
@@ -728,7 +728,7 @@ def build_online_dom_translation_script(lang_code: str, mapping: dict[str, str])
         f'[/^Past (\\d+) months?$/,"{past_month_text}"],'
         f'[/^Past (\\d+) years?$/,"{past_year_text}"]'
     ))
-    return (
+    script = (
         "(()=>{try{"
         # This runs on every dom-ready, which fires again on navigation and SPA
         # reloads. Without a guard each pass leaves another MutationObserver
@@ -811,6 +811,30 @@ def build_online_dom_translation_script(lang_code: str, mapping: dict[str, str])
         ".observe(document.documentElement,{subtree:true,childList:true,characterData:true,attributes:true});"
         "}catch(e){}})()"
     )
+    # zh-CN 之外的安装：G 规则内联目标是简体（仅 zh-CN 词库形态），替换为对应繁体。
+    # 用词以人工语料为准（撤銷 152:5、欄位、週一 9:0、早安/午安；TW/HK 差异仅 連線/連接）。
+    # 列表按长度降序排列，避免"删除 $1 个聊天"先替换破坏"你确定要删除…"长串匹配。
+    if lang_code != "zh-CN":
+        overrides = [
+            ("你确定要删除 $1 个聊天吗？此操作无法撤消。", "你確定要刪除 $1 個聊天嗎？此操作無法復原。"),
+            ("你确定要永久删除这些聊天吗？此操作无法撤消。", "你確定要永久刪除這些聊天嗎？此操作無法復原。"),
+            ("你确定要永久删除此聊天吗？此操作无法撤消。", "你確定要永久刪除此聊天嗎？此操作無法復原。"),
+            ("要归档 $1 个任务吗？你可以在“已归档”标签页中找到它。", "要歸檔 $1 個任務嗎？你可以在“已歸檔”標籤頁中找到它。"),
+            ("要归档 $1 个任务吗？你可以在“已归档”标签页中找到它们。", "要歸檔 $1 個任務嗎？你可以在“已歸檔”標籤頁中找到它們。"),
+            ("连接还需要填写 $1 个字段", "連線還需要填寫 $1 個欄位" if lang_code == "zh-TW" else "連接還需要填寫 $1 個欄位"),
+            ("将 $1 个聊天移至项目", "將 $1 個聊天移至項目"),
+            ("删除 $1 个会话？", "刪除 $1 個會話？"),
+            ("还需要填写 $1 个字段", "還需要填寫 $1 個欄位"),
+            ("删除 $1 个聊天", "刪除 $1 個聊天"),
+            ("早上好，$1", "早安，$1"),
+            ("下午好，$1", "午安，$1"),
+            ("晚上好，$1", "晚安，$1"),
+            ("周一", "週一"), ("周二", "週二"), ("周三", "週三"), ("周四", "週四"),
+            ("周五", "週五"), ("周六", "週六"), ("周日", "週日"),
+        ]
+        for old, new in overrides:
+            script = script.replace(old, new)
+    return script
 
 
 def build_online_locale_main_process_script(

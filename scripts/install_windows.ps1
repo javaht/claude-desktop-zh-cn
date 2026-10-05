@@ -1403,11 +1403,16 @@ function Test-StructuralJsLiteralContext {
         [int]$LiteralStart
     )
 
+    # Protects not only the direct KEY:"X" form but also the minified shapes that
+    # pass icon/enum names as values: destructure defaults (icon:i="Add"), ternary
+    # branches (icon:d?"Check":"Copy", icon:f?"Add":void 0, icon:e.length===0?"A":"B",
+    # nested chains) and nullish coalescing (icon:f??"Add"). Translating those
+    # strings breaks the icon-name lookup and renders empty button glyphs (#193).
     $prefixStart = [Math]::Max(0, $LiteralStart - 96)
     $prefix = $Text.Substring($prefixStart, $LiteralStart - $prefixStart)
     return [System.Text.RegularExpressions.Regex]::IsMatch(
         $prefix,
-        '(?<![A-Za-z0-9_$-])(?:as|component|displayName|glyph|icon|iconName|leadingIcon|name|role|trailingIcon|type)\s*[:=]\s*$'
+        '(?<![A-Za-z0-9_$-])(?:as|component|displayName|glyph|[\w$-]*[Ii]con(?:Name)?|name|role|type)\s*[:=]\s*(?:(?:(?:(?:[^?:"''`,;{}]|"[^"]{0,60}"|''[^'']{0,60}''|`[^`]{0,60}`){1,120}?)\?\??\s*(?:"[^"]{0,80}"|''[^'']{0,80}''|`[^`]{0,80}`)\s*:\s*)*)(?:(?:(?:[^?:"''`,;{}]|"[^"]{0,60}"|''[^'']{0,60}''|`[^`]{0,60}`){1,120}?)(?:\?\??)?\s*)?(?:=\s*)?$'
     )
 }
 
@@ -2261,7 +2266,7 @@ namespace ClaudeZhPatch
     public static class FrontendPatcher
     {
         static readonly Regex StructuralContextRe = new Regex(
-            "(?<![A-Za-z0-9_$-])(?:as|component|displayName|glyph|icon|iconName|leadingIcon|name|role|trailingIcon|type)\\s*[:=]\\s*$");
+            "(?<![A-Za-z0-9_$-])(?:as|component|displayName|glyph|[\\w$-]*[Ii]con(?:Name)?|name|role|type)\\s*[:=]\\s*(?:(?:(?:(?:[^?:\\\"'`,;{}]|\\\"[^\\\"]{0,60}\\\"|'[^']{0,60}'|`[^`]{0,60}`){1,120}?)\\?\\??\\s*(?:\\\"[^\\\"]{0,80}\\\"|'[^']{0,80}'|`[^`]{0,80}`)\\s*:\\s*)*)(?:(?:(?:[^?:\\\"'`,;{}]|\\\"[^\\\"]{0,60}\\\"|'[^']{0,60}'|`[^`]{0,60}`){1,120}?)(?:\\?\\??)?\\s*)?(?:=\\s*)?$");
 
         static bool IsStructuralJsLiteralContext(string text, int literalStart)
         {

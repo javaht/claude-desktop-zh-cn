@@ -54,10 +54,31 @@ STRUCTURAL_JS_IDENTIFIER_RE = re.compile(r"[a-z][A-Za-z0-9_]*")
 STRUCTURAL_JS_LITERAL_REPLACEMENTS = {
     '"Search"',
 }
+# 结构上下文保护：除 KEY:"X" 直接形式外，还需覆盖压缩代码里同样把值当图标名/枚举名
+# 使用的写法（缺一不可，否则字符串被译成中文后按名查图标表失败，按钮渲染成空白方块）：
+#   icon:i="Add"            解构默认值
+#   icon:f?"Add":void 0     三元第一分支（条件可含 ===、void 0 等，如 icon:t===void 0?）
+#   icon:d?"Check":"Copy"   三元第二分支（允许嵌套链 icon:a?"B":c?"Check":"Copy"）
+#   icon:e.length===0?"A":"B"  复杂条件
+# 键名用 [\w$-]*[Ii]con(?:Name)? 覆盖 Icon、primaryActionCompactIcon、openIcon、
+# triggerIcon 等大小写与复合形态。条件原子排除 ? : , ; { } 与引号（引号仅允许成对的
+# 短字符串），避免吞掉后续属性导致紧跟其后的 title:"X" 等正常文案被误保护。
+_STRUCTURAL_COND = (
+    r"(?:(?:[^?:\"'`,;{}]|\"[^\"]{0,60}\"|'[^']{0,60}'|`[^`]{0,60}`){1,120}?)"
+)
+_STRUCTURAL_QUOTED = r"(?:\"[^\"]{0,80}\"|'[^']{0,80}'|`[^`]{0,80}`)"
 STRUCTURAL_JS_LITERAL_CONTEXT_RE = re.compile(
     r"(?<![A-Za-z0-9_$-])"
-    r"(?:as|component|displayName|glyph|icon|iconName|leadingIcon|name|role|trailingIcon|type)"
-    r"\s*[:=]\s*$"
+    r"(?:as|component|displayName|glyph|[\w$-]*[Ii]con(?:Name)?|name|role|type)"
+    r"\s*[:=]\s*"
+    r"(?:(?:"
+    + _STRUCTURAL_COND
+    + r"\?\??\s*"
+    + _STRUCTURAL_QUOTED
+    + r"\s*:\s*)*)"
+    r"(?:"
+    + _STRUCTURAL_COND
+    + r"(?:\?\??)?\s*)?(?:=\s*)?$"
 )
 
 

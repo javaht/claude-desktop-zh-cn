@@ -511,7 +511,7 @@ def resolve_claude_install(
                 "powershell.exe",
                 "-NoProfile",
                 "-Command",
-                "(Get-AppxPackage -Name Claude | Select-Object -First 1).InstallLocation",
+                "(Get-AppxPackage | Where-Object { $_.Name -like '*Claude*' } | Select-Object -First 1).InstallLocation",
             ],
             check=False,
             capture_output=True,

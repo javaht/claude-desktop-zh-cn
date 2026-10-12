@@ -333,12 +333,16 @@ function Write-AsarCoworkSignatureWarning {
     Write-Host ""
 }
 
-function Find-ClaudePath {
-    # 商店版包名可能调整（issue #194：2.19675.0 起改名），按名称/发布者模糊匹配，
-    # 误报由调用方对 resources 目录的校验兜底。
-    $packages = @(Get-AppxPackage -ErrorAction SilentlyContinue | Where-Object {
+function Get-ClaudeAppxPackages {
+    # 商店版包名可能调整（issue #194：2.19675.0 起由 Claude 改名为 AnthropicPBC.Claude），
+    # 按名称/发布者模糊匹配，误报由调用方对 resources 目录的校验兜底。
+    return @(Get-AppxPackage -ErrorAction SilentlyContinue | Where-Object {
             ($_.Name -like "*Claude*") -or ($_.Publisher -like "*Anthropic*")
         })
+}
+
+function Find-ClaudePath {
+    $packages = @(Get-ClaudeAppxPackages)
     foreach ($package in $packages) {
         if ($package.InstallLocation -and (Test-Path $package.InstallLocation)) {
             return $package.InstallLocation
@@ -491,7 +495,7 @@ function Get-ClaudeConfigPaths {
     }
 
     $packageNames = @()
-    $packages = @(Get-AppxPackage -Name "Claude" -ErrorAction SilentlyContinue)
+    $packages = @(Get-ClaudeAppxPackages)
     foreach ($package in $packages) {
         if ($package.PackageFamilyName) {
             $packageNames += $package.PackageFamilyName
@@ -500,7 +504,7 @@ function Get-ClaudeConfigPaths {
 
     if ($packageNames.Count -eq 0) {
         $packageRoot = Join-Path $env:LOCALAPPDATA "Packages"
-        $packageDirs = @(Get-ChildItem (Join-Path $packageRoot "Claude_*") -Directory -ErrorAction SilentlyContinue |
+        $packageDirs = @(Get-ChildItem (Join-Path $packageRoot "*Claude_*") -Directory -ErrorAction SilentlyContinue |
             Sort-Object LastWriteTime -Descending)
         foreach ($packageDir in $packageDirs) {
             $packageNames += $packageDir.Name
@@ -3331,7 +3335,7 @@ function Get-ThirdPartyConfigLibraryPaths {
 
     foreach ($localAppData in @($localAppDataRoots | Select-Object -Unique)) {
         $packageRoot = Join-Path $localAppData "Packages"
-        $packageDirs = @(Get-ChildItem (Join-Path $packageRoot "Claude_*") -Directory -ErrorAction SilentlyContinue |
+        $packageDirs = @(Get-ChildItem (Join-Path $packageRoot "*Claude_*") -Directory -ErrorAction SilentlyContinue |
             Sort-Object LastWriteTime -Descending)
         foreach ($packageDir in $packageDirs) {
             $paths += Join-Path $packageDir.FullName "LocalCache\Roaming\Claude-3p\configLibrary"
@@ -3542,7 +3546,7 @@ function Get-ClaudeAppUserModelId {
         try {
             $data = [System.IO.File]::ReadAllBytes($ShortcutPath)
             $text = [System.Text.Encoding]::Unicode.GetString($data)
-            $match = [regex]::Match($text, 'Claude_[A-Za-z0-9]+![A-Za-z0-9]+')
+            $match = [regex]::Match($text, '(?:[A-Za-z0-9]+\.)*Claude_[A-Za-z0-9]+![A-Za-z0-9]+')
             if ($match.Success) {
                 return $match.Value
             }
@@ -3552,7 +3556,7 @@ function Get-ClaudeAppUserModelId {
 
     # 回退：从 AppX 包推导 PackageFamilyName + AppId
     try {
-        $package = Get-AppxPackage -Name "Claude" -ErrorAction SilentlyContinue
+        $package = Get-ClaudeAppxPackages | Select-Object -First 1
         if ($package) {
             $manifest = Join-Path $package.InstallLocation "AppxManifest.xml"
             $appId = "Claude"
@@ -4304,7 +4308,7 @@ function Restart-Claude {
     # (直接启动 exe 会被更新器误判为 Squirrel 解包安装而报 "Can not find Squirrel",
     #  Cowork 客户端校验也只能靠签名回退)
     try {
-        $app = Get-StartApps -ErrorAction Stop | Where-Object { $_.AppID -like "Claude_*!*" } | Select-Object -First 1
+        $app = Get-StartApps -ErrorAction Stop | Where-Object { $_.AppID -like "*Claude_*!*" } | Select-Object -First 1
         if ($app -and $app.AppID) {
             Start-Process -FilePath "explorer.exe" -ArgumentList "shell:AppsFolder\$($app.AppID)"
             Write-Host "  已通过 AppX 激活重启 Claude Desktop ($($app.AppID))" -ForegroundColor Green

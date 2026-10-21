@@ -1,0 +1,43 @@
+name: 回归测试
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    name: 回归测试 (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Python 与菜单交互测试
+        run: python -I -m unittest discover -s tests -v
+      - name: Windows PowerShell 5.1 与 C# 测试
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          ./tests/Test-StructuralReplacements.ps1
+          ./tests/Test-SlashCommandMenu.ps1
+      - name: PowerShell 7 跨平台测试
+        if: runner.os == 'Linux'
+        shell: pwsh
+        run: |
+          ./tests/Test-StructuralReplacements.ps1
+          ./tests/Test-SlashCommandMenu.ps1
+      - name: 差异空白检查
+        run: git diff --check HEAD^ HEAD

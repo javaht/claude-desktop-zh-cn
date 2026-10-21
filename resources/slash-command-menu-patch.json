@@ -1,0 +1,7 @@
+{
+  "marker": "/*__claudeZhSlashGloss_v1__*/",
+  "module_pattern": "export\\s*\\{[^}]*\\bas\\s+SlashCommandMenuPopupBody\\b",
+  "anchor_pattern": "children:\\s*([A-Za-z_$][A-Za-z0-9_$]*)\\(\\s*([A-Za-z_$][A-Za-z0-9_$]*)\\s*,\\s*\\{\\s*text:\\s*([A-Za-z_$][A-Za-z0-9_$]*)\\.label\\s*,\\s*query:\\s*([A-Za-z_$][A-Za-z0-9_$]*)\\s*,\\s*highlightClassName:\\s*\"font-semibold\"\\s*\\}\\s*\\)",
+  "replacement": "children:[__ORIGINAL__,__ITEM__.type===\"skill\"&&__ITEM__.anthropicDefined===!0&&__claudeZhSlashGloss(__ITEM__.label)?__JSX__(\"span\",{className:\"ms-2 text-muted-as-secondary\",children:__claudeZhSlashGloss(__ITEM__.label)}):null]",
+  "suffix": ";const __claudeZhSlashLabels=__LABELS__;function __claudeZhSlashGloss(name){return typeof name===\"string\"&&Object.prototype.hasOwnProperty.call(__claudeZhSlashLabels,name)?__claudeZhSlashLabels[name]:\"\"}\n"
+}

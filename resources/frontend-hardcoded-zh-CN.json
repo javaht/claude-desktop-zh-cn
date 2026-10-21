@@ -752,10 +752,6 @@
     "已归档"
   ],
   [
-    "All",
-    "全部"
-  ],
-  [
     "Untitled",
     "未命名"
   ],
@@ -1702,10 +1698,6 @@
   [
     "Select tasks",
     "选择任务"
-  ],
-  [
-    "Motion",
-    "动态效果"
   ],
   [
     "Reduced",
@@ -2754,14 +2746,6 @@
   [
     "The view sessions open in. Picking a view from a session's Transcript view menu changes only that session.",
     "会话打开时的视图。从会话的“对话记录视图”菜单中选择视图仅会更改该会话。"
-  ],
-  [
-    "Thinking",
-    "思考"
-  ],
-  [
-    "Verbose",
-    "详细"
   ],
   [
     "Mobile simulators",

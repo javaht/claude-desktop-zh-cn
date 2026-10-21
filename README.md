@@ -41,6 +41,7 @@ macOS 双击 `install-mac.command`；Windows 双击 `install-windows.bat` 后按
 - 支持三种中文变体：`zh-CN`（简体中文）、`zh-TW`（繁體中文（台灣））、`zh-HK`（繁體中文（香港））。
 - 自动给 Claude 前端语言白名单加入当前选择的中文变体。
 - macOS 和 Windows 只汉化第三方 API 模式的本地界面：Claude 官方账号登录页面已原生支持中文，这两个平台的脚本不再改动它。
+- macOS 和 Windows 的本地斜杠菜单支持“英文命令名 + 中文说明”，兼容三种中文变体；命令 ID、搜索与点击行为保持不变。
 - macOS 和 Linux 会合并当前 Claude 版本的英文语言文件与随包中文翻译；新版本新增但暂未翻译的字段保留英文，避免界面缺失文本。
 - Windows 安装脚本会备份并修改当前 Claude Desktop 的资源文件，卸载时从备份恢复；不改写 `app.asar` 或 `Claude.exe` 完整性哈希，应用签名保持有效，Cowork 沙箱不受影响。
 - Linux 安装脚本会备份并修改 deb 包安装目录下的资源文件和 `app.asar`，卸载时从备份恢复；Claude Desktop 升级后会识别版本变化并重新备份。
@@ -135,6 +136,34 @@ git pull
 - `resources/Localizable.strings` / `Localizable-zh-TW.strings` / `Localizable-zh-HK.strings`：macOS 原生菜单中文资源。
 - `resources/statsig-zh-CN.json` / `statsig-zh-TW.json` / `statsig-zh-HK.json`：statsig i18n 兜底资源。
 - `resources/release.json`：安装入口用于检查 GitHub Releases 是否有新版的版本信息。
+
+## 斜杠菜单双语说明
+
+macOS / Windows 安装时，会尝试给本地 `SlashCommandMenuPopupBody` 中的已知内置命令追加中文说明，例如 `model  选择模型`、`permissions  权限模式`。原英文名称与搜索高亮保留，点击后仍执行原命令；自定义技能、第三方插件命令、连接器和未知命令不强行翻译。
+
+- `resources/slash-command-glosses.json`：简体、繁体台湾、繁体香港的说明词表。
+- `resources/slash-command-menu-patch.json`：两平台共用的组件匹配规则、唯一锚点和显示层补丁。匹配局部变量而不是固定 bundle 文件名。
+- 重复安装不重复追加；直接切换语言时只更新说明词表。Windows 在写入前沿用现有原文件备份机制，macOS 沿用整包备份和重签流程。
+- 若组件缺失、锚点不唯一或已有补丁形态不符，会输出 `WARNING` 并保持该菜单文件不变，其他汉化步骤继续。应用升级后可能需要更新匹配规则，语法匹配不代表兼容所有未来版本。
+- 此功能不注入在线账号页面，也未接入 Linux 的独立安装脚本。
+
+## 开发与回归测试
+
+测试只使用合成菜单和临时目录，不启动或修改已安装的 Claude，不需要管理员权限。运行需要 Python 3.10+、Node.js，以及用于检查 Windows 逻辑的 PowerShell 5.1 或 PowerShell 7：
+
+```bash
+python -I -m unittest discover -s tests -v
+```
+
+```bash
+powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-StructuralReplacements.ps1
+```
+
+```bash
+powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-SlashCommandMenu.ps1
+```
+
+PowerShell 7 环境可将 `powershell` 替换为 `pwsh`。测试覆盖高风险词跳过、三地 i18n、Windows 真实 C# 快速路径与备用路径、菜单点击/高亮、语言切换、幂等、备份顺序和不兼容组件的安全跳过。合成测试不能替代完整客户端的视觉验收。
 
 ## macOS 脚本会做什么
 

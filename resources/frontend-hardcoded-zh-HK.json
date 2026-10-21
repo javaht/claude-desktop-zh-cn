@@ -232,10 +232,6 @@
     "已歸檔"
   ],
   [
-    "All",
-    "全部"
-  ],
-  [
     "Untitled",
     "未命名"
   ],
@@ -1174,10 +1170,6 @@
   [
     "Select tasks",
     "選取任務"
-  ],
-  [
-    "Motion",
-    "動態效果"
   ],
   [
     "Reduced",
@@ -2142,14 +2134,6 @@
   [
     "The view sessions open in. Picking a view from a session's Transcript view menu changes only that session.",
     "工作階段開啟時的檢視模式。從工作階段的「對話記錄檢視」選單中選擇檢視模式只會變更該工作階段。"
-  ],
-  [
-    "Thinking",
-    "思考"
-  ],
-  [
-    "Verbose",
-    "詳細"
   ],
   [
     "Mobile simulators",

@@ -1183,8 +1183,12 @@ function Test-StructuralJsReplacement {
         '"Default"', 'Default',
         '"Arguments"', 'Arguments',
         '"Normal"', 'Normal',
+        '"All"', 'All',
         '"Application"', 'Application',
-        '"Medium"', 'Medium'
+        '"Medium"', 'Medium',
+        '"Motion"', 'Motion',
+        '"Thinking"', 'Thinking',
+        '"Verbose"', 'Verbose'
     )
     return ($Source -cmatch '^[a-z][A-Za-z0-9_]*$') -or ($structuralLiterals -contains $Source)
 }
@@ -1479,6 +1483,127 @@ function Patch-HardcodedFrontendStrings {
 
 
 
+
+function Get-SlashCommandGlossConfig {
+    param([string]$Language)
+
+    $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
+    $resources = Join-Path (Split-Path -Parent $scriptDir) 'resources'
+    $profile = Get-Content -LiteralPath (Join-Path $resources 'slash-command-menu-patch.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+    $catalogs = Get-Content -LiteralPath (Join-Path $resources 'slash-command-glosses.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+    $languageProperty = $catalogs.PSObject.Properties[$Language]
+    if ($null -eq $languageProperty) { throw "Unsupported slash command gloss language: $Language" }
+    $labels = $languageProperty.Value
+    if (@($labels.PSObject.Properties).Count -eq 0) { throw 'Empty slash command gloss catalog' }
+    foreach ($property in $labels.PSObject.Properties) {
+        if ($property.Name -cnotmatch '^[a-z][a-z0-9-]*$' -or $property.Value -isnot [string] -or -not $property.Value.Trim()) {
+            throw 'Invalid slash command gloss catalog'
+        }
+    }
+    return @{ Profile = $profile; Labels = $labels }
+}
+
+function Get-SlashGlossReplacement {
+    param($Match, $Profile, [switch]$Patched)
+
+    $original = $Match.Value.Substring($Match.Value.IndexOf(':') + 1).TrimStart()
+    if ($Patched) { $original = $original.Substring(1) }
+    $values = @{ '__ORIGINAL__' = $original; '__ITEM__' = $Match.Groups[3].Value; '__JSX__' = $Match.Groups[1].Value }
+    return [regex]::Replace($Profile.replacement, '__ORIGINAL__|__ITEM__|__JSX__', { param($token) $values[$token.Value] })
+}
+
+function Convert-SlashCommandMenuText {
+    param([string]$Text, $Profile, $Labels)
+
+    if (-not [regex]::IsMatch($Text, $Profile.module_pattern)) {
+        throw 'SlashCommandMenuPopupBody export not found'
+    }
+    $keys = [string[]]@($Labels.PSObject.Properties.Name)
+    [array]::Sort($keys, [StringComparer]::Ordinal)
+    $orderedLabels = [ordered]@{}
+    foreach ($key in $keys) { $orderedLabels[$key] = $Labels.PSObject.Properties[$key].Value }
+    $encoded = ConvertTo-Json -InputObject $orderedLabels -Compress -Depth 3
+    $encoded = $encoded.Replace([string][char]0x2028, ([string][char]92 + 'u2028')).Replace([string][char]0x2029, ([string][char]92 + 'u2029'))
+    $marker = [string]$Profile.marker
+    $suffix = "`n" + $marker + $Profile.suffix.Replace('__LABELS__', $encoded)
+    if ($Text.Contains($marker)) {
+        $separator = "`n" + $marker
+        if (([regex]::Matches($Text, [regex]::Escape($marker))).Count -ne 1 -or -not $Text.Contains($separator)) {
+            throw 'Ambiguous slash command gloss marker'
+        }
+        $index = $Text.IndexOf($separator, [StringComparison]::Ordinal)
+        $body = $Text.Substring(0, $index)
+        $tail = $Text.Substring($index + $separator.Length)
+        $parts = $Profile.suffix -split '__LABELS__', 2
+        $left = $parts[0]
+        $right = $parts[1]
+        if (-not $tail.StartsWith($left, [StringComparison]::Ordinal) -or -not $tail.EndsWith($right, [StringComparison]::Ordinal)) {
+            throw 'Unrecognized existing slash command helper'
+        }
+        $previous = $tail.Substring($left.Length, $tail.Length - $left.Length - $right.Length) | ConvertFrom-Json
+        $pattern = $Profile.anchor_pattern.Replace('children:', 'children:\[')
+        $anchors = [regex]::Matches($body, $pattern)
+        if ($anchors.Count -ne 1) { throw 'Existing slash menu row is missing or ambiguous' }
+        $replacement = Get-SlashGlossReplacement $anchors[0] $Profile -Patched
+        $start = $anchors[0].Index
+        if ($body.Length -lt $start + $replacement.Length -or $body.Substring($start, $replacement.Length) -cne $replacement) {
+            throw 'Existing slash menu row does not match the patch'
+        }
+        $same = @($previous.PSObject.Properties).Count -eq $keys.Count
+        foreach ($key in $keys) {
+            $property = $previous.PSObject.Properties[$key]
+            if ($null -eq $property -or $property.Name -cne $key -or $property.Value -cne $orderedLabels[$key]) { $same = $false }
+        }
+        if ($same) { return @{ Text = $Text; Status = 'already' } }
+        return @{ Text = $body + $suffix; Status = 'updated' }
+    }
+    if ($Text.Contains('__claudeZhSlashGloss') -or $Text.Contains('__claudeZhSlashLabels')) {
+        throw 'Slash command helper name already exists'
+    }
+    $anchors = [regex]::Matches($Text, $Profile.anchor_pattern)
+    if ($anchors.Count -ne 1) { throw 'Expected exactly one slash menu label anchor' }
+    $anchor = $anchors[0]
+    if (-not [regex]::IsMatch($Text, [regex]::Escape($anchor.Groups[3].Value) + '\.type\s*===\s*"skill"')) {
+        throw 'Slash menu skill row not found'
+    }
+    $replacement = Get-SlashGlossReplacement $anchor $Profile
+    $updated = $Text.Substring(0, $anchor.Index) + $replacement + $Text.Substring($anchor.Index + $anchor.Length)
+    return @{ Text = $updated + $suffix; Status = 'updated' }
+}
+
+function Patch-SlashCommandMenu {
+    param([string]$ResourcesPath, [string]$Language)
+
+    $assetsDir = Resolve-FrontendAssetsDir $ResourcesPath
+    if (-not $assetsDir) {
+        Write-Host '  [WARNING] Slash command gloss skipped: frontend assets not found' -ForegroundColor DarkYellow
+        return
+    }
+    $config = Get-SlashCommandGlossConfig $Language
+    $candidates = @(
+        foreach ($file in (Get-ChildItem (Join-Path $assetsDir '*.js') -File)) {
+            $text = [IO.File]::ReadAllText($file.FullName, [Text.Encoding]::UTF8)
+            if ([regex]::IsMatch($text, $config.Profile.module_pattern)) { @{ File = $file; Text = $text } }
+        }
+    )
+    if ($candidates.Count -ne 1) {
+        Write-Host '  [WARNING] Slash command gloss skipped: expected one menu component' -ForegroundColor DarkYellow
+        return
+    }
+    $candidate = $candidates[0]
+    try { $result = Convert-SlashCommandMenuText $candidate.Text $config.Profile $config.Labels }
+    catch {
+        Write-Host "  [WARNING] Slash command gloss skipped: $($_.Exception.Message)" -ForegroundColor DarkYellow
+        return
+    }
+    if ($result.Status -eq 'already') {
+        Write-Host "  slash command gloss already installed: $($candidate.File.Name)" -ForegroundColor DarkGray
+        return
+    }
+    Backup-ModifiedFile $ResourcesPath $candidate.File.FullName
+    [IO.File]::WriteAllText($candidate.File.FullName, $result.Text, $Utf8NoBom)
+    Write-Host "  patched bilingual slash command menu (${Language}): $($candidate.File.Name)" -ForegroundColor Green
+}
 
 function Set-ClaudeLocale {
     param([string]$Locale)
@@ -2589,6 +2714,7 @@ function Install-WindowsLanguagePack {
 
         Write-Step "[6/7] 汉化硬编码界面文本"
         Patch-HardcodedFrontendStrings $resourcesPath $LanguageCode
+        Patch-SlashCommandMenu $resourcesPath $LanguageCode
         Patch-LanguageDisplayNames $resourcesPath
 
         Write-Step "[7/7] 写入用户语言配置"

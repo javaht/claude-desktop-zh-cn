@@ -78,10 +78,18 @@ STRUCTURAL_JS_LITERAL_REPLACEMENTS = {
     "Arguments",
     '"Normal"',
     "Normal",
+    '"All"',
+    "All",
     '"Application"',
     "Application",
     '"Medium"',
     "Medium",
+    '"Motion"',
+    "Motion",
+    '"Thinking"',
+    "Thinking",
+    '"Verbose"',
+    "Verbose",
 }
 # 结构上下文保护：除 KEY:"X" 直接形式外，还需覆盖压缩代码里同样把值当图标名/枚举名
 # 使用的写法（缺一不可，否则字符串被译成中文后按名查图标表失败，按钮渲染成空白方块）：
@@ -481,6 +489,99 @@ def patch_hardcoded_frontend_strings(app: Path, lang_code: str) -> None:
         "Patched hardcoded frontend strings: "
         f"{patched_strings} replacements in {patched_files} files ({elapsed_since(start)})"
     )
+
+
+def load_slash_command_gloss_config(lang_code: str) -> tuple[dict[str, Any], dict[str, str]]:
+    profile = load_json(RESOURCES / "slash-command-menu-patch.json")
+    labels = load_json(RESOURCES / "slash-command-glosses.json")[lang_code]
+    if not isinstance(labels, dict) or not labels or any(
+        not re.fullmatch(r"[a-z][a-z0-9-]*", key)
+        or not isinstance(value, str) or not value.strip()
+        for key, value in labels.items()
+    ):
+        raise ValueError("Invalid slash command gloss catalog")
+    return profile, labels
+
+
+def _slash_gloss_replacement(match: re.Match[str], profile: dict[str, Any], patched: bool = False) -> str:
+    original = match.group(0).split(":", 1)[1].lstrip()
+    if patched:
+        original = original[1:]
+    values = {"__ORIGINAL__": original, "__ITEM__": match.group(3), "__JSX__": match.group(1)}
+    return re.sub(r"__ORIGINAL__|__ITEM__|__JSX__", lambda token: values[token.group(0)], profile["replacement"])
+
+
+def replace_slash_command_menu_text(
+    text: str, profile: dict[str, Any], labels: dict[str, str]
+) -> tuple[str, str]:
+    """只修改真实菜单行的显示层，不修改 label、命令 ID、搜索和点击回调。"""
+    if not re.search(profile["module_pattern"], text):
+        raise ValueError("SlashCommandMenuPopupBody export not found")
+    marker = profile["marker"]
+    encoded = json.dumps(labels, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    encoded = encoded.replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
+    suffix = "\n" + marker + profile["suffix"].replace("__LABELS__", encoded)
+    if marker in text:
+        if text.count(marker) != 1 or "\n" + marker not in text:
+            raise ValueError("Ambiguous slash command gloss marker")
+        body, tail = text.split("\n" + marker, 1)
+        left, right = profile["suffix"].split("__LABELS__", 1)
+        if not tail.startswith(left) or not tail.endswith(right):
+            raise ValueError("Unrecognized existing slash command helper")
+        try:
+            previous_labels = json.loads(tail[len(left):len(tail) - len(right)])
+        except json.JSONDecodeError as exc:
+            raise ValueError("Invalid existing slash command catalog") from exc
+        pattern = profile["anchor_pattern"].replace("children:", r"children:\[", 1)
+        matches = list(re.finditer(pattern, body))
+        if len(matches) != 1:
+            raise ValueError("Existing slash menu row is missing or ambiguous")
+        replacement = _slash_gloss_replacement(matches[0], profile, patched=True)
+        start = matches[0].start()
+        if body[start:start + len(replacement)] != replacement:
+            raise ValueError("Existing slash menu row does not match the patch")
+        if previous_labels == labels:
+            return text, "already"
+        return body + suffix, "updated"
+
+    if "__claudeZhSlashGloss" in text or "__claudeZhSlashLabels" in text:
+        raise ValueError("Slash command helper name already exists")
+    matches = list(re.finditer(profile["anchor_pattern"], text))
+    if len(matches) != 1:
+        raise ValueError("Expected exactly one slash menu label anchor")
+    match = matches[0]
+    if not re.search(re.escape(match.group(3)) + r'\.type\s*===\s*"skill"', text):
+        raise ValueError("Slash menu skill row not found")
+    updated = text[:match.start()] + _slash_gloss_replacement(match, profile) + text[match.end():]
+    return updated + suffix, "updated"
+
+
+def patch_slash_command_menu(app: Path, lang_code: str) -> int:
+    assets_dir = find_frontend_assets_dir(app)
+    if assets_dir is None:
+        log("WARNING: Slash command gloss skipped: frontend assets not found")
+        return 0
+    profile, labels = load_slash_command_gloss_config(lang_code)
+    candidates = []
+    for path in sorted(assets_dir.glob("*.js")):
+        text = path.read_text(encoding="utf-8")
+        if re.search(profile["module_pattern"], text):
+            candidates.append((path, text))
+    if len(candidates) != 1:
+        log("WARNING: Slash command gloss skipped: expected one menu component")
+        return 0
+    path, text = candidates[0]
+    try:
+        updated, status = replace_slash_command_menu_text(text, profile, labels)
+    except ValueError as exc:
+        log(f"WARNING: Slash command gloss skipped: {exc}")
+        return 0
+    if status == "already":
+        log(f"Slash command gloss already installed: {path.name}")
+        return 0
+    path.write_text(updated, encoding="utf-8")
+    log(f"Patched bilingual slash command menu ({lang_code}): {path.name}")
+    return 1
 
 
 def align4(value: int) -> int:
@@ -1568,6 +1669,7 @@ def main() -> int:
     copy_app(args.app, patched_app)
     patch_language_whitelist(patched_app, lang_code)
     patch_hardcoded_frontend_strings(patched_app, lang_code)
+    patch_slash_command_menu(patched_app, lang_code)
     patch_language_display_names(patched_app)
     merge_frontend_locale(patched_app, lang_code)
     install_desktop_locale(patched_app, lang_code)

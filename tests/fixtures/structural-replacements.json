@@ -1,0 +1,22 @@
+[
+  {"name":"add alias default", "source":"Add", "text":"h=c===void 0?\"Add\":c", "expected":"h=c===void 0?\"Add\":c"},
+  {"name":"add nullish", "source":"Add", "text":"Y=h??\"Add\"", "expected":"Y=h??\"Add\""},
+  {"name":"copy ternary", "source":"Copy", "text":"h=l?\"Check\":\"Copy\"", "expected":"h=l?\"Check\":\"Copy\""},
+  {"name":"tasks ternary", "source":"Tasks", "text":"k=x?\"Tasks\":\"Notification\"", "expected":"k=x?\"Tasks\":\"Notification\""},
+  {"name":"icon animation array", "source":"Tasks", "text":"uo=[\"Code\",\"Tasks\",\"Tool\"]", "expected":"uo=[\"Code\",\"Tasks\",\"Tool\"]"},
+  {"name":"icon map", "source":"Settings", "text":"var icons={task:\"Tasks\",app:\"Settings\"}", "expected":"var icons={task:\"Tasks\",app:\"Settings\"}"},
+  {"name":"modifier map", "source":"Command", "text":"var keys={cmd:\"Command\",meta:\"Command\"}", "expected":"var keys={cmd:\"Command\",meta:\"Command\"}"},
+  {"name":"motion event suffix", "source":"Cancel", "text":"t?\"End\":\"Cancel\"", "expected":"t?\"End\":\"Cancel\""},
+  {"name":"all enum reverse mapping", "source":"All", "text":"e[e.All=0]=\"All\"", "expected":"e[e.All=0]=\"All\""},
+  {"name":"verbose enum reverse mapping", "source":"Verbose", "text":"e[e.Verbose=3]=\"Verbose\"", "expected":"e[e.Verbose=3]=\"Verbose\""},
+  {"name":"accessibility type", "source":"Application", "text":"t===\"Application\"||t===\"Window\"", "expected":"t===\"Application\"||t===\"Window\""},
+  {"name":"priority switch", "source":"Medium", "text":"switch(e){case\"Medium\":return null}", "expected":"switch(e){case\"Medium\":return null}"},
+  {"name":"product feature name", "source":"Motion", "text":"if(t===\"Motion\"&&!a)return hold", "expected":"if(t===\"Motion\"&&!a)return hold"},
+  {"name":"streaming status", "source":"Thinking", "text":"statusText===\"Thinking\"", "expected":"statusText===\"Thinking\""},
+  {"name":"structural lowercase", "source":"tokens", "text":"var metric=\"tokens\"", "expected":"var metric=\"tokens\""},
+  {"name":"unknown icon name", "source":"ExampleIcon", "text":"{name:\"ExampleIcon\"}", "expected":"{name:\"ExampleIcon\"}"},
+  {"name":"ordinary label", "source":"Capabilities", "text":"{label:\"Capabilities\"}", "expected":"{label:\"测试译文\"}"},
+  {"name":"ordinary multiword title", "source":"Get started", "text":"{title:\"Get started\"}", "expected":"{title:\"测试译文\"}"},
+  {"name":"single quoted visible text", "source":"Get started", "text":"children:'Get started'", "expected":"children:'测试译文'"},
+  {"name":"template literal visible text", "source":"Get started", "text":"children:`Get started`", "expected":"children:`测试译文`"}
+]

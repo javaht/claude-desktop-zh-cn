@@ -2727,7 +2727,7 @@ function Install-WindowsLanguagePack {
     catch {
         Write-Host ""
         Write-Host "安装过程中出现错误，Claude Desktop 可能处于不完整状态。" -ForegroundColor Red
-        Write-Host "  建议运行卸载命令恢复原始状态：install-windows.bat → 选择卸载。" -ForegroundColor DarkYellow
+        Write-Host "  建议用 PowerShell 7 重新运行项目根目录的 install-windows.ps1 → 选择卸载。" -ForegroundColor DarkYellow
         Write-Host "  详细日志: $script:InstallLogPath" -ForegroundColor DarkGray
         if ($script:DetectedMultipleClaudeInstalls) {
             Write-MultipleClaudeFailureHint

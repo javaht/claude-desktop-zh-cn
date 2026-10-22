@@ -624,7 +624,7 @@
         <article class="feature">
           <span class="fno">01</span>
           <h3>一键安装，三平台通吃</h3>
-          <p>macOS 双击 <code>install-mac.command</code>，Windows 右键以管理员身份运行 <code>install-windows.bat</code>，Linux 在终端运行 <code>./install-linux.sh</code>，跟着菜单走完即可，不用手动改文件。</p>
+          <p>macOS 双击 <code>install-mac.command</code>，Windows 安装 PowerShell 7 后运行 <code>pwsh -NoProfile -File .\install-windows.ps1</code>，Linux 在终端运行 <code>./install-linux.sh</code>，跟着菜单走完即可，不用手动改文件。</p>
         </article>
         <article class="feature">
           <span class="fno">02</span>
@@ -713,11 +713,11 @@
         <article class="os-card" data-reveal style="--delay:80ms">
           <div class="os-head">
             <span class="os-glyph" aria-hidden="true">⊞</span>
-            <div><b>Windows</b><span>install-windows.bat</span></div>
+            <div><b>Windows</b><span>install-windows.ps1（PowerShell 7）</span></div>
           </div>
           <ol class="steps">
             <li>退出 Claude Desktop。</li>
-            <li>右键 <code>install-windows.bat</code>，选择以管理员身份运行。</li>
+            <li>安装 PowerShell 7，在项目目录运行 <code>pwsh -NoProfile -File .\install-windows.ps1</code>；也可以双击兼容入口 <code>install-windows.bat</code>。</li>
             <li>按菜单提示选择操作，再选语言（简体 / 繁體（台灣） / 繁體（香港））。</li>
             <li>脚本自动备份资源、写入中文并重启 Claude。</li>
           </ol>

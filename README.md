@@ -2,7 +2,7 @@
 
 一个用于 Claude Desktop 的本地中文界面补丁，支持简体中文、繁體中文（台灣）和繁體中文（香港）。
 
-macOS 双击 `install-mac.command`；Windows 双击 `install-windows.bat` 后按 UAC 提示授权；Linux（deb 包安装）在终端运行 `./install-linux.sh`。脚本会给 Claude Desktop 添加中文语言选项并安装中文界面资源。
+macOS 双击 `install-mac.command`；Windows 使用 PowerShell 7 运行 `pwsh -NoProfile -File .\install-windows.ps1` 后按 UAC 提示授权（也保留 `install-windows.bat` 兼容入口）；Linux（deb 包安装）在终端运行 `./install-linux.sh`。脚本会给 Claude Desktop 添加中文语言选项并安装中文界面资源。
 
 本项目支持官方账号和第三方 API，但不同安装模式覆盖的界面与 Cowork 兼容性不同，请先阅读下方的模式说明。第三方 API 配置可参考 [这篇教程](https://linux.do/t/topic/2032192)。
 
@@ -53,7 +53,7 @@ macOS 双击 `install-mac.command`；Windows 双击 `install-windows.bat` 后按
 - macOS、Windows 或 Linux（deb 包安装）
 - 已安装 Claude Desktop
 - macOS 需要可用的 Python 3；脚本优先使用 `/usr/bin/python3`，不存在时从 `PATH` 查找 `python3`
-- Windows 需要系统自带的 Windows PowerShell（`powershell.exe`）；批处理入口会自动请求管理员权限
+- Windows 需要 [PowerShell 7 或更高版本](https://learn.microsoft.com/powershell/scripting/install/installing-powershell-on-windows)（`pwsh.exe`）；推荐安装 Windows Terminal，未安装也能运行。启动器不会自动安装依赖或修改执行策略
 - Linux 需要 Python 3 和 `sudo` 权限，且为官方 deb 包安装的 Claude Desktop（资源目录 `/usr/lib/claude-desktop/resources`，可用环境变量 `CLAUDE_RESOURCES` 覆盖）
 
 ## 使用方式
@@ -85,7 +85,11 @@ CC Switch skills 同步会扫描 `~/.cc-switch/skills` 下包含 `SKILL.md` 的�
 
 1. 退出 Claude Desktop。
 2. 下载或克隆本项目。
-3. 双击 `install-windows.bat`；脚本会复制安装文件到当前用户的临时目录，并弹出 UAC 管理员授权窗口。
+3. 在项目目录的终端中运行 `pwsh -NoProfile -File .\install-windows.ps1`。根目录的 `install-windows.ps1` 是主入口；也可以双击兼容入口 `install-windows.bat`，它只负责检查 PowerShell 7 并转交主入口。
+   - 安装器会将 `scripts`、`resources` 等文件暂存到当前用户本地临时目录的独立子目录，再请求 UAC 管理员授权；原用户的 SID、用户目录、AppData 和 LocalAppData 会传给提权后的安装器。
+   - 检测到 Windows Terminal 时，优先在新的 Terminal 管理员窗口中运行 PowerShell 7；没有 Terminal 或 Terminal 无法启动时，直接打开 PowerShell 7 管理员窗口。
+   - 取消 UAC 会停止启动并显示取消提示，不会再弹一次备用提权窗口。缺少 PowerShell 7 时，批处理入口只显示官方安装说明，不会静默安装；请安装后重新打开终端，并确保 `pwsh.exe` 可在 PATH 中找到。
+   - 如果系统执行策略阻止脚本，请按组织的管理要求处理；启动器不会自动降低执行策略。启动日志位于本次暂存目录的 `install-windows-launch.log`，安装过程日志为 `install-windows.log`。
 4. 先选择操作：
    - `1` 安装中文补丁（第三方 API 模式，例如 DeepSeek）：安装中文资源、注册中文语言并汉化前端 bundle。**不改动** `app.asar` / `Claude.exe` 完整性哈希，因此应用签名与 Cowork 沙箱都不受影响。第三方模型需在网关或 CC Switch 中映射为 Claude/Anthropic 风格名称。
    - `2` 恢复原样 / 卸载补丁。
@@ -123,7 +127,8 @@ git pull
 ## 文件说明
 
 - `install-mac.command`：macOS 双击运行入口。
-- `install-windows.bat`：Windows 安装 / 恢复菜单入口。
+- `install-windows.ps1`：Windows PowerShell 7 安装 / 恢复菜单主入口，优先使用 Windows Terminal。
+- `install-windows.bat`：检查 PowerShell 7 并转交主入口的兼容包装。
 - `install-linux.sh`：Linux（deb 包）安装 / 恢复菜单入口。
 - `scripts/install_windows.ps1`：Windows 汉化安装和卸载脚本。
 - `scripts/install_linux.sh`：Linux（deb 包）汉化安装和卸载脚本；`install-linux.sh` 的菜单会调用它，也可直接带参数调用。

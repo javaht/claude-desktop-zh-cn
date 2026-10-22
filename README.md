@@ -163,6 +163,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-StructuralReplace
 powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-SlashCommandMenu.ps1
 ```
 
+```bash
+powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-WindowsTrayIcons.ps1
+```
+
+托盘图标测试在 Windows 临时目录中验证明暗两套资源、首次备份、重复安装、卸载还原、失败回滚，以及各尺寸图标的橙底白色像素；不会修改真实应用或任务栏。
+
 PowerShell 7 环境可将 `powershell` 替换为 `pwsh`。测试覆盖高风险词跳过、三地 i18n、Windows 真实 C# 快速路径与备用路径、菜单点击/高亮、语言切换、幂等、备份顺序和不兼容组件的安全跳过。合成测试不能替代完整客户端的视觉验收。
 
 ## macOS 脚本会做什么
@@ -197,7 +203,8 @@ PowerShell 7 环境可将 `powershell` 替换为 `pwsh`。测试覆盖高风险�
 - 写入 Windows 用户配置，将语言设置为所选语言代码（`zh-CN`、`zh-TW` 或 `zh-HK`）。
 - 可选菜单项 `3` 用 `y/n` 控制 Claude Desktop 自动更新：`y` 禁止自动更新，`n` 允许自动更新。若当前存在有效的 Claude-3p `configLibrary`，脚本会写入当前 applied 配置；否则写入 `HKCU\SOFTWARE\Policies\Claude` policy。
 - 可选菜单项 `4` 用 `y/n` 控制 CC Switch skills 同步：`y` 会把 `%USERPROFILE%\.cc-switch\skills` 中缺失的 skill 以软链接加入 Claude Desktop 的本地 skills 目录，并把 `SKILL.md` frontmatter 里的 `name` 和 `description` 写入对应 `manifest.json`；`n` 只删除之前同步产生、且指向 CC Switch skills 目录内的软链接和对应 manifest 记录。脚本会从当前用户的 AppData 动态扫描 Claude-3p skills plugin，不写死 session UUID，不覆盖同名 skill，也不删除 CC Switch 源目录。
-- 重启 Claude Desktop。
+- 将 Windows 通知区域的托盘图标替换为橙色圆角底、白色星标，明暗主题保持一致，避免单色黑图标在深色任务栏上看不清。素材 `resources/claude-tray-windows.ico` 来自官方 Windows 包 Claude 3.1623.1.0 的 `assets/Square44x44Logo.targetsize-256.png`，含 16–256 像素共九档 32 位 DIB 图像，保留圆角透明边缘。仅替换已知的 `Tray-Win32.ico` / `Tray-Win32-Dark.ico`，沿用资源备份；卸载时还原原图标。不修改桌面快捷方式、任务栏固定项、EXE 或 ASAR 来实现此功能。
+- 重启 Claude Desktop 后生效；运行中的应用会缓存托盘图像，仅覆盖文件不会立即刷新。
 
 ## Linux 脚本会做什么
 

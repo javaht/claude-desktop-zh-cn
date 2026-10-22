@@ -648,6 +648,77 @@ function Restore-LatestBackup {
     }
 }
 
+function Assert-WindowsIconBytes {
+    param([byte[]]$Bytes, [string]$Path)
+
+    if ($bytes.Length -lt 6 -or [BitConverter]::ToUInt16($bytes, 0) -ne 0 -or
+        [BitConverter]::ToUInt16($bytes, 2) -ne 1) {
+        throw "无效的 Windows 托盘 ICO: $path"
+    }
+    $count = [BitConverter]::ToUInt16($bytes, 4)
+    $headerSize = 6 + 16 * $count
+    if ($count -eq 0 -or $bytes.Length -lt $headerSize) { throw "不完整的 Windows 托盘 ICO: $path" }
+    for ($i = 0; $i -lt $count; $i++) {
+        $length = [BitConverter]::ToUInt32($bytes, 6 + 16 * $i + 8)
+        $offset = [BitConverter]::ToUInt32($bytes, 6 + 16 * $i + 12)
+        if ($length -eq 0 -or $offset -lt $headerSize -or ([long]$offset + $length) -gt $bytes.Length) {
+            throw "Windows 托盘 ICO 图像越界: $path"
+        }
+    }
+}
+
+function Get-WindowsTrayIconBytes {
+    $path = Join-Path (Split-Path -Parent $PSScriptRoot) 'resources\claude-tray-windows.ico'
+    $bytes = [IO.File]::ReadAllBytes($path)
+    Assert-WindowsIconBytes $bytes $path
+    return ,$bytes
+}
+
+function Install-WindowsTrayIcons {
+    param([string]$ResourcesPath, [byte[]]$IconBytes)
+
+    Assert-WindowsIconBytes $IconBytes 'claude-tray-windows.ico'
+    $targets = @('Tray-Win32.ico', 'Tray-Win32-Dark.ico' | ForEach-Object { Join-Path $ResourcesPath $_ })
+    foreach ($target in $targets) {
+        if (-not (Test-Path -LiteralPath $target -PathType Leaf)) {
+            Write-Host "  [警告] 未找到已知 Windows 托盘资源，跳过图标替换: $target" -ForegroundColor Yellow
+            return $false
+        }
+    }
+    $originals = @{}
+    $changed = @()
+    $replacement = [Convert]::ToBase64String($IconBytes)
+    foreach ($target in $targets) {
+        $originals[$target] = [IO.File]::ReadAllBytes($target)
+        if ([Convert]::ToBase64String($originals[$target]) -cne $replacement) { $changed += $target }
+    }
+    if ($changed.Count -eq 0) { return $false }
+
+    # 两份原图均完成备份后才写入，卸载时由通用资源恢复流程还原。
+    foreach ($target in $targets) {
+        Backup-ModifiedFile $ResourcesPath $target
+        $backup = Join-Path (New-BackupSet $ResourcesPath) (Split-Path -Leaf $target)
+        if (-not (Test-Path -LiteralPath $backup -PathType Leaf)) { throw "托盘图标备份失败: $target" }
+        Assert-WindowsIconBytes ([IO.File]::ReadAllBytes($backup)) $backup
+    }
+    $attempted = @()
+    try {
+        foreach ($target in $changed) {
+            $attempted += $target
+            [IO.File]::WriteAllBytes($target, $IconBytes)
+        }
+    } catch {
+        foreach ($target in $attempted) {
+            if ([Convert]::ToBase64String([IO.File]::ReadAllBytes($target)) -cne [Convert]::ToBase64String($originals[$target])) {
+                [IO.File]::WriteAllBytes($target, $originals[$target])
+            }
+        }
+        throw
+    }
+    Write-Host "  已替换 Windows 明暗主题托盘图标：橙底白色星标" -ForegroundColor Green
+    return $true
+}
+
 function Get-LanguageResources {
     param([string]$Lang)
 
@@ -2678,6 +2749,7 @@ function Install-WindowsLanguagePack {
     try {
         Write-Step "[1/7] 检查语言资源"
         $pack = Get-LanguageResources $LanguageCode
+        $trayIconBytes = Get-WindowsTrayIconBytes
 
         Write-Step "关闭 Claude Desktop"
         Stop-ClaudeProcesses
@@ -2702,6 +2774,7 @@ function Install-WindowsLanguagePack {
 
         Write-Step "[4/7] 写入 $label 资源"
         Install-LanguageFiles $resourcesPath $pack $LanguageCode
+        [void](Install-WindowsTrayIcons $resourcesPath $trayIconBytes)
 
         Write-Step "[5/7] 注册中文语言"
         Register-Language $resourcesPath $LanguageCode

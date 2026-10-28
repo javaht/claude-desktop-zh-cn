@@ -43,7 +43,7 @@ macOS 双击 `install-mac.command`；Windows 双击 `install-windows.bat` 后按
 - macOS 和 Windows 只汉化第三方 API 模式的本地界面：Claude 官方账号登录页面已原生支持中文，这两个平台的脚本不再改动它。
 - macOS 和 Windows 的本地斜杠菜单支持“英文命令名 + 中文说明”，兼容三种中文变体；命令 ID、搜索与点击行为保持不变。
 - macOS 和 Linux 会合并当前 Claude 版本的英文语言文件与随包中文翻译；新版本新增但暂未翻译的字段保留英文，避免界面缺失文本。
-- Windows 安装脚本会备份并修改当前 Claude Desktop 的资源文件，卸载时从备份恢复；不改写 `app.asar` 或 `Claude.exe` 完整性哈希，应用签名保持有效，Cowork 沙箱不受影响。
+- Windows 安装脚本会备份并修改当前 Claude Desktop 的资源文件，卸载时从备份恢复；不改写 `app.asar`。Claude `4.29+` 的前端改为 `ion-dist.asar` 后，脚本会解包、重打包并同步 `Claude.exe` 中对应的 ASAR 头哈希，原有 Authenticode 签名会因此失效。
 - Linux 安装脚本会备份并修改 deb 包安装目录下的资源文件和 `app.asar`，卸载时从备份恢复；Claude Desktop 升级后会识别版本变化并重新备份。
 - macOS 安装前自动备份原始 `/Applications/Claude.app`。
 - 自动写入 Claude 用户配置，将语言设置为所选中文变体。
@@ -87,13 +87,13 @@ CC Switch skills 同步会扫描 `~/.cc-switch/skills` 下包含 `SKILL.md` 的�
 2. 下载或克隆本项目。
 3. 双击 `install-windows.bat`；脚本会复制安装文件到当前用户的临时目录，并弹出 UAC 管理员授权窗口。
 4. 先选择操作：
-   - `1` 安装中文补丁（第三方 API 模式，例如 DeepSeek）：安装中文资源、注册中文语言并汉化前端 bundle。**不改动** `app.asar` / `Claude.exe` 完整性哈希，因此应用签名与 Cowork 沙箱都不受影响。第三方模型需在网关或 CC Switch 中映射为 Claude/Anthropic 风格名称。
+   - `1` 安装中文补丁（第三方 API 模式，例如 DeepSeek）：安装中文资源、注册中文语言并汉化前端 bundle。脚本**不改动** `app.asar`；Claude `4.29+` 会重建 `ion-dist.asar` 并更新 `Claude.exe` 中对应的完整性哈希，原有 Authenticode 签名会失效。第三方模型需在网关或 CC Switch 中映射为 Claude/Anthropic 风格名称。
    - `2` 恢复原样 / 卸载补丁。
    - `3` 自动更新设置：输入 `y` 禁止自动更新，输入 `n` 允许自动更新。
    - `4` CC Switch skills 同步：输入 `y` 开启同步，输入 `n` 删除之前的同步。
 5. 选择安装中文补丁时，脚本会先尝试从旧备份恢复来清理已有汉化；如果没有旧备份，会提示跳过并继续。
 6. 选择语言：`1`=简体中文，`2`=繁體中文（台灣），`3`=繁體中文（香港）。
-7. 脚本会备份被修改的文件、写入中文资源并重启 Claude Desktop。如果没有自动切换，打开左下角账号菜单，选择 `Language` -> 对应的中文选项。
+7. 脚本会备份被修改的文件、写入中文资源并重启 Claude Desktop。Claude `4.29+` 的 `ion-dist.asar` 会先解包到临时目录，完成汉化后再重打包并更新 `Claude.exe` 内的 ASAR 头哈希。如果没有自动切换，打开左下角账号菜单，选择 `Language` -> 对应的中文选项。
 
 商店版（Microsoft Store / MSIX）与官网安装包都受支持。安装器会自动识别 `Claude`、`AnthropicPBC.Claude` 等包名变化，也会跳过升级残留的旧 `app-*` 目录。
 
@@ -163,7 +163,19 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-StructuralReplace
 powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-SlashCommandMenu.ps1
 ```
 
+```bash
+powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-AsarFrontend.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-AsarIntegrity.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-AsarFrontendWorkflow.ps1
+```
+
 PowerShell 7 环境可将 `powershell` 替换为 `pwsh`。测试覆盖高风险词跳过、三地 i18n、Windows 真实 C# 快速路径与备用路径、菜单点击/高亮、语言切换、幂等、备份顺序和不兼容组件的安全跳过。合成测试不能替代完整客户端的视觉验收。
+
+如需对已安装 Claude 的实际 `ion-dist.asar` 做逐文件无损往返验证，可传入包路径：
+
+```bash
+powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-AsarRoundTrip.ps1 -ArchivePath "C:\Program Files\WindowsApps\Claude_4.29.0.0_x64__pzs8sxrjxfjjc\app\resources\ion-dist.asar"
+```
 
 ## macOS 脚本会做什么
 
@@ -193,7 +205,8 @@ PowerShell 7 环境可将 `powershell` 替换为 `pwsh`。测试覆盖高风险�
   - `resources/statsig-zh-CN.json` / `statsig-zh-TW.json` / `statsig-zh-HK.json` -> `ion-dist\i18n\statsig\` 对应语言代码 `.json`
 - 给前端语言白名单加入当前选择的中文变体。
 - 汉化前端 bundle 中未走 i18n JSON 的硬编码界面文本，例如侧边栏入口、配置页标签和模型选择项。
-- 不修改 `app.asar`：不改写其内容，也不改写 `Claude.exe` 内嵌完整性哈希，因此 `Claude.exe` 的 Authenticode 签名保持有效，Cowork 沙箱/工作区不受影响。
+- 不修改 `app.asar`。Claude `4.29+` 的新版前端位于 `ion-dist.asar`，安装器会先备份原包，再解包到临时 `ion-dist` 目录执行汉化；完成后按 ASAR 格式重打包、校验结构并替换原文件。
+- 重建 `ion-dist.asar` 后，安装器会同步 `Claude.exe` 内嵌的 `app.asar` 与 `ion-dist.asar` 头哈希。此时 `Claude.exe` 的原始 Authenticode 签名会失效；卸载时从备份恢复并重新同步官方哈希。
 - 写入 Windows 用户配置，将语言设置为所选语言代码（`zh-CN`、`zh-TW` 或 `zh-HK`）。
 - 可选菜单项 `3` 用 `y/n` 控制 Claude Desktop 自动更新：`y` 禁止自动更新，`n` 允许自动更新。若当前存在有效的 Claude-3p `configLibrary`，脚本会写入当前 applied 配置；否则写入 `HKCU\SOFTWARE\Policies\Claude` policy。
 - 可选菜单项 `4` 用 `y/n` 控制 CC Switch skills 同步：`y` 会把 `%USERPROFILE%\.cc-switch\skills` 中缺失的 skill 以软链接加入 Claude Desktop 的本地 skills 目录，并把 `SKILL.md` frontmatter 里的 `name` 和 `description` 写入对应 `manifest.json`；`n` 只删除之前同步产生、且指向 CC Switch skills 目录内的软链接和对应 manifest 记录。脚本会从当前用户的 AppData 动态扫描 Claude-3p skills plugin，不写死 session UUID，不覆盖同名 skill，也不删除 CC Switch 源目录。
@@ -220,7 +233,7 @@ PowerShell 7 环境可将 `powershell` 替换为 `pwsh`。测试覆盖高风险�
 
 - Claude Desktop 更新可能覆盖补丁。建议先恢复补丁，再更新 Claude Desktop，最后使用本项目最新版本重新安装。
 - Linux 仅支持官方 deb 包安装（`/usr/lib/claude-desktop`）；AppImage、Flatpak、Snap 等安装方式的目录结构不同，暂不支持。Linux 脚本不做重签名，暂不包含前端 bundle 硬编码文本汉化、主进程菜单汉化和第三方网关模型名校验绕过。
-- macOS 和 Windows 不再改写 `app.asar`，因此不涉及在线账号页面的 DOM 汉化；这部分已由 Claude 官方原生提供中文。Linux 脚本仍保留原有的 `app.asar` 补丁行为。
+- macOS 和 Windows 不再改写 `app.asar`，因此不涉及在线账号页面的 DOM 汉化；这部分已由 Claude 官方原生提供中文。Windows `4.29+` 只重建第三方模式所用前端所在的 `ion-dist.asar`。Linux 脚本仍保留原有的 `app.asar` 补丁行为。
 
 ## Star History
 

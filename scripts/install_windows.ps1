@@ -1,6 +1,7 @@
 ﻿# 本汉化包只处理第三方 API 模式。Claude 官方已原生支持简体/繁体中文界面，
-# 在线账号模式的中文化交给官方实现，这里不再改写 app.asar，也不再改动
-# Claude.exe 的完整性哈希（否则会破坏 Authenticode 签名并牵连 Cowork）。
+# 在线账号模式的中文化交给官方实现。Windows 不修改 app.asar；Claude 4.29+
+# 将前端放进 ion-dist.asar 时，必须重建该包并同步 Claude.exe 内嵌的 ASAR
+# 头哈希，因此这种新布局下 Claude.exe 的 Authenticode 签名会失效。
 param(
     [switch]$Interactive,
 
@@ -30,6 +31,7 @@ $script:DetectedMultipleClaudeInstalls = $false
 $script:InstallLogPath = $null
 $script:InstallTranscriptStarted = $false
 $script:PreInstallCleanupDone = $false
+$script:SkipFrontendFileBackups = $false
 
 if ($OriginalUserSid) { $env:CLAUDE_ZH_ORIGINAL_USER_SID = $OriginalUserSid }
 if ($OriginalUserProfile) { $env:CLAUDE_ZH_ORIGINAL_USER_PROFILE = $OriginalUserProfile }
@@ -122,7 +124,7 @@ Test-GitHubReleaseUpdate
 function Read-InteractiveSelection {
     Write-Host "=== Claude Desktop Windows 中文补丁 ==="
     Write-Host ""
-    Write-Host "[1] 安装中文补丁（第三方 API 模式，例如 DeepSeek；不会改动 app.asar / Claude.exe 签名）"
+    Write-Host "[1] 安装中文补丁（第三方 API 模式，例如 DeepSeek；不会改动 app.asar）"
     Write-Host "    官方账号登录界面已由 Claude 原生提供中文，无需本补丁。"
     Write-Host "[2] 恢复原样 / 卸载补丁"
     Write-Host "[3] 自动更新设置（y=禁止自动更新，n=允许自动更新）"
@@ -380,7 +382,7 @@ function Get-ClaudeResourcesPath {
             $rejectedHints += "  跳过 ${candidatePath}（缺少 resources 目录）"
             continue
         }
-        if (-not (Resolve-FrontendAssetsDir $candidateResources)) {
+        if (-not (Test-FrontendBundleAvailable $candidateResources)) {
             $rejectedHints += "  跳过 ${candidatePath}（前端 JS bundle 缺失，版本 $(Get-ClaudeExeProductVersion $candidatePath)，疑似残留旧版本目录）"
             continue
         }
@@ -422,8 +424,8 @@ function Get-ClaudeResourcesPath {
     if (-not (Test-Path $resourcesPath)) {
         throw "未找到 Claude resources 目录: $(Join-Path $claudePath 'app\resources')"
     }
-    if (-not (Resolve-FrontendAssetsDir $resourcesPath)) {
-        throw "未找到前端 JS bundle: $resourcesPath\ion-dist。Claude 前端目录结构可能已变化，请带上安装日志反馈。"
+    if (-not (Test-FrontendBundleAvailable $resourcesPath)) {
+        throw "未找到可用的前端资源: $resourcesPath\ion-dist 或 $resourcesPath\ion-dist.asar。Claude 前端目录结构可能已变化，请带上安装日志反馈。"
     }
 
     Write-Host "  Claude 版本: $(Get-ClaudeExeProductVersion $claudePath)" -ForegroundColor DarkGray
@@ -481,10 +483,16 @@ function Grant-WriteAccess {
     try {
         $acl = Get-Acl $Path
         $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+        $inheritance = if (Test-Path -LiteralPath $Path -PathType Container) {
+            "ContainerInherit,ObjectInherit"
+        }
+        else {
+            "None"
+        }
         $rule = [System.Security.AccessControl.FileSystemAccessRule]::new(
             $identity,
             "FullControl",
-            "ContainerInherit,ObjectInherit",
+            $inheritance,
             "None",
             "Allow"
         )
@@ -571,6 +579,9 @@ function Backup-ModifiedFile {
 
     $backupSet = New-BackupSet $ResourcesPath
     $relative = Get-RelativeResourcePath $ResourcesPath $FilePath
+    if ($script:SkipFrontendFileBackups -and ($relative -eq "ion-dist" -or $relative.StartsWith("ion-dist\", [System.StringComparison]::OrdinalIgnoreCase))) {
+        return
+    }
     $target = Join-Path $backupSet $relative
     if (Test-Path $target) {
         return
@@ -674,6 +685,7 @@ function Enable-WriteAccess {
     $paths = @(
         (Get-ClaudeAppPathFromResources $ResourcesPath),
         $ResourcesPath,
+        (Join-Path $ResourcesPath "ion-dist.asar"),
         (Join-Path $ResourcesPath "ion-dist"),
         (Join-Path $ResourcesPath "ion-dist\i18n"),
         (Join-Path $ResourcesPath "ion-dist\i18n\statsig"),
@@ -821,6 +833,387 @@ function Read-AsarHeaderFromFile {
 
 
 
+function Get-FrontendBundleMode {
+    param([string]$ResourcesPath)
+
+    if (Test-Path -LiteralPath (Join-Path $ResourcesPath "ion-dist.asar") -PathType Leaf) {
+        return "Asar"
+    }
+    if (Test-Path -LiteralPath (Join-Path $ResourcesPath "ion-dist") -PathType Container) {
+        return "Directory"
+    }
+    return "Missing"
+}
+
+function Get-AsarEntryPaths {
+    param($Header)
+
+    $paths = New-Object System.Collections.Generic.List[string]
+    $walk = {
+        param($Node, [string]$Prefix)
+
+        if (-not $Node.PSObject.Properties["files"]) {
+            return
+        }
+        foreach ($property in $Node.files.PSObject.Properties) {
+            $relative = if ($Prefix) { "$Prefix/$($property.Name)" } else { $property.Name }
+            $child = $property.Value
+            if ($child.PSObject.Properties["files"]) {
+                & $walk $child $relative
+            }
+            else {
+                $paths.Add($relative)
+            }
+        }
+    }
+    & $walk $Header ""
+    return @($paths)
+}
+
+function Test-AsarFrontendArchive {
+    param([string]$AsarPath)
+
+    if (-not (Test-Path -LiteralPath $AsarPath -PathType Leaf)) {
+        return $false
+    }
+
+    try {
+        $parsed = Read-AsarHeaderFromFile $AsarPath
+        $paths = @(Get-AsarEntryPaths $parsed["Header"])
+        $hasI18n = $paths -contains "i18n/en-US.json"
+        $hasBundle = @($paths | Where-Object { $_ -match '(^|/)assets/(?:[^/]+/)?index-[^/]+\.js$' }).Count -gt 0
+        return ($hasI18n -and $hasBundle)
+    }
+    catch {
+        return $false
+    }
+}
+
+function Test-FrontendBundleAvailable {
+    param([string]$ResourcesPath)
+
+    $mode = Get-FrontendBundleMode $ResourcesPath
+    if ($mode -eq "Asar") {
+        return Test-AsarFrontendArchive (Join-Path $ResourcesPath "ion-dist.asar")
+    }
+    if ($mode -eq "Directory") {
+        return $null -ne (Resolve-FrontendAssetsDir $ResourcesPath)
+    }
+    return $false
+}
+
+function Expand-AsarArchive {
+    param(
+        [string]$AsarPath,
+        [string]$DestinationPath
+    )
+
+    Require-File $AsarPath
+    if (Test-Path -LiteralPath $DestinationPath) {
+        throw "ASAR 解包目标已存在: $DestinationPath"
+    }
+
+    $parsed = Read-AsarHeaderFromFile $AsarPath
+    $dataStart = 8 + [int]$parsed["HeaderSize"]
+    New-Item -ItemType Directory -Path $DestinationPath -Force | Out-Null
+    $destinationRoot = [IO.Path]::GetFullPath($DestinationPath).TrimEnd('\', '/')
+    $asarStream = [IO.File]::Open($AsarPath, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
+    try {
+        $expand = {
+            param($Node, [string]$Prefix)
+
+            foreach ($property in $Node.files.PSObject.Properties) {
+                $name = [string]$property.Name
+                if (-not $name -or $name -in @(".", "..") -or $name.IndexOfAny([char[]]@('/', '\')) -ge 0) {
+                    throw "ASAR 包含不安全路径: $name"
+                }
+                $relative = if ($Prefix) { Join-Path $Prefix $name } else { $name }
+                $target = [IO.Path]::GetFullPath((Join-Path $destinationRoot $relative))
+                if (-not $target.StartsWith($destinationRoot + '\', [StringComparison]::OrdinalIgnoreCase)) {
+                    throw "ASAR 路径越界: $relative"
+                }
+
+                $child = $property.Value
+                if ($child.PSObject.Properties["files"]) {
+                    New-Item -ItemType Directory -Path $target -Force | Out-Null
+                    & $expand $child $relative
+                    continue
+                }
+                if ($child.PSObject.Properties["link"]) {
+                    throw "暂不支持包含软链接的 ASAR: $relative"
+                }
+
+                $parent = Split-Path -Parent $target
+                New-Item -ItemType Directory -Path $parent -Force | Out-Null
+                if ($child.PSObject.Properties["unpacked"] -and [bool]$child.unpacked) {
+                    $unpackedSource = Join-Path ($AsarPath + ".unpacked") ($relative -replace '/', '\')
+                    Require-File $unpackedSource
+                    Copy-Item -LiteralPath $unpackedSource -Destination $target -Force
+                    continue
+                }
+
+                $offset = [int64]$child.offset
+                $size = [int64]$child.size
+                if ($offset -lt 0 -or $size -lt 0 -or ($dataStart + $offset + $size) -gt $asarStream.Length) {
+                    throw "ASAR 文件边界无效: $relative (offset=$offset, size=$size, dataStart=$dataStart, archive=$($asarStream.Length))"
+                }
+
+                $output = [IO.File]::Open($target, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+                try {
+                    $asarStream.Position = $dataStart + $offset
+                    $remaining = $size
+                    $buffer = [byte[]]::new(1024 * 1024)
+                    while ($remaining -gt 0) {
+                        $wanted = [int][Math]::Min([int64]$buffer.Length, $remaining)
+                        $read = $asarStream.Read($buffer, 0, $wanted)
+                        if ($read -le 0) {
+                            throw "ASAR 文件内容不完整: $relative"
+                        }
+                        $output.Write($buffer, 0, $read)
+                        $remaining -= $read
+                    }
+                }
+                finally {
+                    $output.Dispose()
+                }
+            }
+        }
+        & $expand $parsed["Header"] ""
+    }
+    finally {
+        $asarStream.Dispose()
+    }
+}
+
+function Get-AsarFileIntegrity {
+    param([string]$Path)
+
+    $bytes = [IO.File]::ReadAllBytes($Path)
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try {
+        $hash = ([BitConverter]::ToString($sha.ComputeHash($bytes)) -replace "-", "").ToLowerInvariant()
+        $blocks = New-Object System.Collections.Generic.List[string]
+        for ($offset = 0; $offset -lt $bytes.Length; $offset += $AsarIntegrityBlockSize) {
+            $length = [Math]::Min($AsarIntegrityBlockSize, $bytes.Length - $offset)
+            $block = [byte[]]::new($length)
+            [Array]::Copy($bytes, $offset, $block, 0, $length)
+            $blocks.Add(([BitConverter]::ToString($sha.ComputeHash($block)) -replace "-", "").ToLowerInvariant())
+        }
+        if ($blocks.Count -eq 0) {
+            $blocks.Add($hash)
+        }
+        return [ordered]@{
+            algorithm = "SHA256"
+            hash = $hash
+            blockSize = $AsarIntegrityBlockSize
+            blocks = @($blocks)
+        }
+    }
+    finally {
+        $sha.Dispose()
+    }
+}
+
+function New-AsarArchive {
+    param(
+        [string]$SourceDirectory,
+        [string]$DestinationPath
+    )
+
+    if (-not (Test-Path -LiteralPath $SourceDirectory -PathType Container)) {
+        throw "ASAR 源目录不存在: $SourceDirectory"
+    }
+    if (-not $DestinationPath) {
+        throw "缺少 ASAR 输出路径。"
+    }
+
+    $payloadEntries = New-Object System.Collections.Generic.List[object]
+    $offsetState = [pscustomobject]@{ Offset = [int64]0 }
+
+    $newNode = {
+        param([string]$Directory)
+
+        $node = [ordered]@{ files = [ordered]@{} }
+        $items = @(Get-ChildItem -LiteralPath $Directory -Force | Sort-Object Name)
+        foreach ($item in $items) {
+            if ($item.PSIsContainer) {
+                $node.files[$item.Name] = & $newNode $item.FullName
+                continue
+            }
+            if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -eq [IO.FileAttributes]::ReparsePoint) {
+                throw "ASAR 源目录包含不支持的软链接: $($item.FullName)"
+            }
+
+            $offset = [int64]$offsetState.Offset
+            $size = [int64]$item.Length
+            $node.files[$item.Name] = [ordered]@{
+                size = $size
+                offset = [string]$offset
+                integrity = Get-AsarFileIntegrity $item.FullName
+            }
+            $payloadEntries.Add([pscustomobject]@{ Path = $item.FullName; Size = $size })
+            $offsetState.Offset += $size
+        }
+        return $node
+    }
+
+    $header = & $newNode ([IO.Path]::GetFullPath($SourceDirectory))
+    $headerString = ConvertTo-Json -InputObject $header -Compress -Depth 100
+    $headerStringBytes = [Text.Encoding]::UTF8.GetBytes($headerString)
+    $headerPayloadSize = Align-4 (4 + $headerStringBytes.Length)
+    $headerSize = 4 + $headerPayloadSize
+    $headerPickle = [byte[]]::new($headerSize)
+    [Array]::Copy([BitConverter]::GetBytes([uint32]$headerPayloadSize), 0, $headerPickle, 0, 4)
+    [Array]::Copy([BitConverter]::GetBytes([int32]$headerStringBytes.Length), 0, $headerPickle, 4, 4)
+    [Array]::Copy($headerStringBytes, 0, $headerPickle, 8, $headerStringBytes.Length)
+
+    $prefix = [byte[]]::new(8)
+    [Array]::Copy([BitConverter]::GetBytes([uint32]4), 0, $prefix, 0, 4)
+    [Array]::Copy([BitConverter]::GetBytes([uint32]$headerSize), 0, $prefix, 4, 4)
+
+    $destinationFull = [IO.Path]::GetFullPath($DestinationPath)
+    $parent = Split-Path -Parent $destinationFull
+    New-Item -ItemType Directory -Path $parent -Force | Out-Null
+    $temporary = "$destinationFull.tmp-" + [guid]::NewGuid().ToString("N")
+    try {
+        $output = [IO.File]::Open($temporary, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+        try {
+            $output.Write($prefix, 0, $prefix.Length)
+            $output.Write($headerPickle, 0, $headerPickle.Length)
+            foreach ($entry in $payloadEntries) {
+                $entryStream = [IO.File]::OpenRead($entry.Path)
+                try {
+                    $entryStream.CopyTo($output)
+                }
+                finally {
+                    $entryStream.Dispose()
+                }
+            }
+        }
+        finally {
+            $output.Dispose()
+        }
+        Move-Item -LiteralPath $temporary -Destination $destinationFull -Force
+    }
+    finally {
+        Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Remove-GeneratedFrontendWorkspace {
+    param(
+        [string]$ResourcesPath,
+        [string]$WorkspacePath
+    )
+
+    if (-not (Test-Path -LiteralPath $WorkspacePath)) {
+        return
+    }
+    $root = [IO.Path]::GetFullPath($ResourcesPath).TrimEnd('\', '/')
+    $target = [IO.Path]::GetFullPath($WorkspacePath).TrimEnd('\', '/')
+    if (-not $target.StartsWith($root + '\', [StringComparison]::OrdinalIgnoreCase) -or
+        (Split-Path -Leaf $target) -ne "ion-dist") {
+        throw "拒绝清理非安装器工作目录: $WorkspacePath"
+    }
+    Remove-Item -LiteralPath $target -Recurse -Force
+}
+
+function Initialize-FrontendPatchTarget {
+    param([string]$ResourcesPath)
+
+    $mode = Get-FrontendBundleMode $ResourcesPath
+    if ($mode -eq "Missing") {
+        throw "未找到前端资源: $ResourcesPath\ion-dist 或 $ResourcesPath\ion-dist.asar"
+    }
+    if ($mode -eq "Directory") {
+        return [pscustomobject]@{
+            Mode = "Directory"
+            ResourcesPath = $ResourcesPath
+            Generated = $false
+            WorkspacePath = Join-Path $ResourcesPath "ion-dist"
+            AsarPath = $null
+            MarkerPath = $null
+        }
+    }
+
+    $asarPath = Join-Path $ResourcesPath "ion-dist.asar"
+    $workspacePath = Join-Path $ResourcesPath "ion-dist"
+    $markerPath = Join-Path $ResourcesPath ".zh-cn-asar-extracted"
+    if (Test-Path -LiteralPath $workspacePath) {
+        if (-not (Test-Path -LiteralPath $markerPath -PathType Leaf)) {
+            throw "发现未标记的 ion-dist 目录，为避免删除用户文件已停止: $workspacePath"
+        }
+        Remove-GeneratedFrontendWorkspace $ResourcesPath $workspacePath
+    }
+    Remove-Item -LiteralPath $markerPath -Force -ErrorAction SilentlyContinue
+
+    Backup-ModifiedFile $ResourcesPath $asarPath
+    try {
+        Expand-AsarArchive $asarPath $workspacePath
+        [IO.File]::WriteAllText($markerPath, $asarPath, $Utf8NoBom)
+    }
+    catch {
+        Remove-GeneratedFrontendWorkspace $ResourcesPath $workspacePath
+        Remove-Item -LiteralPath $markerPath -Force -ErrorAction SilentlyContinue
+        throw
+    }
+
+    $script:SkipFrontendFileBackups = $true
+    Write-Host "  ion-dist.asar 已解包到临时工作目录" -ForegroundColor DarkGray
+    return [pscustomobject]@{
+        Mode = "Asar"
+        ResourcesPath = $ResourcesPath
+        Generated = $true
+        WorkspacePath = $workspacePath
+        AsarPath = $asarPath
+        MarkerPath = $markerPath
+    }
+}
+
+function Complete-FrontendPatchTarget {
+    param($Target)
+
+    if ($null -eq $Target -or $Target.Mode -ne "Asar") {
+        return
+    }
+    if (-not (Test-Path -LiteralPath $Target.WorkspacePath -PathType Container)) {
+        throw "ASAR 临时工作目录不存在: $($Target.WorkspacePath)"
+    }
+
+    $temporaryAsar = $Target.AsarPath + ".zh-cn-new"
+    Remove-Item -LiteralPath $temporaryAsar -Force -ErrorAction SilentlyContinue
+    Write-Host "  正在重新打包 ion-dist.asar..." -ForegroundColor DarkGray
+    New-AsarArchive $Target.WorkspacePath $temporaryAsar
+    try {
+        if (-not (Test-AsarFrontendArchive $temporaryAsar)) {
+            throw "重新打包后的 ion-dist.asar 未通过结构校验。"
+        }
+        Move-Item -LiteralPath $temporaryAsar -Destination $Target.AsarPath -Force
+        Write-Host "  ion-dist.asar 已更新" -ForegroundColor Green
+        Sync-ClaudeExeAsarIntegrity $Target.ResourcesPath
+    }
+    finally {
+        Remove-Item -LiteralPath $temporaryAsar -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Close-FrontendPatchTarget {
+    param($Target)
+
+    try {
+        if ($null -ne $Target -and $Target.Generated) {
+            Remove-GeneratedFrontendWorkspace $Target.ResourcesPath $Target.WorkspacePath
+            Remove-Item -LiteralPath $Target.MarkerPath -Force -ErrorAction SilentlyContinue
+        }
+    }
+    finally {
+        $script:SkipFrontendFileBackups = $false
+    }
+}
+
+
+
+
 function Find-BytePattern {
     param(
         [byte[]]$Data,
@@ -881,60 +1274,59 @@ function Sync-ClaudeExeAsarIntegrity {
     }
     Require-File $exePath
 
-    $asarPath = Join-Path $ResourcesPath "app.asar"
-    Write-Host "  [进度] 正在计算 app.asar header hash..." -ForegroundColor DarkGray
-    $headerHash = Get-AsarHeaderHash $asarPath
-    $marker = 'resources\\app.asar","alg":"SHA256","value":"'
+    $targets = @("app.asar", "ion-dist.asar") | Where-Object {
+        Test-Path -LiteralPath (Join-Path $ResourcesPath $_) -PathType Leaf
+    }
     $exeInfo = Get-Item -LiteralPath $exePath
-    Write-Host "  [进度] 正在读取 Claude.exe ($(Format-ByteSize $exeInfo.Length)) 用于快速定位完整性标记..." -ForegroundColor DarkGray
-    $exeText = [System.IO.File]::ReadAllText($exePath, [System.Text.Encoding]::ASCII)
-    Write-Host "  [进度] 正在用 .NET IndexOf 扫描 Claude.exe 内嵌 app.asar 完整性标记..." -ForegroundColor DarkGray
-    $markerIndex = $exeText.IndexOf($marker, [System.StringComparison]::Ordinal)
-    if ($markerIndex -lt 0) {
-        throw "Could not find Claude.exe app.asar integrity marker. Claude bundle format may have changed."
-    }
-    if ($exeText.IndexOf($marker, $markerIndex + 1, [System.StringComparison]::Ordinal) -ge 0) {
-        throw "Could not find a unique Claude.exe app.asar integrity marker. Claude bundle format may have changed."
-    }
+    Write-Host "  [进度] 正在读取 Claude.exe ($(Format-ByteSize $exeInfo.Length)) 用于定位完整性标记..." -ForegroundColor DarkGray
 
-    $hashOffset = $markerIndex + $marker.Length
-    if (($hashOffset + 64) -gt $exeInfo.Length) {
-        throw "Claude.exe app.asar integrity marker has invalid bounds."
-    }
-
-    $stream = [System.IO.File]::Open($exePath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::Read)
-    try {
-        $hashBytes = [byte[]]::new(64)
-        $stream.Seek([int64]$hashOffset, [System.IO.SeekOrigin]::Begin) | Out-Null
-        if ($stream.Read($hashBytes, 0, $hashBytes.Length) -ne $hashBytes.Length) {
-            throw "Claude.exe app.asar integrity marker has invalid bounds."
+    foreach ($asarName in $targets) {
+        $asarPath = Join-Path $ResourcesPath $asarName
+        Write-Host "  [进度] 正在计算 $asarName header hash..." -ForegroundColor DarkGray
+        $headerHash = Get-AsarHeaderHash $asarPath
+        $marker = 'resources\\' + $asarName + '","alg":"SHA256","value":"'
+        $exeText = [System.IO.File]::ReadAllText($exePath, [System.Text.Encoding]::ASCII)
+        $markerIndex = $exeText.IndexOf($marker, [System.StringComparison]::Ordinal)
+        if ($markerIndex -lt 0) {
+            throw "Could not find Claude.exe $asarName integrity marker. Claude bundle format may have changed."
         }
-        $currentHash = [System.Text.Encoding]::ASCII.GetString($hashBytes)
-    }
-    finally {
-        $stream.Dispose()
-    }
+        if ($exeText.IndexOf($marker, $markerIndex + 1, [System.StringComparison]::Ordinal) -ge 0) {
+            throw "Could not find a unique Claude.exe $asarName integrity marker. Claude bundle format may have changed."
+        }
 
-    if ($currentHash -eq $headerHash) {
-        Write-Host "  Claude.exe app.asar integrity already matches" -ForegroundColor Green
-        return
-    }
-    if ($currentHash -notmatch '^[0-9a-fA-F]{64}$') {
-        throw "Claude.exe app.asar integrity value is not a SHA256 hex string."
-    }
+        $hashOffset = $markerIndex + $marker.Length
+        if (($hashOffset + 64) -gt $exeInfo.Length) {
+            throw "Claude.exe $asarName integrity marker has invalid bounds."
+        }
 
-    Backup-AppFile $ResourcesPath $exePath
-    Write-Host "  [进度] 正在定点写回 Claude.exe 完整性哈希（64 bytes）..." -ForegroundColor DarkGray
-    $newHashBytes = [System.Text.Encoding]::ASCII.GetBytes($headerHash)
-    $stream = [System.IO.File]::Open($exePath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::Read)
-    try {
-        $stream.Seek([int64]$hashOffset, [System.IO.SeekOrigin]::Begin) | Out-Null
-        $stream.Write($newHashBytes, 0, $newHashBytes.Length)
+        $stream = [System.IO.File]::Open($exePath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::Read)
+        try {
+            $hashBytes = [byte[]]::new(64)
+            $stream.Seek([int64]$hashOffset, [System.IO.SeekOrigin]::Begin) | Out-Null
+            if ($stream.Read($hashBytes, 0, $hashBytes.Length) -ne $hashBytes.Length) {
+                throw "Claude.exe $asarName integrity marker has invalid bounds."
+            }
+            $currentHash = [System.Text.Encoding]::ASCII.GetString($hashBytes)
+
+            if ($currentHash -eq $headerHash) {
+                Write-Host "  Claude.exe $asarName integrity already matches" -ForegroundColor Green
+                continue
+            }
+            if ($currentHash -notmatch '^[0-9a-fA-F]{64}$') {
+                throw "Claude.exe $asarName integrity value is not a SHA256 hex string."
+            }
+
+            Backup-AppFile $ResourcesPath $exePath
+            Write-Host "  [进度] 正在定点写回 Claude.exe 中 $asarName 的完整性哈希（64 bytes）..." -ForegroundColor DarkGray
+            $newHashBytes = [System.Text.Encoding]::ASCII.GetBytes($headerHash)
+            $stream.Seek([int64]$hashOffset, [System.IO.SeekOrigin]::Begin) | Out-Null
+            $stream.Write($newHashBytes, 0, $newHashBytes.Length)
+        }
+        finally {
+            $stream.Dispose()
+        }
+        Write-Host "  updated Claude.exe $asarName integrity: $currentHash -> $headerHash" -ForegroundColor Green
     }
-    finally {
-        $stream.Dispose()
-    }
-    Write-Host "  updated Claude.exe app.asar integrity: $currentHash -> $headerHash" -ForegroundColor Green
 }
 
 function Get-FrontendJsFilesContaining {
@@ -2665,7 +3057,7 @@ function Restart-Claude {
 function Install-WindowsLanguagePack {
     $label = Get-LanguageLabel $LanguageCode
 
-    # 单实例互斥锁：防止多个安装进程并发写入 app.asar
+    # 单实例互斥锁：防止多个安装进程并发写入 Claude 资源
     $mutex = New-Object System.Threading.Mutex($false, "Global\ClaudeDesktopZhCn-Installer")
     try {
         if (-not $mutex.WaitOne(0)) {
@@ -2678,6 +3070,7 @@ function Install-WindowsLanguagePack {
 
     Write-Host "=== Claude Desktop Windows $label 补丁 ===" -ForegroundColor Cyan
 
+    $patchTarget = $null
     try {
         Write-Step "[1/7] 检查语言资源"
         $pack = Get-LanguageResources $LanguageCode
@@ -2702,6 +3095,7 @@ function Install-WindowsLanguagePack {
         Write-Step "[3/7] 准备写入权限"
         Enable-WriteAccess $resourcesPath
         Remove-LegacyAppxForkArtifacts
+        $patchTarget = Initialize-FrontendPatchTarget $resourcesPath
 
         Write-Step "[4/7] 写入 $label 资源"
         Install-LanguageFiles $resourcesPath $pack $LanguageCode
@@ -2713,6 +3107,10 @@ function Install-WindowsLanguagePack {
         Patch-HardcodedFrontendStrings $resourcesPath $LanguageCode
         Patch-SlashCommandMenu $resourcesPath $LanguageCode
         Patch-LanguageDisplayNames $resourcesPath
+        Complete-FrontendPatchTarget $patchTarget
+        Close-FrontendPatchTarget $patchTarget
+        $usedAsarFrontend = $patchTarget.Mode -eq "Asar"
+        $patchTarget = $null
 
         Write-Step "[7/7] 写入用户语言配置"
         Set-ClaudeLocale $LanguageCode
@@ -2725,7 +3123,12 @@ function Install-WindowsLanguagePack {
 
         Write-Host ""
         Write-Host "安装完成。如果界面未立即切换，请在 Language 中选择 $label。" -ForegroundColor Green
-        Write-Host "提示：本补丁不改动 app.asar / Claude.exe 签名，官方账号登录界面请直接使用 Claude 自带的语言设置。" -ForegroundColor DarkGray
+        if ($usedAsarFrontend) {
+            Write-Host "提示：Claude 4.29+ 将前端打包为 ion-dist.asar；安装器已更新其完整性哈希，Claude.exe 的原始 Authenticode 签名会失效。" -ForegroundColor DarkYellow
+        }
+        else {
+            Write-Host "提示：本补丁不改动 app.asar / Claude.exe，官方账号登录界面请直接使用 Claude 自带的语言设置。" -ForegroundColor DarkGray
+        }
     }
     catch {
         Write-Host ""
@@ -2738,6 +3141,9 @@ function Install-WindowsLanguagePack {
         throw
     }
     finally {
+        if ($null -ne $patchTarget) {
+            Close-FrontendPatchTarget $patchTarget
+        }
         $mutex.ReleaseMutex()
         $mutex.Dispose()
     }
@@ -2759,6 +3165,12 @@ function Uninstall-WindowsLanguagePack {
     Remove-LegacyAppxForkArtifacts
 
     Write-Step "[1/4] 恢复前端 bundle 和 app.asar"
+    $workspacePath = Join-Path $resourcesPath "ion-dist"
+    $markerPath = Join-Path $resourcesPath ".zh-cn-asar-extracted"
+    if ((Test-Path -LiteralPath $markerPath -PathType Leaf) -and (Test-Path -LiteralPath $workspacePath)) {
+        Remove-GeneratedFrontendWorkspace $resourcesPath $workspacePath
+        Remove-Item -LiteralPath $markerPath -Force -ErrorAction SilentlyContinue
+    }
     Restore-LatestBackup $resourcesPath
     Sync-ClaudeExeAsarIntegrity $resourcesPath
 

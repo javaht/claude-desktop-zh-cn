@@ -16,7 +16,11 @@ param(
     [string]$OriginalUserSid = "",
     [string]$OriginalUserProfile = "",
     [string]$OriginalAppData = "",
-    [string]$OriginalLocalAppData = ""
+    [string]$OriginalLocalAppData = "",
+
+    # 手动指定 Claude 安装目录（商店版预放置新包但未接管激活时，自动检测可能
+    # 选中未激活的新包；用该参数强制补丁当前实际运行的包目录）
+    [string]$ClaudePath = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -32,6 +36,8 @@ $script:InstallLogPath = $null
 $script:InstallTranscriptStarted = $false
 $script:PreInstallCleanupDone = $false
 $script:SkipFrontendFileBackups = $false
+$script:ShellCatalogPatched = $false
+$script:ClaudePath = $ClaudePath
 
 if ($OriginalUserSid) { $env:CLAUDE_ZH_ORIGINAL_USER_SID = $OriginalUserSid }
 if ($OriginalUserProfile) { $env:CLAUDE_ZH_ORIGINAL_USER_PROFILE = $OriginalUserProfile }
@@ -295,6 +301,10 @@ function Get-ClaudeAppxPackages {
 }
 
 function Find-ClaudePath {
+    if ($script:ClaudePath) {
+        return $script:ClaudePath
+    }
+
     $packages = @(Get-ClaudeAppxPackages)
     foreach ($package in $packages) {
         if ($package.InstallLocation -and (Test-Path $package.InstallLocation)) {
@@ -302,8 +312,14 @@ function Find-ClaudePath {
         }
     }
 
+    # 旧逻辑按目录 LastWriteTime 倒序挑选，而旧版本包目录可能因残留文件或用户误放
+    # 内容获得更新的时间戳（issue: 汉化 4.4212 时选中已停用的 1.x 旧包目录）。
+    # 商店包目录名形如 Claude_4.4212.0.0_x64__xxx，按其中的包版本号倒序更可靠，
+    # 时间戳仅作并列时的次级排序。
     $fallback = Get-ChildItem "C:\Program Files\WindowsApps" -Directory -Filter "*Claude*" -ErrorAction SilentlyContinue |
-        Sort-Object LastWriteTime -Descending |
+        Sort-Object `
+            @{ Expression = { Get-AppxPackageVersionFromDirectoryName $_.Name }; Descending = $true },
+            @{ Expression = { $_.LastWriteTime }; Descending = $true } |
         Select-Object -First 1
     if ($fallback) {
         return $fallback.FullName
@@ -315,15 +331,15 @@ function Find-ClaudePath {
 function Get-ClaudeExeProductVersion {
     param([string]$ClaudePath)
 
-    foreach ($name in @("Claude.exe", "claude.exe")) {
-        $exePath = Join-Path $ClaudePath $name
-        if (Test-Path -LiteralPath $exePath) {
-            try {
-                return [string](Get-Item -LiteralPath $exePath).VersionInfo.ProductVersion
-            }
-            catch {
-                return "未知"
-            }
+    # 商店版（AppX/MSIX）的可执行文件位于 <package>\app\claude.exe，需一并探测，
+    # 否则日志里版本号会一直显示"未知"。
+    $exePath = Get-ClaudeExePath $ClaudePath
+    if ($exePath) {
+        try {
+            return [string](Get-Item -LiteralPath $exePath).VersionInfo.ProductVersion
+        }
+        catch {
+            return "未知"
         }
     }
     return "未知"
@@ -1249,12 +1265,233 @@ function Close-FrontendPatchTarget {
     }
     finally {
         $script:SkipFrontendFileBackups = $false
+$script:ShellCatalogPatched = $false
+$script:ClaudePath = $ClaudePath
     }
 }
 
 
 
 
+
+function Get-AppxPackageVersionFromDirectoryName {
+    param([string]$DirectoryName)
+
+    # 目录名形如 Claude_4.4212.0.0_x64__pzs8sxrjxfjjc / AnthropicPBC.Claude_2.19675.0_x64__xxx
+    if ($DirectoryName -match '_(\d+(?:\.\d+){1,3})_') {
+        try {
+            return [version]$matches[1]
+        }
+        catch {
+        }
+    }
+    return [version]"0.0.0.0"
+}
+
+function Get-AsarFileIntegrityFromBytes {
+    param([byte[]]$Bytes)
+
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try {
+        $hash = ([BitConverter]::ToString($sha.ComputeHash($Bytes)) -replace "-", "").ToLowerInvariant()
+        $blocks = New-Object System.Collections.Generic.List[string]
+        for ($offset = 0; $offset -lt $Bytes.Length; $offset += $AsarIntegrityBlockSize) {
+            $length = [Math]::Min($AsarIntegrityBlockSize, $Bytes.Length - $offset)
+            $block = [byte[]]::new($length)
+            [Array]::Copy($Bytes, $offset, $block, 0, $length)
+            $blocks.Add(([BitConverter]::ToString($sha.ComputeHash($block)) -replace "-", "").ToLowerInvariant())
+        }
+        if ($blocks.Count -eq 0) {
+            $blocks.Add($hash)
+        }
+        return [ordered]@{
+            algorithm = "SHA256"
+            hash = $hash
+            blockSize = $AsarIntegrityBlockSize
+            blocks = @($blocks)
+        }
+    }
+    finally {
+        $sha.Dispose()
+    }
+}
+
+function Test-ShellInternalI18nLayout {
+    param([string]$ResourcesPath)
+
+    $appAsarPath = Join-Path $ResourcesPath "app.asar"
+    if (-not (Test-Path -LiteralPath $appAsarPath -PathType Leaf)) {
+        return $false
+    }
+
+    try {
+        $parsed = Read-AsarHeaderFromFile $appAsarPath
+        $paths = @(Get-AsarEntryPaths $parsed["Header"])
+        return ($paths -contains "resources/i18n/en-US.json")
+    }
+    catch {
+        return $false
+    }
+}
+
+function Get-ShellCatalogBaseEntry {
+    param([string]$Lang)
+
+    # Claude 4.4212+ 自带简体/繁体中文壳层翻译，原生目录键为 zh-Hans / zh-Hant。
+    $mapping = @{
+        "zh-CN" = "resources/i18n/zh-Hans.json"
+        "zh-TW" = "resources/i18n/zh-Hant.json"
+        "zh-HK" = "resources/i18n/zh-Hant.json"
+    }
+    if ($mapping.ContainsKey($Lang)) {
+        return $mapping[$Lang]
+    }
+    return "resources/i18n/en-US.json"
+}
+
+function Read-AsarEntryBytes {
+    param(
+        [string]$AsarPath,
+        $Parsed,
+        [string]$EntryPath
+    )
+
+    $node = $Parsed["Header"]
+    foreach ($segment in ($EntryPath -split '/')) {
+        $child = $node.files.PSObject.Properties[$segment]
+        if ($null -eq $child) {
+            throw "ASAR 缺少条目: $EntryPath"
+        }
+        $node = $child.Value
+    }
+
+    if ($node.PSObject.Properties["unpacked"] -and [bool]$node.unpacked) {
+        throw "ASAR 条目不支持 unpacked: $EntryPath"
+    }
+
+    $dataStart = 8 + [int]$Parsed["HeaderSize"]
+    $offset = [int64]$node.offset
+    $size = [int64]$node.size
+    $bytes = [byte[]]::new($size)
+    $stream = [System.IO.File]::Open($AsarPath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::Read)
+    try {
+        $stream.Seek($dataStart + $offset, [System.IO.SeekOrigin]::Begin) | Out-Null
+        if ($stream.Read($bytes, 0, $size) -ne $size) {
+            throw "ASAR 条目内容不完整: $EntryPath"
+        }
+    }
+    finally {
+        $stream.Dispose()
+    }
+    return $bytes
+}
+
+function Add-ShellLocaleCatalog {
+    param(
+        [string]$ResourcesPath,
+        [string]$Lang
+    )
+
+    # Claude 4.4212 起，桌面壳层的语言目录从 app\resources\<locale>.json 搬进了
+    # app.asar 内部的 resources/i18n/，并且写入用户配置的 locale 必须能在该目录
+    # 里找到 <locale>.json 才会被接受（原生只带 zh-Hans/zh-Hant，没有 zh-CN）。
+    # 否则壳层启动时会拒绝 zh-CN 并回退 en-US，导致壳层界面保持英文。
+    # 这里按原生 zh-Hans/zh-Hant 内容在 app.asar 里补一个 <Lang>.json 目录，
+    # 再同步 Claude.exe 内嵌的 app.asar 头哈希。旧版布局不受影响，直接跳过。
+    if (-not (Test-ShellInternalI18nLayout $ResourcesPath)) {
+        Write-Host "  当前 Claude 版本未使用壳层内置语言目录，跳过。" -ForegroundColor DarkGray
+        return
+    }
+
+    $appAsarPath = Join-Path $ResourcesPath "app.asar"
+    $parsed = Read-AsarHeaderFromFile $appAsarPath
+    $entryPath = "resources/i18n/$Lang.json"
+    $paths = @(Get-AsarEntryPaths $parsed["Header"])
+    if ($paths -contains $entryPath) {
+        Write-Host "  壳层语言目录已存在: $entryPath" -ForegroundColor Green
+        return
+    }
+
+    $baseEntry = Get-ShellCatalogBaseEntry $Lang
+    $content = Read-AsarEntryBytes $appAsarPath $parsed $baseEntry
+
+    $headerString = [string]$parsed["HeaderString"]
+    $resourcesAnchor = '"resources":{"files":{'
+    $anchor = '"i18n":{"files":{'
+    $resourcesIndex = $headerString.IndexOf($resourcesAnchor, [System.StringComparison]::Ordinal)
+    if ($resourcesIndex -lt 0) {
+        throw "未能定位 app.asar 头中的 resources 节点，Claude 打包格式可能已变化。"
+    }
+    $anchorIndex = $headerString.IndexOf($anchor, $resourcesIndex, [System.StringComparison]::Ordinal)
+    if ($anchorIndex -lt 0) {
+        throw "未能定位 app.asar 头中的 resources/i18n 节点，Claude 打包格式可能已变化。"
+    }
+    if ($headerString.IndexOf($anchor, $anchorIndex + 1, [System.StringComparison]::Ordinal) -ge 0) {
+        throw "app.asar 头中存在多个 resources/i18n 节点，拒绝模糊替换。"
+    }
+
+    $integrity = Get-AsarFileIntegrityFromBytes $content
+    $oldDataStart = 8 + [int]$parsed["HeaderSize"]
+    $oldPayloadLength = ([long](Get-Item -LiteralPath $appAsarPath).Length) - $oldDataStart
+    $blocksJson = (@($integrity.blocks) | ForEach-Object { '"' + $_ + '"' }) -join ','
+    $entryJson = '"' + $Lang + '.json":{"size":' + $content.Length + ',"offset":"' + $oldPayloadLength + '","integrity":{"algorithm":"SHA256","hash":"' + $integrity.hash + '","blockSize":' + $integrity.blockSize + ',"blocks":[' + $blocksJson + ']}}'
+
+    $newHeaderString = $headerString.Substring(0, $anchorIndex + $anchor.Length) + $entryJson + ',' + $headerString.Substring($anchorIndex + $anchor.Length)
+    $newHeaderBytes = [Text.Encoding]::UTF8.GetBytes($newHeaderString)
+    $newHeaderPayloadSize = Align-4 (4 + $newHeaderBytes.Length)
+    $newHeaderSize = 4 + $newHeaderPayloadSize
+
+    $temporary = "$appAsarPath.zh-cn-new"
+    Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue
+    Backup-AppFile $ResourcesPath $appAsarPath
+    $source = [IO.File]::Open($appAsarPath, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
+    $output = [IO.File]::Open($temporary, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+    try {
+        $prefix = [byte[]]::new(8)
+        [Array]::Copy([BitConverter]::GetBytes([uint32]4), 0, $prefix, 0, 4)
+        [Array]::Copy([BitConverter]::GetBytes([uint32]$newHeaderSize), 0, $prefix, 4, 4)
+        $output.Write($prefix, 0, $prefix.Length)
+
+        $pickle = [byte[]]::new($newHeaderSize)
+        [Array]::Copy([BitConverter]::GetBytes([uint32]$newHeaderPayloadSize), 0, $pickle, 0, 4)
+        [Array]::Copy([BitConverter]::GetBytes([int32]$newHeaderBytes.Length), 0, $pickle, 4, 4)
+        [Array]::Copy($newHeaderBytes, 0, $pickle, 8, $newHeaderBytes.Length)
+        $output.Write($pickle, 0, $pickle.Length)
+
+        # 原有 payload 原样拷贝：头内偏移相对 dataStart，头长度变化不影响其正确性
+        $source.Seek([int64]$oldDataStart, [System.IO.SeekOrigin]::Begin) | Out-Null
+        $buffer = [byte[]]::new(1024 * 1024)
+        while ($true) {
+            $read = $source.Read($buffer, 0, $buffer.Length)
+            if ($read -le 0) {
+                break
+            }
+            $output.Write($buffer, 0, $read)
+        }
+        $output.Write($content, 0, $content.Length)
+    }
+    finally {
+        $output.Dispose()
+        $source.Dispose()
+    }
+
+    try {
+        $verify = Read-AsarHeaderFromFile $temporary
+        $verifyPaths = @(Get-AsarEntryPaths $verify["Header"])
+        if ($verifyPaths -notcontains $entryPath) {
+            throw "app.asar 补丁后结构校验失败：未找到 $entryPath。"
+        }
+    }
+    catch {
+        Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue
+        throw
+    }
+
+    Move-Item -LiteralPath $temporary -Destination $appAsarPath -Force
+    $script:ShellCatalogPatched = $true
+    Write-Host "  installed shell locale catalog: $entryPath (base: $baseEntry)" -ForegroundColor Green
+    Sync-ClaudeExeAsarIntegrity $ResourcesPath
+}
 function Find-BytePattern {
     param(
         [byte[]]$Data,
@@ -1565,6 +1802,55 @@ function Patch-LanguageDisplayNames {
     }
 }
 
+
+function Patch-LanguageNameMap {
+    param(
+        [string]$ResourcesPath,
+        [string]$Lang
+    )
+
+    # Claude 4.42x 的语言选择对话框使用静态语言名称映射（如
+    # c2c114516-DVv877hq.js），zh-CN/zh-TW/zh-HK 未收录时选项会显示
+    # 原始语言代码而非官方风格的本地化名称。这里按官方命名规范插入。
+    $assetsDir = Resolve-FrontendAssetsDir $ResourcesPath
+    if (-not $assetsDir) {
+        Write-Host "  [提示] 未定位到前端 JS bundle，跳过语言名称映射补丁。" -ForegroundColor DarkYellow
+        return
+    }
+
+    $anchor = '"en-US":{name:"English (United States)",localName:"English (United States)"}'
+    $jsFiles = @(Get-FrontendJsFilesContaining $assetsDir @($anchor))
+    if ($jsFiles.Count -eq 0) {
+        Write-Host "  未找到语言名称映射锚点，跳过语言名称映射补丁。" -ForegroundColor DarkYellow
+        return
+    }
+
+    $entries = @{
+        "zh-CN" = '"zh-CN":{name:"Chinese (Simplified)",localName:"简体中文"}'
+        "zh-TW" = '"zh-TW":{name:"Chinese (Traditional, Taiwan)",localName:"繁體中文（台灣）"}'
+        "zh-HK" = '"zh-HK":{name:"Chinese (Traditional, Hong Kong)",localName:"繁體中文（香港）"}'
+    }
+    $insert = $entries[$Lang]
+    if (-not $insert) {
+        return
+    }
+
+    foreach ($file in $jsFiles) {
+        $text = [System.IO.File]::ReadAllText($file.FullName, [System.Text.Encoding]::UTF8)
+        if ($text.Contains($insert)) {
+            Write-Host "  language name map already patched: $($file.Name)" -ForegroundColor Green
+            continue
+        }
+        $updated = $text.Replace($anchor, $anchor + "," + $insert)
+        if ($updated -eq $text) {
+            continue
+        }
+
+        Backup-ModifiedFile $ResourcesPath $file.FullName
+        [System.IO.File]::WriteAllText($file.FullName, $updated, $Utf8NoBom)
+        Write-Host "  patched language name map for ${Lang}: $($file.Name)" -ForegroundColor Green
+    }
+}
 function Unregister-Language {
     param([string]$ResourcesPath)
 
@@ -3176,10 +3462,12 @@ function Install-WindowsLanguagePack {
         Patch-HardcodedFrontendStrings $resourcesPath $LanguageCode
         Patch-SlashCommandMenu $resourcesPath $LanguageCode
         Patch-LanguageDisplayNames $resourcesPath
+        Patch-LanguageNameMap $resourcesPath $LanguageCode
         Complete-FrontendPatchTarget $patchTarget
         Close-FrontendPatchTarget $patchTarget
         $usedAsarFrontend = $patchTarget.Mode -eq "Asar"
         $patchTarget = $null
+        Add-ShellLocaleCatalog $resourcesPath $LanguageCode
 
         Write-Step "[7/7] 写入用户语言配置"
         Set-ClaudeLocale $LanguageCode

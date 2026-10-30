@@ -12,10 +12,12 @@ $ErrorActionPreference = 'Stop'
     'Get-AsarFileIntegrity',
     'New-AsarArchive',
     'Get-ClaudeAppPathFromResources',
+    'Get-ClaudeExePathFromResources',
+    'Get-ClaudeExeIntegrityMarker',
+    'Assert-ClaudeExeIntegrityMarkers',
     'New-BackupSet',
     'Get-BackupRoot',
     'Backup-AppFile',
-    'Get-ClaudeExeIntegrityMarker',
     'Sync-ClaudeExeAsarIntegrity'
 )
 
@@ -84,6 +86,20 @@ try {
 
     Write-Host 'PASS: JSON-escaped integrity markers (Claude 4.4212+) are supported.' -ForegroundColor Green
     Write-Host 'PASS: Claude.exe integrity hashes cover app.asar and ion-dist.asar.' -ForegroundColor Green
+
+    # --- 标记缺失时必须在改动 asar 前快速失败 ---
+    [IO.File]::WriteAllText($exe, 'no integrity markers here', [Text.Encoding]::ASCII)
+    $failedEarly = $false
+    try {
+        Assert-ClaudeExeIntegrityMarkers $resources
+    }
+    catch {
+        $failedEarly = $true
+    }
+    if (-not $failedEarly) {
+        throw 'Assert-ClaudeExeIntegrityMarkers did not fail on a missing marker.'
+    }
+    Write-Host 'PASS: missing integrity markers are detected before any asar is touched.' -ForegroundColor Green
 }
 finally {
     if (Test-Path -LiteralPath $temp) {

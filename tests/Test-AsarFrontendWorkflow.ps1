@@ -20,6 +20,7 @@ $ErrorActionPreference = 'Stop'
     'Backup-ModifiedFile',
     'Get-ClaudeAppPathFromResources',
     'Backup-AppFile',
+    'Get-ClaudeExePathFromResources',
     'Get-AsarHeaderHash',
     'Get-ClaudeExeIntegrityMarker',
     'Sync-ClaudeExeAsarIntegrity',

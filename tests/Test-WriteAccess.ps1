@@ -15,7 +15,7 @@ $ErrorActionPreference = 'Stop'
 # Keep this file pure ASCII: Windows PowerShell 5.1 reads BOM-less scripts as ANSI.
 
 $temp = Join-Path ([IO.Path]::GetTempPath()) ('claude-desktop-perm-' + [guid]::NewGuid().ToString('N'))
-$isWindows = $env:OS -eq 'Windows_NT'
+$onWindows = $env:OS -eq 'Windows_NT'
 
 try {
     New-Item -ItemType Directory -Path $temp -Force | Out-Null
@@ -41,13 +41,13 @@ try {
 
     # --- Grant-WriteAccess: already writable means no ACL work at all ---
     $ownerBefore = $null
-    if ($isWindows) {
+    if ($onWindows) {
         $ownerBefore = (Get-Acl -LiteralPath $temp).Owner
     }
     if (-not (Grant-WriteAccess $temp)) {
         throw 'Grant-WriteAccess should succeed on an already-writable directory.'
     }
-    if ($isWindows) {
+    if ($onWindows) {
         $ownerAfter = (Get-Acl -LiteralPath $temp).Owner
         if ($ownerAfter -ne $ownerBefore) {
             throw "Grant-WriteAccess changed the owner of a writable directory ($ownerBefore -> $ownerAfter)."
@@ -60,7 +60,7 @@ try {
     }
 
     # --- Deny-write targets: probe says no, Grant restores it (current user owns them) ---
-    if ($isWindows) {
+    if ($onWindows) {
         $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
 
         $locked = Join-Path $temp 'locked.txt'

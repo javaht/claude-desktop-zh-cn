@@ -474,35 +474,92 @@ function Get-ClaudeConfigPaths {
     return @($configPaths | Select-Object -Unique)
 }
 
-function Grant-WriteAccess {
+function Test-WriteAccess {
     param([string]$Path)
 
-    if (-not (Test-Path $Path)) {
-        return
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return $false
     }
 
     try {
-        $acl = Get-Acl $Path
-        $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-        $inheritance = if (Test-Path -LiteralPath $Path -PathType Container) {
-            "ContainerInherit,ObjectInherit"
+        if (Test-Path -LiteralPath $Path -PathType Container) {
+            $probe = Join-Path $Path (".zh-cn-write-test-" + [guid]::NewGuid().ToString("N"))
+            [IO.Directory]::CreateDirectory($probe) | Out-Null
+            [IO.Directory]::Delete($probe)
         }
         else {
-            "None"
+            $stream = [IO.File]::Open($Path, "Open", "ReadWrite", "Read")
+            $stream.Dispose()
         }
-        $rule = [System.Security.AccessControl.FileSystemAccessRule]::new(
-            $identity,
-            "FullControl",
-            $inheritance,
-            "None",
-            "Allow"
-        )
-        $acl.SetAccessRule($rule)
-        Set-Acl $Path $acl -ErrorAction SilentlyContinue
+        return $true
     }
     catch {
-        Write-Host "  [警告] 无法更新权限: $Path" -ForegroundColor DarkYellow
+        return $false
     }
+}
+
+function Take-OwnershipAndGrant {
+    param([string]$Path)
+
+    # 官网/商店 MSIX 包的默认 ACL：owner = NT AUTHORITY\SYSTEM，当前用户有显式
+    # FullControl，但 BUILTIN\Administrators 只继承到 ReadAndExecute。UAC 提权后
+    # 进程以 Administrators 身份运行，反而写不进去；Set-Acl 也会因不是 owner 失败。
+    # 这里用 takeown + icacls 兜底。
+    try {
+        & takeown.exe /f $Path /a 2>&1 | Out-Null
+        & icacls.exe $Path /grant "*S-1-5-32-544:F" /C 2>&1 | Out-Null
+        return (Test-WriteAccess $Path)
+    }
+    catch {
+        return $false
+    }
+}
+
+function Grant-WriteAccess {
+    param([string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return $true
+    }
+
+    if (Test-WriteAccess $Path) {
+        return $true
+    }
+
+    $isContainer = Test-Path -LiteralPath $Path -PathType Container
+    $identities = @(
+        [System.Security.Principal.WindowsIdentity]::GetCurrent().Name,
+        "BUILTIN\Administrators"
+    )
+
+    foreach ($identity in $identities) {
+        try {
+            $acl = Get-Acl -LiteralPath $Path
+            $inheritance = if ($isContainer) { "ContainerInherit,ObjectInherit" } else { "None" }
+            $rule = [System.Security.AccessControl.FileSystemAccessRule]::new(
+                $identity,
+                "FullControl",
+                $inheritance,
+                "None",
+                "Allow"
+            )
+            $acl.SetAccessRule($rule)
+            Set-Acl -LiteralPath $Path -AclObject $acl -ErrorAction Stop
+        }
+        catch {
+        }
+    }
+
+    if (Test-WriteAccess $Path) {
+        return $true
+    }
+
+    if (Take-OwnershipAndGrant $Path) {
+        Write-Host "  [权限] 已接管所有权并授予写权限: $Path" -ForegroundColor DarkGray
+        return $true
+    }
+
+    return $false
 }
 
 function Require-File {
@@ -683,9 +740,11 @@ function Get-LanguageResources {
 function Enable-WriteAccess {
     param([string]$ResourcesPath)
 
+    $appPath = Get-ClaudeAppPathFromResources $ResourcesPath
     $paths = @(
-        (Get-ClaudeAppPathFromResources $ResourcesPath),
+        $appPath,
         $ResourcesPath,
+        (Join-Path $ResourcesPath "app.asar"),
         (Join-Path $ResourcesPath "ion-dist.asar"),
         (Join-Path $ResourcesPath "ion-dist"),
         (Join-Path $ResourcesPath "ion-dist\i18n"),
@@ -694,9 +753,25 @@ function Enable-WriteAccess {
         (Join-Path $ResourcesPath "ion-dist\assets"),
         (Join-Path $ResourcesPath "ion-dist\assets\v1")
     )
+    if ($appPath) {
+        $paths += (Join-Path $appPath "Claude.exe")
+    }
 
+    $failed = @()
     foreach ($path in $paths) {
-        Grant-WriteAccess $path
+        if (-not (Grant-WriteAccess $path)) {
+            $failed += $path
+        }
+    }
+
+    if ($failed.Count -gt 0) {
+        Write-Host "  [警告] 以下位置仍无法写入，安装很可能失败：" -ForegroundColor Yellow
+        foreach ($path in $failed) {
+            Write-Host "         $path" -ForegroundColor DarkYellow
+        }
+        Write-Host "         若安装的是 Microsoft Store 版（包名 AnthropicPBC.Claude），" -ForegroundColor DarkYellow
+        Write-Host "         系统会阻止修改程序文件，ACL 与开发者模式都绕不过；" -ForegroundColor DarkYellow
+        Write-Host "         请改用官网安装包后重试。" -ForegroundColor DarkYellow
     }
 }
 

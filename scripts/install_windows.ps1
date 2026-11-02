@@ -498,13 +498,54 @@ function Test-WriteAccess {
     }
 }
 
+function Confirm-TakeOwnership {
+    param([string]$Path)
+
+    # 只在第一次真正要接管所有权时提示并确认，避免十几个路径刷屏。
+    if ($script:TakeOwnershipAcknowledged) {
+        return $true
+    }
+
+    Write-Host ""
+    Write-Host "  [权限] 需要接管以下位置的系统所有权才能继续：" -ForegroundColor Yellow
+    Write-Host "         $Path" -ForegroundColor DarkYellow
+    Write-Host "         原因：该目录默认属于 TrustedInstaller，提权后的 Administrators" -ForegroundColor DarkGray
+    Write-Host "         只有读和执行权限，无法改写 asar 与 Claude.exe。" -ForegroundColor DarkGray
+    Write-Host "         副作用：" -ForegroundColor DarkGray
+    Write-Host "           · 目录所有者会从 TrustedInstaller 改为 Administrators" -ForegroundColor DarkGray
+    Write-Host "           · 会授予 Administrators 完全控制，卸载后不会自动恢复" -ForegroundColor DarkGray
+    Write-Host "           · 仅在重装或升级 Claude 后由系统重置" -ForegroundColor DarkGray
+    Write-Host "           · 部分安全软件或企业策略可能拦截并告警" -ForegroundColor DarkGray
+    Write-Host ""
+
+    if (-not $Interactive -or [Console]::IsInputRedirected) {
+        # 非交互安装（脚本调用、CI）没有可问的对象，提示后按同意处理。
+        Write-Host "  [权限] 非交互模式，将直接继续。" -ForegroundColor DarkYellow
+        $script:TakeOwnershipAcknowledged = $true
+        return $true
+    }
+
+    $answer = Read-Host "  继续接管所有权？输入 y 继续，其他任意键跳过（跳过会导致补丁安装失败） [y/N]"
+    if ($answer -and $answer.Trim() -match '^(y|yes|Y|YES)$') {
+        $script:TakeOwnershipAcknowledged = $true
+        return $true
+    }
+
+    Write-Host "  [权限] 已跳过接管所有权。" -ForegroundColor DarkYellow
+    return $false
+}
+
 function Take-OwnershipAndGrant {
     param([string]$Path)
 
     # 官网/商店 MSIX 包的默认 ACL：owner = NT AUTHORITY\SYSTEM，当前用户有显式
     # FullControl，但 BUILTIN\Administrators 只继承到 ReadAndExecute。UAC 提权后
     # 进程以 Administrators 身份运行，反而写不进去；Set-Acl 也会因不是 owner 失败。
-    # 这里用 takeown + icacls 兜底。
+    # 这里用 takeown + icacls 兜底，执行前先提示副作用并确认。
+    if (-not (Confirm-TakeOwnership $Path)) {
+        return $false
+    }
+
     try {
         & takeown.exe /f $Path /a 2>&1 | Out-Null
         & icacls.exe $Path /grant "*S-1-5-32-544:F" /C 2>&1 | Out-Null
@@ -548,6 +589,28 @@ function Grant-WriteAccess {
         }
         catch {
         }
+    }
+
+    if (Test-WriteAccess $Path) {
+        return $true
+    }
+
+    # Allow 已经加过却还是写不进去，说明存在显式 Deny —— 在 Windows 的 ACL 里
+    # Deny 优先于 Allow，不清掉就永远覆盖不了。只针对本脚本要写的那两个主体。
+    try {
+        $acl = Get-Acl -LiteralPath $Path
+        $removed = 0
+        foreach ($rule in @($acl.GetAccessRules($true, $true, [System.Security.Principal.NTAccount]))) {
+            if ($rule.AccessControlType -ne "Deny") { continue }
+            if ($identities -notcontains $rule.IdentityReference.Value) { continue }
+            if ($acl.RemoveAccessRule($rule)) { $removed++ }
+        }
+        if ($removed -gt 0) {
+            Set-Acl -LiteralPath $Path -AclObject $acl -ErrorAction Stop
+            Write-Host "  [权限] 已移除 $removed 条阻止写入的拒绝规则: $Path" -ForegroundColor DarkGray
+        }
+    }
+    catch {
     }
 
     if (Test-WriteAccess $Path) {
@@ -764,15 +827,37 @@ function Enable-WriteAccess {
         }
     }
 
-    if ($failed.Count -gt 0) {
-        Write-Host "  [警告] 以下位置仍无法写入，安装很可能失败：" -ForegroundColor Yellow
-        foreach ($path in $failed) {
-            Write-Host "         $path" -ForegroundColor DarkYellow
-        }
-        Write-Host "         若安装的是 Microsoft Store 版（包名 AnthropicPBC.Claude），" -ForegroundColor DarkYellow
-        Write-Host "         系统会阻止修改程序文件，ACL 与开发者模式都绕不过；" -ForegroundColor DarkYellow
-        Write-Host "         请改用官网安装包后重试。" -ForegroundColor DarkYellow
+    if ($failed.Count -eq 0) {
+        return $true
     }
+
+    Write-Host "  [警告] 以下位置仍无法写入：" -ForegroundColor Yellow
+    foreach ($path in $failed) {
+        Write-Host "         $path" -ForegroundColor DarkYellow
+    }
+    if ($ResourcesPath -match '(?i)\\WindowsApps\\AnthropicPBC\.Claude_') {
+        Write-Host "         当前是 Microsoft Store 版（MSIX/AppX）：系统会阻止修改程序文件，" -ForegroundColor DarkYellow
+        Write-Host "         接管所有权与开发者模式都绕不过；请改用官网安装包后重试。" -ForegroundColor DarkYellow
+    }
+    else {
+        Write-Host "         请确认安装脚本以管理员身份运行，并检查安全软件是否拦截了权限修改。" -ForegroundColor DarkYellow
+    }
+    return $false
+}
+
+function Assert-WriteAccess {
+    param(
+        [string]$ResourcesPath,
+        [string]$Stage = "安装"
+    )
+
+    if (Enable-WriteAccess $ResourcesPath) {
+        return
+    }
+
+    # 权限拿不到时直接中止：继续往下写 asar 只会在更靠后的位置抛一个
+    # 更难懂的错误，还可能留下「asar 已改、exe 哈希没写回」的半坏状态。
+    throw "无法获得 Claude 程序目录的写权限，已中止$Stage。请以管理员身份重试；若装的是 Microsoft Store 版，请改用官网安装包。"
 }
 
 function Install-LanguageFiles {
@@ -3434,14 +3519,22 @@ function Remove-LanguageFiles {
         (Join-Path $ResourcesPath "ion-dist\i18n\dynamic\zh-HK.json")
     )
 
+    $failed = @()
     foreach ($target in $targets) {
         Remove-Item $target -Force -ErrorAction SilentlyContinue
         if (-not (Test-Path $target)) {
             Write-Host "  removed: $target" -ForegroundColor Green
         } else {
+            $failed += $target
             Write-Host "  [警告] 未能删除: $target" -ForegroundColor DarkYellow
         }
     }
+
+    if ($failed.Count -gt 0) {
+        Write-Host "  [警告] 有 $($failed.Count) 个中文资源未能删除，卸载可能不完整；" -ForegroundColor Yellow
+        Write-Host "         请确认脚本以管理员身份运行后重试卸载。" -ForegroundColor DarkYellow
+    }
+    return $failed.Count
 }
 
 function Test-ClaudeDesktopProcessPath {
@@ -3649,7 +3742,7 @@ function Install-WindowsLanguagePack {
         Repair-ClaudeDesktopShortcut $claudePath
 
         Write-Step "[3/7] 准备写入权限"
-        Enable-WriteAccess $resourcesPath
+        Assert-WriteAccess $resourcesPath "安装"
         Remove-LegacyAppxForkArtifacts
         $patchTarget = Initialize-FrontendPatchTarget $resourcesPath
 
@@ -3725,6 +3818,13 @@ function Uninstall-WindowsLanguagePack {
     Write-Step "关闭 Claude Desktop"
     Stop-ClaudeProcesses
     Remove-LegacyAppxForkArtifacts
+
+    # 卸载路径同样要写回备份、重同步 exe 哈希，所以也得先把权限拿到。
+    # 之前只有安装流程调过，ACL 一旦被系统修复 / 安全软件 / 手动 icacls 重置，
+    # 预清理会在 Restore-LatestBackup 或 Sync-ClaudeExeAsarIntegrity 处抛错，
+    # 外层 catch 直接退出，连后面 [3/7] 的兜底都轮不到。
+    Write-Step "确认写入权限"
+    Assert-WriteAccess $resourcesPath "卸载"
 
     Write-Step "[1/4] 恢复前端 bundle 和 app.asar"
     $workspacePath = Join-Path $resourcesPath "ion-dist"

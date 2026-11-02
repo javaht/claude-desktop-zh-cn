@@ -87,7 +87,7 @@ CC Switch skills 同步会扫描 `~/.cc-switch/skills` 下包含 `SKILL.md` 的�
 2. 下载或克隆本项目。
 3. 双击 `install-windows.bat`；脚本会复制安装文件到当前用户的临时目录，并弹出 UAC 管理员授权窗口。
 4. 先选择操作：
-   - `1` 安装中文补丁（第三方 API 模式，例如 DeepSeek）：安装中文资源、注册中文语言并汉化前端 bundle 与主进程菜单。脚本会在必要时就地改写 `app.asar` 补入桌面词库；Claude `4.29+` 会重建 `ion-dist.asar` 并更新 `Claude.exe` 中对应的完整性哈希，原有 Authenticode 签名会失效。安装后 `English` 界面同样会显示中文（词库被合并覆盖进 `en-US`），切换语言无法回到纯英文，需要卸载或恢复备份才能还原。第三方模型需在网关或 CC Switch 中映射为 Claude/Anthropic 风格名称。
+   - `1` 安装中文补丁（第三方 API 模式，例如 DeepSeek）：安装中文资源、注册中文语言并汉化前端 bundle 与主进程菜单。脚本会在必要时就地改写 `app.asar` 补入桌面词库；Claude `4.29+` 会重建 `ion-dist.asar` 并更新 `Claude.exe` 中对应的完整性哈希，原有 Authenticode 签名会失效。安装后 `English` 界面同样会显示中文（词库被合并覆盖进 `en-US`），切换语言无法回到纯英文，需要卸载或恢复备份才能还原。若 Claude 装在 `WindowsApps` 下且管理员拿不到写权限，脚本会接管该目录的所有权（所有者从 TrustedInstaller 改为 Administrators，卸载后不自动恢复，详见下文注意事项）。第三方模型需在网关或 CC Switch 中映射为 Claude/Anthropic 风格名称。
    - `2` 恢复原样 / 卸载补丁。
    - `3` 自动更新设置：输入 `y` 禁止自动更新，输入 `n` 允许自动更新。
    - `4` CC Switch skills 同步：输入 `y` 开启同步，输入 `n` 删除之前的同步。
@@ -210,6 +210,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-AsarRoundTrip.ps1
 - Claude `4.29+` 的新版前端位于 `ion-dist.asar`，安装器会先备份原包，再解包到临时 `ion-dist` 目录执行汉化；完成后按 ASAR 格式重打包、校验结构并替换原文件。
 - 由于 Claude `4.29+` 的壳层和前端都固定按 `en-US` 加载词库（渲染进程约 1 秒后还会把 locale 写回 `en-US`），安装器会把所选中文词库合并覆盖进 `app.asar` 的 `resources/i18n/en-US.json` 与 `ion-dist.asar` 的 `i18n/en-US.json`，未翻译的键保留英文，从而覆盖只存在于词库、JS 里没有字面量的条目（例如模型档位描述）。副作用是 `English` 界面也会显示中文，且无法通过切换语言还原英文，卸载或恢复备份后才会恢复。
 - 改写 `app.asar` 或重建 `ion-dist.asar` 后，安装器会同步 `Claude.exe` 内嵌的 `app.asar` 与 `ion-dist.asar` 头哈希。此时 `Claude.exe` 的原始 Authenticode 签名会失效；卸载时从备份恢复并重新同步官方哈希。
+- Windows 上 Claude 安装在 `C:\Program Files\WindowsApps\<包名>\app`，该目录默认属于 `TrustedInstaller`，UAC 提权后的 `Administrators` 只有读和执行权限。安装器不再只看 ACL，而是先实测能否写入；不能时依次追加允许规则、清理阻止写入的显式拒绝规则（Windows 中 Deny 优先于 Allow），仍然不行才用 `takeown /a` + `icacls` 接管所有权。**接管会把该目录的所有者从 `TrustedInstaller` 改为 `Administrators`，并授予其完全控制；卸载不会自动恢复**，只有重装或升级 Claude 时由系统重置，部分安全软件或企业策略可能拦截或告警。交互模式下执行前会二次确认，可用 `n` 跳过。写入权限最终拿不到时安装会直接中止，而不是继续写 asar 留下「asar 已改、exe 哈希没写回」的半坏状态。
 - 写入 Windows 用户配置，将语言设置为所选语言代码（`zh-CN`、`zh-TW` 或 `zh-HK`）。
 - 可选菜单项 `3` 用 `y/n` 控制 Claude Desktop 自动更新：`y` 禁止自动更新，`n` 允许自动更新。若当前存在有效的 Claude-3p `configLibrary`，脚本会写入当前 applied 配置；否则写入 `HKCU\SOFTWARE\Policies\Claude` policy。
 - 可选菜单项 `4` 用 `y/n` 控制 CC Switch skills 同步：`y` 会把 `%USERPROFILE%\.cc-switch\skills` 中缺失的 skill 以软链接加入 Claude Desktop 的本地 skills 目录，并把 `SKILL.md` frontmatter 里的 `name` 和 `description` 写入对应 `manifest.json`；`n` 只删除之前同步产生、且指向 CC Switch skills 目录内的软链接和对应 manifest 记录。脚本会从当前用户的 AppData 动态扫描 Claude-3p skills plugin，不写死 session UUID，不覆盖同名 skill，也不删除 CC Switch 源目录。

@@ -38,6 +38,7 @@ jobs:
           ./tests/Test-AsarIntegrity.ps1
           ./tests/Test-AsarFrontendWorkflow.ps1
           ./tests/Test-DesktopShell.ps1
+          ./tests/Test-WriteAccess.ps1
       - name: PowerShell 7 跨平台测试
         if: runner.os == 'Linux'
         shell: pwsh
@@ -46,5 +47,6 @@ jobs:
           ./tests/Test-SlashCommandMenu.ps1
           ./tests/Test-UnregisterLanguage.ps1
           ./tests/Test-DesktopShell.ps1
+          ./tests/Test-WriteAccess.ps1
       - name: 差异空白检查
         run: git diff --check HEAD^ HEAD

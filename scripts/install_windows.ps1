@@ -17,7 +17,11 @@ param(
     [string]$OriginalUserSid = "",
     [string]$OriginalUserProfile = "",
     [string]$OriginalAppData = "",
-    [string]$OriginalLocalAppData = ""
+    [string]$OriginalLocalAppData = "",
+
+    # 非交互安装（脚本调用、自动化）默认不允许接管 WindowsApps 的所有权。
+    # 需要显式授权，避免在没人确认的情况下静默改动系统保护目录的 ACL。
+    [switch]$AllowTakeOwnership
 )
 
 $ErrorActionPreference = "Stop"
@@ -501,6 +505,11 @@ function Test-WriteAccess {
 function Confirm-TakeOwnership {
     param([string]$Path)
 
+    # 用户已经拒绝过，之后每个路径都不再重复问。
+    if ($script:TakeOwnershipDeclined) {
+        return $false
+    }
+
     # 只在第一次真正要接管所有权时提示并确认，避免十几个路径刷屏。
     if ($script:TakeOwnershipAcknowledged) {
         return $true
@@ -519,10 +528,18 @@ function Confirm-TakeOwnership {
     Write-Host ""
 
     if (-not $Interactive -or [Console]::IsInputRedirected) {
-        # 非交互安装（脚本调用、CI）没有可问的对象，提示后按同意处理。
-        Write-Host "  [权限] 非交互模式，将直接继续。" -ForegroundColor DarkYellow
-        $script:TakeOwnershipAcknowledged = $true
-        return $true
+        # 非交互场景没有人可以确认，必须显式授权才继续，否则视为拒绝。
+        $allowed = $AllowTakeOwnership -or ($env:CLAUDE_ZH_ALLOW_TAKE_OWNERSHIP -match '^(1|true|TRUE|yes|YES|y|Y)$')
+        if ($allowed) {
+            Write-Host "  [权限] 已通过 -AllowTakeOwnership / CLAUDE_ZH_ALLOW_TAKE_OWNERSHIP 授权，继续接管。" -ForegroundColor DarkYellow
+            $script:TakeOwnershipAcknowledged = $true
+            return $true
+        }
+        Write-Host "  [权限] 非交互模式未授权接管所有权，已跳过。" -ForegroundColor DarkYellow
+        Write-Host "         如需继续，请加 -AllowTakeOwnership，或设置环境变量" -ForegroundColor DarkYellow
+        Write-Host "         CLAUDE_ZH_ALLOW_TAKE_OWNERSHIP=1 后重试。" -ForegroundColor DarkYellow
+        $script:TakeOwnershipDeclined = $true
+        return $false
     }
 
     $answer = Read-Host "  继续接管所有权？输入 y 继续，其他任意键跳过（跳过会导致补丁安装失败） [y/N]"
@@ -532,6 +549,7 @@ function Confirm-TakeOwnership {
     }
 
     Write-Host "  [权限] 已跳过接管所有权。" -ForegroundColor DarkYellow
+    $script:TakeOwnershipDeclined = $true
     return $false
 }
 
@@ -3823,8 +3841,28 @@ function Uninstall-WindowsLanguagePack {
     # 之前只有安装流程调过，ACL 一旦被系统修复 / 安全软件 / 手动 icacls 重置，
     # 预清理会在 Restore-LatestBackup 或 Sync-ClaudeExeAsarIntegrity 处抛错，
     # 外层 catch 直接退出，连后面 [3/7] 的兜底都轮不到。
-    Write-Step "确认写入权限"
-    Assert-WriteAccess $resourcesPath "卸载"
+    #
+    # 但如果这台机器上根本没有补丁可卸（例如装的是商店版、从来没打上过），
+    # 就不该为了「清理」去接管系统目录的所有权 —— 那只会让用户看到一个
+    # 与卸载无关的权限错误。这种情况跳过授权，后面的步骤都是幂等的空操作。
+    $hasBackup = Test-Path -LiteralPath (Get-BackupRoot $resourcesPath)
+    $langCandidates = @(
+        (Join-Path $resourcesPath "zh-CN.json"),
+        (Join-Path $resourcesPath "zh-TW.json"),
+        (Join-Path $resourcesPath "zh-HK.json"),
+        (Join-Path $resourcesPath "ion-dist\i18n\zh-CN.json"),
+        (Join-Path $resourcesPath "ion-dist\i18n\zh-TW.json"),
+        (Join-Path $resourcesPath "ion-dist\i18n\zh-HK.json")
+    )
+    $hasLang = @($langCandidates | Where-Object { Test-Path -LiteralPath $_ }).Count -gt 0
+
+    if ($hasBackup -or $hasLang) {
+        Write-Step "确认写入权限"
+        Assert-WriteAccess $resourcesPath "卸载"
+    }
+    else {
+        Write-Host "  未检测到中文补丁（无备份、无中文资源），跳过权限检查。" -ForegroundColor DarkGray
+    }
 
     Write-Step "[1/4] 恢复前端 bundle 和 app.asar"
     $workspacePath = Join-Path $resourcesPath "ion-dist"

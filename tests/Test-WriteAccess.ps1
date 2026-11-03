@@ -100,6 +100,21 @@ try {
     New-Item -ItemType Directory -Path $resources -Force | Out-Null
     Assert-WriteAccess $resources 'install'
 
+    # --- Confirm-TakeOwnership: non-interactive runs must not take ownership silently ---
+    # No -Interactive, no -AllowTakeOwnership, no env var -> decline, and stay declined
+    # so the remaining paths do not each re-ask.
+    $script:TakeOwnershipAcknowledged = $false
+    $script:TakeOwnershipDeclined = $false
+    if (Confirm-TakeOwnership (Join-Path $temp 'needs-ownership')) {
+        throw 'Confirm-TakeOwnership should decline when non-interactive without explicit consent.'
+    }
+    if (-not $script:TakeOwnershipDeclined) {
+        throw 'Confirm-TakeOwnership should remember the decline.'
+    }
+    if (Confirm-TakeOwnership (Join-Path $temp 'needs-ownership-again')) {
+        throw 'Confirm-TakeOwnership should keep declining after the first refusal.'
+    }
+
     # --- Assert-WriteAccess: must stop the run when access cannot be obtained ---
     # A genuine "cannot write" state is not portable to fabricate, so stub the
     # producer and assert the contract: false must turn into a hard stop.

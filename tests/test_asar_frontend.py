@@ -157,6 +157,65 @@ class AsarFrontendTests(unittest.TestCase):
             self.assertEqual(target["mode"], "directory")
             self.assertFalse((app / "Contents/Resources/ion-dist.asar").exists())
 
+    def test_placeholder_directory_coexists_with_asar(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            app = tmp / "Claude.app"
+            resources = app / "Contents/Resources"
+            resources.mkdir(parents=True)
+            source = tmp / "source"
+            make_frontend_source(source)
+            patcher.build_asar(source, resources / "ion-dist.asar")
+            placeholder = resources / "ion-dist"
+            placeholder.mkdir()
+            (placeholder / "index.html").write_text("<html>Claude was updated</html>", encoding="utf-8")
+
+            target = patcher.prepare_frontend_target(app)
+            try:
+                self.assertEqual(target["mode"], "asar")
+                self.assertTrue((target["work"] / "assets/v1/index-abc.js").is_file())
+            finally:
+                patcher.cleanup_frontend_target(target)
+
+    def test_directory_with_js_blocks_asar_layout(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            app = tmp / "Claude.app"
+            resources = app / "Contents/Resources"
+            resources.mkdir(parents=True)
+            source = tmp / "source"
+            make_frontend_source(source)
+            patcher.build_asar(source, resources / "ion-dist.asar")
+            stray = resources / "ion-dist/assets/v1"
+            stray.mkdir(parents=True)
+            (stray / "index-abc.js").write_text("// stray", encoding="utf-8")
+
+            with self.assertRaises(SystemExit):
+                patcher.prepare_frontend_target(app)
+
+    def test_language_whitelist_patches_every_chunk(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            app = tmp / "Claude.app"
+            resources = app / "Contents/Resources"
+            resources.mkdir(parents=True)
+            source = tmp / "source"
+            make_frontend_source(source)
+            assets = source / "assets/v1"
+            language_list = f'{patcher.BASE_LANGUAGE_LIST}];'
+            for name in ("shared-123.js", "shared-62.js"):
+                (assets / name).write_text(f"const a={language_list}", encoding="utf-8")
+            patcher.build_asar(source, resources / "ion-dist.asar")
+
+            target = patcher.prepare_frontend_target(app)
+            try:
+                patcher.patch_language_whitelist(app, "zh-CN")
+                for name in ("shared-123.js", "shared-62.js"):
+                    text = (target["work"] / "assets/v1" / name).read_text(encoding="utf-8")
+                    self.assertIn('"zh-CN"', text, name)
+            finally:
+                patcher.cleanup_frontend_target(target)
+
     def test_missing_bundle_raises(self):
         with tempfile.TemporaryDirectory() as tmp:
             app = Path(tmp) / "Claude.app"

@@ -278,18 +278,22 @@ def patch_language_whitelist(app: Path, lang_code: str) -> Path:
 
     replacement = f'{BASE_LANGUAGE_LIST},"{lang_code}"]'
 
+    patched_files: list[Path] = []
     for path in candidates:
         text = path.read_text(encoding="utf-8")
         if LANG_LIST_RE.search(text):
-            # Claude 2.9939.2 起同一 bundle 内有多份语言白名单（导航语言解析与
-            # 语言可用性校验各一份），必须全部补上，漏一份该路径就会把 zh 回退
-            # 成 en-US。正则会吞掉已存在的 zh 项，重复运行是幂等的。
+            # Claude 2.9939.2 起有多份语言白名单（导航语言解析与语言可用性校验各一份），
+            # 必须全部补上，漏一份该路径就会把 zh 回退成 en-US。4.16336 起这两份被拆进
+            # 不同 chunk（shared-123 与 shared-62），不能只补第一个命中的文件。
+            # 正则会吞掉已存在的 zh 项，重复运行是幂等的。
             patched, occurrences = LANG_LIST_RE.subn(replacement, text)
             path.write_text(patched, encoding="utf-8")
+            patched_files.append(path)
             print(f"Patched language whitelist: {path.name} ({occurrences} occurrence(s))")
-            return path
 
-    raise SystemExit("Could not patch language whitelist. Claude's bundle format may have changed.")
+    if not patched_files:
+        raise SystemExit("Could not patch language whitelist. Claude's bundle format may have changed.")
+    return patched_files[0]
 
 
 def patch_language_display_names(app: Path) -> None:
@@ -813,7 +817,13 @@ def prepare_frontend_target(app: Path) -> dict[str, Any]:
     directory = app / FRONTEND_DIR_REL
     if mode == "asar":
         if directory.exists():
-            raise SystemExit(f"前端目录与 ASAR 同时存在，无法安全判定布局: {directory}")
+            # Claude 4.16336 起同时保留 ion-dist.asar 与一个只含占位页的 ion-dist 目录
+            # （占位页提示旧版本已被覆盖，当前版本不会加载）。目录内没有 JS 时按占位页
+            # 处理，删除后继续使用 ASAR 布局。
+            if any(directory.rglob("*.js")):
+                raise SystemExit(f"前端目录与 ASAR 同时存在，无法安全判定布局: {directory}")
+            shutil.rmtree(directory)
+            print(f"Removed placeholder frontend directory: {directory}")
         unpacked: set[str] = set()
         extract_asar(asar, directory, unpacked)
         print(f"Extracted ion-dist.asar for patching ({len(unpacked)} unpacked file(s))")

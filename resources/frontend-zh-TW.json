@@ -43198,5 +43198,21 @@
   "kCWkLWHKW2": "“{name}”將從 Claude Code 中移除。{count, plural, one {保留由其啟動的會話，或兩者都刪除。} other {保留由其啟動的 # 個會話，或一併刪除。}}",
   "vwU8xUXSUi": "“{range}”是末尾帶 IPv4 地址的 IPv6 寫法，此處不接受。可接受的格式包括 192.168.1.0/24，以及僅用十六進位制表示的 IPv6，例如 2001:db8::/32。",
   "/qpJ6QfzZA": "“{range}”是末尾帶 IPv4 地址的 IPv6 寫法，此處不接受。可接受的格式包括 203.0.113.5、192.168.1.0/24，以及僅用十六進位制表示的 IPv6，例如 2001:db8::/32。",
-  "YjDCotTe3Z": "“{sessionTitle}”包含{count, plural, one {一個巢狀會話} other {# 個巢狀會話}}。僅刪除此會話，{count, plural, one {它} other {它們}}會移到頂層。"
+  "YjDCotTe3Z": "“{sessionTitle}”包含{count, plural, one {一個巢狀會話} other {# 個巢狀會話}}。僅刪除此會話，{count, plural, one {它} other {它們}}會移到頂層。",
+  "YZl5LT6OZn": "服務端自動模式檢查",
+  "W1DP9pIKoq": "臨時設定：傳送會話詳情，例如資料夾路徑和使用者名稱，以便閘道器提供方檢查有風險的自動模式操作。",
+  "GHmCVlgEYg": "Chat、Cowork 和 Code 沙盒可存取的主機。留空：無。未設定：無，但當 Code 中僅有本地檔案這一項配置時除外。",
+  "G6FRisqWwN": "部署模式",
+  "CH0VFBBjjp": "Claude Desktop 是僅執行在你的第三方配置上、僅登入 Claude.ai，還是由每個人在登入時自行選擇。",
+  "hZIhDCs5FP": "讓使用者自行選擇",
+  "6Dm7PdJDZF": "僅第三方",
+  "fnFK3iQSf/": "僅 Claude.ai",
+  "pweIlsEJF7": "關閉在本機執行的 Code 會話（含 WSL），使 Code 僅提供 SSH 等遠端環境。",
+  "eBp9bbMvGi": "允許使用者在“設定 → 匯入與匯出”中匯入 Claude.ai 資料匯出、此處更早的會話，或另一臺裝置的 Claude Desktop 匯出。",
+  "BkypjxR89f": "啟用匯出",
+  "49ZP5UHIw+": "允許使用者將此裝置上的 Claude 資料匯出為 zip 檔案，以便在另一臺裝置上匯入。除非開啟“啟用匯入”，否則無效。",
+  "PsIizNqk5Y": "向 Anthropic 傳送崩潰、錯誤和效能報告。",
+  "0i9ZBFuuO5": "產品使用情況分析（不含訊息內容）。",
+  "kDF25Dcu9c": "連接器圖示、託管的 Artifact 預覽、MCP Apps 小元件和 Linux 拼寫檢查詞典。被阻止的小元件會顯示錯誤。",
+  "ew9JLHcRe6": "為 Windows、macOS 或 Linux 分別設定不同的程式。未列出的系統，其裝置將執行該設定自身的程式。"
 }

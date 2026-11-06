@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Load-InstallerFunctions.ps1') -FunctionNames @(
     'Format-ByteSize',
     'Require-File',

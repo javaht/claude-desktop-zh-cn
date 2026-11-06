@@ -837,6 +837,10 @@ function Enable-WriteAccess {
     if ($appPath) {
         $paths += (Join-Path $appPath "Claude.exe")
     }
+    $coworkSvc = Join-Path $ResourcesPath "cowork-svc.exe"
+    if (Test-Path -LiteralPath $coworkSvc) {
+        $paths += $coworkSvc
+    }
 
     $failed = @()
     foreach ($path in $paths) {
@@ -1985,6 +1989,302 @@ function Sync-ClaudeExeAsarIntegrity {
     }
 }
 
+function Find-GoPclntabOffset {
+    param(
+        [byte[]]$Bytes,
+        [string]$Latin1Text,
+        [bool]$IsArm64,
+        [uint64]$ExpectedTextStart
+    )
+
+    $quantum = if ($IsArm64) { 4 } else { 1 }
+    $magicBytes = [byte[]](0xF1, 0xFF, 0xFF, 0xFF, 0x00, 0x00, $quantum, 0x08)
+    $magic = [System.Text.Encoding]::GetEncoding(28591).GetString($magicBytes)
+    $searchFrom = 0
+    while ($true) {
+        $i = $Latin1Text.IndexOf($magic, $searchFrom, [System.StringComparison]::Ordinal)
+        if ($i -lt 0) { return -1 }
+        $nfunc = [BitConverter]::ToUInt64($Bytes, $i + 8)
+        $textStart = [BitConverter]::ToUInt64($Bytes, $i + 24)
+        $pclnOff = [BitConverter]::ToUInt64($Bytes, $i + 64)
+        $functabEnd = [uint64]$i + $pclnOff + $nfunc * 8 + 8
+        if ($nfunc -gt 0 -and $nfunc -lt 500000 -and
+            $textStart -eq $ExpectedTextStart -and
+            $pclnOff -gt 0 -and
+            $functabEnd -lt [uint64]$Bytes.Length) {
+            return $i
+        }
+        $searchFrom = $i + 1
+    }
+}
+
+function Resolve-GoFuncEntry {
+    param(
+        [byte[]]$Bytes,
+        [string]$Latin1Text,
+        [int64]$FunctabStart,
+        [int64]$FunctabEnd,
+        [string]$NameTab,
+        [string]$FuncName,
+        [switch]$Suffix,
+        [uint32]$TextVSize
+    )
+
+    # 收集候选 nameOff。funcnametab 允许复用后缀，因此后缀匹配时既把命中位置
+    # 本身当作 nameOff，也把它所在完整名字的起点当作候选。
+    $enc = [System.Text.Encoding]::GetEncoding(28591)
+    $candidates = New-Object System.Collections.Generic.List[int]
+    $from = 0
+    while ($true) {
+        $i = $NameTab.IndexOf($FuncName + [char]0, $from, [System.StringComparison]::Ordinal)
+        if ($i -lt 0) { break }
+        if ($Suffix) {
+            $prev = if ($i -gt 0) { $NameTab.LastIndexOf([char]0, $i - 1) } else { -1 }
+            $candidates.Add($prev + 1)
+        }
+        $candidates.Add($i)
+        $from = $i + 1
+    }
+
+    # functab 条目形如 [entryoff][funcoff]，funcoff 指向 _func，其 nameOff 正是候选值。
+    # 用「entryoff + funcoff」双字模式回查表位置，把 nameOff 唯一地映射到 entryoff。
+    $entries = @{}
+    foreach ($nameOff in $candidates) {
+        $namePat = $enc.GetString([BitConverter]::GetBytes([int32]$nameOff))
+        $searchFrom = $FunctabStart
+        while ($true) {
+            $x = $Latin1Text.IndexOf($namePat, [int]$searchFrom, [System.StringComparison]::Ordinal)
+            if ($x -lt 0 -or $x -ge ($Latin1Text.Length - 4)) { break }
+            if ($x -ge ($FunctabStart + 4)) {
+                $fdStart = [int64]($x - 4)
+                $entryoff = [BitConverter]::ToUInt32($Bytes, $fdStart)
+                $funcoff = [int64]($fdStart - $FunctabStart)
+                if ([uint64]$entryoff -lt [uint64]$TextVSize -and $funcoff -ge 0) {
+                    $pairBytes = New-Object byte[] 8
+                    [BitConverter]::GetBytes([uint32]$entryoff).CopyTo($pairBytes, 0)
+                    [BitConverter]::GetBytes([uint32]$funcoff).CopyTo($pairBytes, 4)
+                    $pairPat = $enc.GetString($pairBytes)
+                    $pairIdx = $Latin1Text.IndexOf($pairPat, [int]$FunctabStart, [System.StringComparison]::Ordinal)
+                    if ($pairIdx -ge $FunctabStart -and $pairIdx -lt $FunctabEnd -and
+                        ((($pairIdx - $FunctabStart) % 8) -eq 0)) {
+                        $entries[[uint32]$entryoff] = [int64](($pairIdx - $FunctabStart) / 8)
+                    }
+                }
+            }
+            $searchFrom = $x + 1
+        }
+    }
+
+    if ($entries.Count -eq 0) { return $null }
+    $entry = [uint32]($entries.Keys | Sort-Object | Select-Object -First 1)
+    return @($entry, [int64]$entries[$entry])
+}
+
+function Patch-CoworkService {
+    param(
+        [string]$ResourcesPath,
+        [string]$Version = "",
+        [switch]$ScanOnly
+    )
+
+    $svcPath = Join-Path $ResourcesPath "cowork-svc.exe"
+    if (-not (Test-Path -LiteralPath $svcPath)) {
+        return @("未找到 cowork-svc.exe，跳过")
+    }
+
+    $bytes = [System.IO.File]::ReadAllBytes($svcPath)
+    $latin1 = [System.Text.Encoding]::GetEncoding(28591)
+    # 若备份集中已有原始副本则优先使用，保证重复安装时仍能唯一定位原始指令
+    $backupRoot = Join-Path $ResourcesPath ".zh-cn-backups"
+    $backupFile = Get-ChildItem -Path $backupRoot -Recurse -Filter "cowork-svc.exe" -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -First 1
+    if ($backupFile) {
+        $originalBytes = [System.IO.File]::ReadAllBytes($backupFile.FullName)
+    } else {
+        $originalBytes = $bytes
+    }
+    $originalLatin1Text = $latin1.GetString($originalBytes)
+
+    if ($bytes.Length -lt 0x40 -or $bytes[0] -ne 0x4D -or $bytes[1] -ne 0x5A) {
+        return @("[警告] cowork-svc.exe 不是有效的 PE 文件，跳过。")
+    }
+
+    $peOff = [BitConverter]::ToUInt32($bytes, 0x3C)
+    if ($peOff -lt 0 -or ($peOff + 24) -gt $bytes.Length) {
+        return @("[警告] PE 头部偏移无效，跳过。")
+    }
+
+    $machine = [BitConverter]::ToUInt16($bytes, $peOff + 4)
+    $isArm64 = ($machine -eq 0xAA64)
+    $isX64 = ($machine -eq 0x8664)
+    if (-not ($isArm64 -or $isX64)) {
+        return @("[警告] 无法识别架构 (machine=0x$($machine.ToString('X4')))，跳过。")
+    }
+
+    $numSections = [BitConverter]::ToUInt16($bytes, $peOff + 6)
+    $optSize = [BitConverter]::ToUInt16($bytes, $peOff + 20)
+    $optOff = $peOff + 24
+    $optMagic = [BitConverter]::ToUInt16($bytes, $optOff)
+    $imageBase = if ($optMagic -eq 0x20B) {
+        [BitConverter]::ToUInt64($bytes, $optOff + 24)
+    } else {
+        [BitConverter]::ToUInt32($bytes, $optOff + 28)
+    }
+
+    $textVAddr = [uint32]0
+    $textRAddr = [uint32]0
+    $textVSize = [uint32]0
+    for ($i = 0; $i -lt $numSections; $i++) {
+        $s = $peOff + 24 + $optSize + $i * 40
+        if (($s + 40) -gt $bytes.Length) { break }
+        $name = [System.Text.Encoding]::ASCII.GetString($bytes, $s, 8).TrimEnd([char]0)
+        if ($name -eq ".text") {
+            $textVSize = [BitConverter]::ToUInt32($bytes, $s + 8)
+            $textVAddr = [BitConverter]::ToUInt32($bytes, $s + 12)
+            $textRAddr = [BitConverter]::ToUInt32($bytes, $s + 20)
+            break
+        }
+    }
+    if ($textRAddr -eq 0) {
+        return @("[警告] 未找到 .text 节区，跳过。")
+    }
+
+    $expectedTextStart = [uint64]$imageBase + [uint64]$textVAddr
+    $pt = Find-GoPclntabOffset -Bytes $originalBytes -Latin1Text $originalLatin1Text -IsArm64 $isArm64 -ExpectedTextStart $expectedTextStart
+    if ($pt -lt 0) {
+        return @("[警告] 未找到 Go pclntab 符号表，跳过。")
+    }
+
+    $nfunc = [BitConverter]::ToUInt64($originalBytes, $pt + 8)
+    $funcnameOff = [BitConverter]::ToUInt64($originalBytes, $pt + 32)
+    $pclnOff = [BitConverter]::ToUInt64($originalBytes, $pt + 64)
+
+    $nameTabStart = [int64]($pt + $funcnameOff)
+    $nameTabEnd = [int64]($pt + $pclnOff)
+    if ($nameTabEnd -gt $bytes.Length) { $nameTabEnd = $bytes.Length }
+    $nameTab = $originalLatin1Text.Substring($nameTabStart, [int]($nameTabEnd - $nameTabStart))
+
+    $functabStart = [int64]($pt + $pclnOff)
+    $functabEnd = [int64]($functabStart + $nfunc * 8)
+    # Go 的 functab entryoff 是相对 textStart 的偏移，不是 RVA
+    $textEndEntry = [uint32]$textVSize
+
+    $resolved = @{}
+    foreach ($funcName in @("main.runService", "main.isWindowsService")) {
+        $r = Resolve-GoFuncEntry -Bytes $originalBytes -Latin1Text $originalLatin1Text `
+            -FunctabStart $functabStart -FunctabEnd $functabEnd -NameTab $nameTab `
+            -FuncName $funcName -TextVSize $textEndEntry
+        if ($null -eq $r) {
+            return @("[警告] 未能唯一定位 $funcName，跳过。")
+        }
+        $resolved[$funcName] = $r
+    }
+
+    $runEntry = [uint32]$resolved["main.runService"][0]
+    $runIdx = [int64]$resolved["main.runService"][1]
+    $wsEntry = [uint32]$resolved["main.isWindowsService"][0]
+    if (($runIdx + 1) -lt $nfunc) {
+        $runEnd = [BitConverter]::ToUInt32($originalBytes, $functabStart + ($runIdx + 1) * 8)
+    } else {
+        $runEnd = [uint32]$textEndEntry
+    }
+
+    $runStartFile = [int64]($runEntry + $textRAddr)
+    $runEndFile = [int64]($runEnd + $textRAddr)
+
+    $sites = @()
+    if ($isArm64) {
+        for ($f = $runStartFile; ($f + 4) -le $runEndFile; $f += 4) {
+            $w = [BitConverter]::ToUInt32($originalBytes, $f)
+            if ((($w -shr 26) -band 0x3F) -ne 0x25) { continue }  # BL: 100101b
+            $imm = $w -band 0x03FFFFFF
+            if ($imm -ge 0x02000000) { $imm -= 0x04000000 }
+            $insnEntry = [int64]($f - $textRAddr)
+            if (($insnEntry + $imm * 4) -eq [int64]$wsEntry) { $sites += $f }
+        }
+    } else {
+        for ($f = $runStartFile; ($f + 5) -le $runEndFile; $f++) {
+            if ($originalBytes[$f] -ne 0xE8) { continue }
+            $rel = [BitConverter]::ToInt32($originalBytes, $f + 1)
+            $insnEntry = [int64]($f - $textRAddr)
+            if (($insnEntry + 5 + $rel) -eq [int64]$wsEntry) { $sites += $f }
+        }
+    }
+
+    $archLabel = if ($isArm64) { "ARM64" } else { "x64" }
+    if ($sites.Count -ne 1) {
+        return @("[警告] 在 runService 中找到 $($sites.Count) 处 isWindowsService 调用 (预期 1 处)，跳过。")
+    }
+
+    # 语义校验：isWindowsService() 的返回值就是「是否启用客户端签名校验」的开关，
+    # 它紧接着被作为第 2 个参数传给 (*Server).InitSignatureVerification。若该调用
+    # 不存在，说明二进制布局已变化，此时不应凭符号名猜测补丁点。
+    $initR = Resolve-GoFuncEntry -Bytes $originalBytes -Latin1Text $originalLatin1Text `
+        -FunctabStart $functabStart -FunctabEnd $functabEnd -NameTab $nameTab `
+        -FuncName "InitSignatureVerification" -Suffix -TextVSize $textEndEntry
+    if ($null -eq $initR) {
+        return @("[警告] 未找到 InitSignatureVerification，无法校验补丁点语义，跳过。")
+    }
+    $initEntry = [uint64]$initR[0]
+    $site = $sites[0]
+    $hasInitCall = $false
+    $scanEnd = [Math]::Min($site + 64, $runEndFile)
+    for ($f = $site + 4; $f -lt $scanEnd; $f++) {
+        if ($isArm64) {
+            if ((($f - $site) % 4) -ne 0) { continue }
+            $w = [BitConverter]::ToUInt32($originalBytes, $f)
+            if ((($w -shr 26) -band 0x3F) -ne 0x25) { continue }
+            $imm = $w -band 0x03FFFFFF
+            if ($imm -ge 0x02000000) { $imm -= 0x04000000 }
+            if ([uint64]([int64]($f - $textRAddr) + $imm * 4) -eq $initEntry) { $hasInitCall = $true; break }
+        } else {
+            if ($originalBytes[$f] -ne 0xE8) { continue }
+            $rel = [BitConverter]::ToInt32($originalBytes, $f + 1)
+            if ([uint64]([int64]($f - $textRAddr) + 5 + $rel) -eq $initEntry) { $hasInitCall = $true; break }
+        }
+    }
+    if (-not $hasInitCall) {
+        return @("[警告] 补丁点后未跟随 InitSignatureVerification 调用，布局已变化，跳过。")
+    }
+
+    $patch = if ($isArm64) { [byte[]](0x00, 0x00, 0x80, 0x52) } else { [byte[]](0x31, 0xC0, 0x90, 0x90, 0x90) }
+
+    # 检查当前状态是否已是补丁
+    $alreadyPatched = $true
+    for ($k = 0; $k -lt $patch.Length; $k++) {
+        if ($bytes[$site + $k] -ne $patch[$k]) { $alreadyPatched = $false; break }
+    }
+    if ($alreadyPatched) {
+        return @("cowork-svc.exe ($archLabel) 已处于补丁状态，无需重复处理")
+    }
+
+    if ($ScanOnly) {
+        return @("[ScanOnly] 定位成功 ($archLabel): runService@0x$($runEntry.ToString('X8')) isWindowsService@0x$($wsEntry.ToString('X8')) callSite=0x$($site.ToString('X'))")
+    }
+
+    # 备份原始文件
+    $backupDir = Join-Path $backupRoot "init-backup"
+    New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
+    $backupFileTarget = Join-Path $backupDir "cowork-svc.exe"
+    if (-not (Test-Path -LiteralPath $backupFileTarget)) {
+        Copy-Item -LiteralPath $svcPath -Destination $backupFileTarget -Force
+    }
+
+    # 写入补丁
+    $stream = [System.IO.File]::Open($svcPath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite)
+    try {
+        $stream.Seek($site, [System.IO.SeekOrigin]::Begin) | Out-Null
+        $stream.Write($patch, 0, $patch.Length)
+    } finally {
+        $stream.Dispose()
+    }
+
+    return @("✓ cowork-svc.exe ($archLabel) 签名校验分支已修补 (callSite=0x$($site.ToString('X')))")
+}
+
+
+
 function Get-FrontendJsFilesContaining {
     param(
         [string]$AssetsDir,
@@ -2324,6 +2624,7 @@ function Replace-FrontendHardcodedText {
 
 $script:FrontendPatcherCSharp = @'
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -2427,7 +2728,8 @@ namespace ClaudeZhPatch
             return counts;
         }
     }
-}
+
+    }
 '@
 
 function Patch-HardcodedFrontendStrings {
@@ -3132,6 +3434,25 @@ function Repair-ClaudeDesktopShortcut {
     }
 }
 
+function Stop-CoworkVMService {
+    $serviceName = "CoworkVMService"
+    $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+    if (-not $service) {
+        return
+    }
+
+    if ($service.Status -ne "Stopped") {
+        try {
+            Write-Host "  正在停止 $serviceName 服务..." -ForegroundColor DarkGray
+            Stop-Service -Name $serviceName -Force -ErrorAction Stop
+            Start-Sleep -Seconds 1
+        }
+        catch {
+            Write-Host "  [提示] 停止 $serviceName 服务: $($_.Exception.Message)" -ForegroundColor DarkGray
+        }
+    }
+}
+
 function Start-CoworkVMService {
     $serviceName = "CoworkVMService"
     $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
@@ -3654,6 +3975,7 @@ function Stop-ClaudeProcessesGracefully {
     }
 
     # cowork-svc.exe 不叫 claude.exe，旧逻辑不会停它；恢复/覆盖 app.asar 时它可能继续占用资源。
+    Stop-CoworkVMService
     $coworkProcs = @(Get-ClaudeCoworkProcesses)
     if ($coworkProcs.Count -gt 0) {
         foreach ($proc in $coworkProcs) {
@@ -3785,6 +4107,9 @@ function Install-WindowsLanguagePack {
         $usedAsarFrontend = $patchTarget.Mode -eq "Asar"
         $patchTarget = $null
 
+        $appVersion = Get-ClaudeExeProductVersion $claudePath
+        Patch-CoworkService $resourcesPath $appVersion
+
         Write-Step "[7/7] 写入用户语言配置"
         Set-ClaudeLocale $LanguageCode
 
@@ -3797,7 +4122,7 @@ function Install-WindowsLanguagePack {
         Write-Host ""
         Write-Host "安装完成。如果界面未立即切换，请在 Language 中选择 $label。" -ForegroundColor Green
         if ($usedAsarFrontend) {
-            Write-Host "提示：Claude 4.29+ 将前端打包为 ion-dist.asar，主进程菜单词库在 app.asar 内；安装器已重建 ion-dist.asar、就地改写 app.asar 并更新 Claude.exe 完整性哈希，原始 Authenticode 签名会失效。" -ForegroundColor DarkYellow
+            Write-Host "提示：Claude 4.29+ 将前端打包为 ion-dist.asar，主进程菜单词库在 app.asar 内；安装器已重建 ion-dist.asar、就地改写 app.asar 并更新 Claude.exe 完整性哈希；同时已自动修补 cowork-svc.exe 签名校验，解决 Cowork 报 RPC pipe closed 的问题。" -ForegroundColor DarkYellow
         }
         else {
             Write-Host "提示：本补丁仅写入中文资源，不改动 app.asar / Claude.exe；官方账号登录界面请直接使用 Claude 自带的语言设置。" -ForegroundColor DarkGray

@@ -47,9 +47,10 @@ class StructuralReplacementTests(unittest.TestCase):
             self.assertTrue(any(" " in source for source, _, _ in rules))
 
     def test_native_ui_translations_remain_available(self):
-        # IDs verified against Claude Desktop 3.1623.0.0 en-US.json; Motion is also
+        # IDs verified against Claude Desktop 4.16336.0.0 en-US.json; Motion is also
         # a product identifier, so its accessibility setting uses its own message.
-        ids = ["tWVShwh984", "FOW8QxFbvE", "EbK+xUjBAt", "uALpKq2tu/", "AHQWDTo4+e", "ti6aQl5Lr/"]
+        # AHQWDTo4+e was removed from the current catalog and must not be required.
+        ids = ["tWVShwh984", "FOW8QxFbvE", "EbK+xUjBAt", "uALpKq2tu/", "ti6aQl5Lr/"]
         for lang in ("zh-CN", "zh-TW", "zh-HK"):
             catalog = json.loads((ROOT / f"resources/frontend-{lang}.json").read_text(encoding="utf-8"))
             for key in ids:

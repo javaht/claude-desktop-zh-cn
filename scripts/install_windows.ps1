@@ -3434,8 +3434,19 @@ function Repair-ClaudeDesktopShortcut {
     }
 }
 
+function Test-ServiceControlAvailable {
+    # Get-Service / Stop-Service / Start-Service 只在 Windows 上存在；非 Windows 上的
+    # PowerShell 7 没有这些 cmdlet，且 CommandNotFoundException 不受
+    # -ErrorAction SilentlyContinue 抑制，因此必须先探测可用性。
+    return [bool](Get-Command -Name Get-Service -ErrorAction SilentlyContinue)
+}
+
 function Stop-CoworkVMService {
     $serviceName = "CoworkVMService"
+    if (-not (Test-ServiceControlAvailable)) {
+        return
+    }
+
     $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
     if (-not $service) {
         return
@@ -3455,6 +3466,10 @@ function Stop-CoworkVMService {
 
 function Start-CoworkVMService {
     $serviceName = "CoworkVMService"
+    if (-not (Test-ServiceControlAvailable)) {
+        return
+    }
+
     $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
     if (-not $service) {
         Write-Host "  [提示] 未找到 $serviceName 服务，跳过。" -ForegroundColor DarkGray

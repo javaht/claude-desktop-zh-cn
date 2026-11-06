@@ -5,6 +5,7 @@ $ErrorActionPreference = 'Stop'
     'New-BackupSet',
     'Get-RelativeResourcePath',
     'Backup-ModifiedFile',
+    'Test-ServiceControlAvailable',
     'Stop-CoworkVMService',
     'Find-GoPclntabOffset',
     'Resolve-GoFuncEntry',
@@ -203,8 +204,15 @@ try {
         }
     }
 
-    # Test 4: Stop-CoworkVMService executes cleanly on systems without the service
+    # Test 4: Stop-CoworkVMService must be a no-op on hosts without service control
+    # (always true on Linux/macOS, where Get-Service does not exist at all).
     Stop-CoworkVMService
+    if (-not (Test-ServiceControlAvailable)) {
+        # $IsLinux/$IsMacOS are $null under Windows PowerShell 5.1, so test truthiness.
+        if (-not ($IsLinux -or $IsMacOS)) {
+            throw 'Test-ServiceControlAvailable should only be false off Windows.'
+        }
+    }
 
     Write-Host 'PASS: Dual-architecture CoworkVMService patcher verified on both ARM64 and x64.' -ForegroundColor Green
     Write-Host 'PASS: Backup creation, instruction patching, and idempotency verified.' -ForegroundColor Green

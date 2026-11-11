@@ -22,6 +22,11 @@ macOS 双击 `install-mac.command`；Windows 双击 `install-windows.bat` 后按
 <td width="250" align="center" valign="middle"><a href="https://www.oxoapi.com"><img src="docs/images/oxoapi.png" alt="OXOAPI" width="151"></a></td>
 <td valign="middle"><strong>OXOAPI</strong> - 高质量国模自部署资源，AI 模型统一接口入口。热门国产模型 DeepSeek、Kimi、GLM 低至 4.5-6 折，海外模型低至 2.5 折；官网实时公开报价，价格自动刷新、通道状态透明可见；支持开具发票，企业采购更省心。注册即用：<a href="https://www.oxoapi.com">www.oxoapi.com</a>，完整价格表：<a href="https://www.oxoapi.com/pricing">www.oxoapi.com/pricing</a></td>
 </tr>
+<tr>
+<td width="250" align="center" valign="middle"><img src="docs/images/sponsor-author.png" alt="微信赞赏支持作者" width="140"></td>
+<td valign="middle"><strong>支持作者</strong> - 如果本项目对你有帮助，欢迎微信扫码赞赏支持作者！<br>
+感谢每一份认可与鼓励，所有赞助都将用于本项目的持续维护、跟进新版本与测试设备支持。☕</td>
+</tr>
 </table>
 
 

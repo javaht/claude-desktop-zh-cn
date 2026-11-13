@@ -15678,5 +15678,601 @@
   [
     "If unset, the app uses the organization of your Anthropic sign-in, where the connection has one. Otherwise, telemetry is tagged with a value the app derives from your connection settings. Where it cannot derive one, telemetry is tagged with a placeholder UUID shared with other unconfigured deployments. In the last two cases, local data is stored under the placeholder. **Changing this value orphans data** stored under the previous value (sessions, skills, plugins).",
     "未設定時，應用會使用你 Anthropic 登入所屬的組織（若該連接有組織）。否則，診斷數據會打上應用從你的連接設定推導出的值。若無法推導，則打上與其他未配置部署共用的佔位 UUID。後兩種情況下，本地數據都存儲在佔位符下。**修改此值會使**先前值下存儲的數據（會話、技能、插件）**成為孤立數據**。"
+  ],
+  [
+    "Suggestions stay hidden while Claude's summary and next steps are showing.",
+    "顯示 Claude 的摘要與後續步驟時，建議提示將保持隱藏。"
+  ],
+  [
+    "Sessions with Claude's summary and next steps don't show prompt suggestions.",
+    "包含 Claude 摘要與後續步驟的會話不會顯示提示建議。"
+  ],
+  [
+    "Sessions with Claude’s summary and next steps don’t show prompt suggestions.",
+    "包含 Claude 摘要與後續步驟的會話不會顯示提示建議。"
+  ],
+  [
+    "Show Claude's short summary and suggested next steps after Claude finishes. Applies to new sessions.",
+    "在 Claude 回覆完成後顯示簡短摘要與建議的後續步驟。適用於新會話。"
+  ],
+  [
+    "Show Claude’s short summary and suggested next steps after Claude finishes. Applies to new sessions.",
+    "在 Claude 回覆完成後顯示簡短摘要與建議的後續步驟。適用於新會話。"
+  ],
+  [
+    "Summary and next steps",
+    "摘要與後續步驟"
+  ],
+  [
+    "Response font",
+    "回覆字體"
+  ],
+  [
+    "Match interface",
+    "跟隨界面"
+  ],
+  [
+    "If safeguards flag a message, Claude can switch to another model so you can keep going. When off, Claude stops at the flagged message.",
+    "當安全機制標記消息時，Claude 可以切換到其他模型以便你繼續交流。關閉時，Claude 將在被標記的消息處暫停。"
+  ],
+  [
+    "When safeguards flag a message, automatically switch to a different model to keep going. When off, the chat or session pauses instead. Applies to chats, Cowork, and Claude Code cloud sessions.",
+    "當安全防護機制標記消息時，自動切換到其他模型以繼續。關閉時，聊天或會話會暫停。適用於聊天、Cowork 和 Claude Code 雲端會話。"
+  ],
+  [
+    "Enable export for import on another device",
+    "啟用導出以便在另一台設備上導入"
+  ],
+  [
+    "Days a scheduled task reuses a persistent MCP tool approval before asking again. 0 is off. Unset: no limit (Cowork folder deletes: 30 days).",
+    "定時任務可複用持久化 MCP 工具審批的天數，超過後需重新詢問。0 表示關閉。留空：不限制（Cowork 檔案夾刪除：30 天）。"
+  ],
+  [
+    "Days a scheduled task can reuse a persistent MCP tool approval before it asks again. 0 turns reuse off. Unset: no limit.",
+    "定時任務可複用持久化 MCP 工具審批的天數，超過後需重新詢問。0 表示關閉複用。留空：不限制。"
+  ],
+  [
+    "Shows everyone one message from your organization, which each person can dismiss.",
+    "向所有人展示來自你組織的一條消息，每個人都可以關閉此消息。"
+  ],
+  [
+    "Shows everyone one message from your organization",
+    "向所有人展示來自你組織的一條消息"
+  ],
+  [
+    "Curated by Anthropic",
+    "由 Anthropic 精選"
+  ],
+  [
+    "From partners",
+    "來自合作夥伴"
+  ],
+  [
+    "Claude for Legal",
+    "Claude 法律版"
+  ],
+  [
+    "Claude for Life Sciences",
+    "Claude 生命科學版"
+  ],
+  [
+    "GitHub repo",
+    "GitHub 倉庫"
+  ],
+  [
+    "Marketplace URL",
+    "市場 URL"
+  ],
+  [
+    "if(e!==\"default\")return e;",
+    "let _st={\"Concise\":\"簡潔\",\"Explanatory\":\"解釋型\",\"Learning\":\"引導學習\",\"Proactive\":\"主動\"};if(e!==\"default\")return _st[e]||e;"
+  ],
+  [
+    "r.length===0||e.has(t)||(e.add(t),C.push({value:r,label:r}))",
+    "r.length===0||e.has(t)||(e.add(t),C.push({value:r,label:({\"Concise\":\"簡潔\",\"Explanatory\":\"解釋型\",\"Learning\":\"引導學習\",\"Proactive\":\"主動\"}[r]||r)}))"
+  ],
+  [
+    "This key is stored and distributed as plain configuration. For tokens, and for values that differ per user or session, have `inferenceCredentialHelper` print JSON with a `headers` field. On a conflict, the helper script's header takes priority.",
+    "此配置項作為純文本配置存儲並分發。對於令牌以及因用户或會話而異的值，請讓 `inferenceCredentialHelper` 輸出包含 `headers` 字段的 JSON。發生衝突時，輔助腳本返回的請求頭優先。"
+  ],
+  [
+    "The helper script must exit with code \\`0\\`. Its standard output must hold only one of these, with no banners, prompts or log lines:\\n\\n- the token by itself\\n- \\`{\"token\": \"...\", \"headers\": {\"Name\": \"Value\"}}\\`, to also send headers with each request\\n\\nThe app sets \\`CLAUDE_HELPER_CONTEXT\\` so that the script can decide whether to prompt the user. [Write a credential helper](${R}/credential-helper) lists its values.",
+    "輔助腳本必須以退出碼 \\`0\\` 退出。其標準輸出必須僅包含以下內容之一，不能包含橫幅、提示符或日誌行：\\n\\n- 單獨的令牌\\n- \\`{\"token\": \"...\", \"headers\": {\"Name\": \"Value\"}}\\`，以便在每個請求中同時發送請求頭\\n\\n應用會設定 \\`CLAUDE_HELPER_CONTEXT\\`，以便腳本決定是否提示用户。[編寫憑據輔助腳本](${R}/credential-helper) 列出了具體取值。"
+  ],
+  [
+    "Do not put secrets in arguments: the diagnostic report and other processes on the device can see them.\\n\\nA Windows `.cmd` or `.bat` helper script receives each argument in double quotes. Read it with `%~1` to strip them.",
+    "切勿在參數中放置機密信息：診斷報告及設備上的其他進程均可讀取這些參數。\\n\\nWindows 的 `.cmd` 或 `.bat` 輔助腳本接收到的每個參數都帶有雙引號。使用 `%~1` 可去除外層引號。"
+  ],
+  [
+    "Used when `inferenceCredentialKind` is `external-idp`. Register the redirect URI given under `inferenceIdpAuthFlow` with your identity provider.\\n\\nYour gateway or proxy must check the token's audience (`aud`). Otherwise it accepts any token from your tenant.\\n\\nOn Bedrock, set `inferenceBedrockBaseUrl` to a proxy that checks the token, because Amazon Bedrock itself does not accept it. Also list your models in `inferenceModels`.",
+    "當 `inferenceCredentialKind` 為 `external-idp` 時使用。請向你的身份提供商註冊 `inferenceIdpAuthFlow` 下給出的重定向 URI。\\n\\n你的網關或代理必須檢查令牌的受眾（`aud`）。否則它將接受來自你租户的任何令牌。\\n\\n在 Bedrock 上，將 `inferenceBedrockBaseUrl` 設定為用於校驗令牌的代理，因為 Amazon Bedrock 本身不接受該令牌。同時請在 `inferenceModels` 中列出你的模型。"
+  ],
+  [
+    "Used with `inferenceCredentialKind` set to `interactive`. Leave it unset for a gateway that runs its own sign-in and serves `<baseUrl>/.well-known/oauth-authorization-server`.\\n\\nYour gateway must check the token's audience (`aud`). Otherwise it accepts any token from your tenant.\\n\\nRegister the redirect URI given under `inferenceGatewayOidcAuthFlow`.",
+    "在 `inferenceCredentialKind` 設為 `interactive` 時使用。若網關運行自身登入並提供 `<baseUrl>/.well-known/oauth-authorization-server`，請保持未設定。\\n\\n你的網關必須檢查令牌的受眾（`aud`）。否則它將接受來自你租户的任何令牌。\\n\\n請向身份提供商註冊 `inferenceGatewayOidcAuthFlow` 下給出的重定向 URI。"
+  ],
+  [
+    "With pings arriving (SSE `ping` events or `:` comment lines), sessions accept at least about five minutes of them, then wait this many seconds more. With no pings, a silent response still fails after about 5 minutes whatever this value, so make the gateway send them.\\n\\nWhile this key is set, it takes priority over `CLAUDE_STREAM_IDLE_TIMEOUT_MS` in Claude Code's managed settings for sessions the app starts.",
+    "當保活心跳持續到達時（SSE `ping` 事件或 `:` 註釋行），會話至少會接收約五分鐘，然後在此基礎上額外等待此秒數。若沒有心跳，無論該值如何設定，無輸出的響應在約 5 分鐘後仍會失敗，因此請確保網關發送心跳。\\n\\n設定此鍵後，對於應用啟動的會話，它優先於 Claude Code 託管設定中的 `CLAUDE_STREAM_IDLE_TIMEOUT_MS`。"
+  ],
+  [
+    "Applies when `inferenceCredentialKind` is `interactive` and no organization identity provider is configured.\\n\\nIn gateway mode Claude Code turns off its usage analytics and authenticated calls to Anthropic, and may hide its WebSearch tool. The WebFetch tool's hostname-only domain lookup is governed separately by `skipWebFetchPreflight`.",
+    "當 `inferenceCredentialKind` 為 `interactive` 且未配置組織身份提供商時生效。\\n\\n在網關模式下，Claude Code 會關閉使用情況分析以及向 Anthropic 發起的鑑權調用，並可能隱藏其 WebSearch 工具。WebFetch 工具僅基於主機名的域名查詢由 `skipWebFetchPreflight` 單獨控制。"
+  ],
+  [
+    "Off unless you set it to `true`. While off, Auto mode's built-in safety check reviews risky actions.\\n\\nThis setting is temporary. It goes away when Claude Code drops that built-in check. After that, only turning off **Allow Auto mode** avoids the provider's check.\\n\\nWhen on, each Auto mode request carries one more `anthropic-beta` value and a `safeguards` field. The field describes the session, including Claude Code's `autoMode` settings, permission rules, folder paths, a user name and Git state. Your gateway must forward both unchanged, and return `safeguard_results` and tool-use IDs unchanged. If it returns an error such as 401 or 500, every Auto mode turn fails. Turn this off and have users restart the app.\\n\\nClaude Code's gateway mode ignores this and sends these details by default.",
+    "除非設為 `true`，否則預設關閉。關閉時，自動模式內置的安全檢查會審查高風險操作。\\n\\n此設定是臨時的。當 Claude Code 移除該內置檢查時，此項將被廢除。之後只有關閉**允許自動模式**才能避免提供商檢查。\\n\\n開啟時，每個自動模式請求都會額外攜帶一個 `anthropic-beta` 值和一個 `safeguards` 字段。該字段會描述會話信息，包括 Claude Code 的 `autoMode` 設定、權限規則、檔案夾路徑、用户名和 Git 狀態。你的網關必須原樣轉發兩者，並原樣返回 `safeguard_results` 和工具調用 ID。如果網關返回 401 或 500 等錯誤，每次自動模式輪次都將失敗。此時應關閉該項並讓用户重啟應用。\\n\\nClaude Code 的網關模式會忽略此設定並預設發送這些詳細信息。"
+  ],
+  [
+    "- **\\`device-code\\`:** shows a code to enter at microsoft.com/devicelogin. The app registration must have **Allow public client flows** enabled.\\n- **\\`browser\\`:** register \\`http://127.0.0.1/callback\\` under **Mobile and desktop applications**. It works with **Allow public client flows** disabled. Conditional Access policies that block device-code sign-in do not affect it.\\n- **\\`broker\\`:** uses Web Account Manager on Windows or Company Portal on macOS, and does not work on Linux. It can satisfy Conditional Access policies that require a compliant or managed device, or token protection. Add the redirect URIs listed under [Register the Entra ID application](${R}/entra-broker#register-the-entra-id-application).",
+    "- **\\`device-code\\`：** 顯示一段代碼，需在 microsoft.com/devicelogin 頁面輸入。應用註冊必須開啟 **允許公共客户端流**。\\n- **\\`browser\\`：** 在 **移動和桌面應用程序** 下注冊 \\`http://127.0.0.1/callback\\`。在禁用 **允許公共客户端流** 的情況下也能正常工作。阻止設備代碼登入的條件存取策略對其無影響。\\n- **\\`broker\\`：** 在 Windows 上使用 Web Account Manager，在 macOS 上使用公司門户 SSO 擴展，在 Linux 上不支援。它可以滿足需要合規或受管設備或令牌保護的條件存取策略。請新增 [註冊 Entra ID 應用程序](${R}/entra-broker#register-the-entra-id-application) 中列出的重定向 URI。"
+  ],
+  [
+    "Point it only at a gateway or proxy that you run. Requests carry the credential that the app would send to Foundry: the user's Entra ID token, the API key or the helper script's output.\\n\\nUse the value that you would give Claude Code as `ANTHROPIC_FOUNDRY_BASE_URL`. `inferenceFoundryResource` is still required and should name the resource behind the gateway.",
+    "請僅將其指向你自行運行的網關或代理。發出的請求會攜帶應用原本發送給 Foundry 的憑據：用户的 Entra ID 令牌、API 密鑰或輔助腳本輸出。\\n\\n請使用與傳給 Claude Code 的 `ANTHROPIC_FOUNDRY_BASE_URL` 相同的值。`inferenceFoundryResource` 仍為必填項，且應指定網關後方的資源名稱。"
+  ],
+  [
+    "No session runs on the device, but local MCP servers can start there. Most other keys are ignored: the session host sets that policy.\n\n\\`inferenceCredentialKind\\` and its keys apply to this endpoint. App updates normally come from it, and none until it serves \\`/api/desktop/\\`.\n\nWhile essential telemetry is not blocked:\n\n- Crash and error reports can carry a mark that sessions run off the device, and true-or-false values and counts that describe what this endpoint offers.\n- The app counts its starts and its failures by kind and hands the numbers to this endpoint, if it accepts them. The numbers hold no message, name, path, address or ID. The endpoint can tell whose app sent them.\n- The endpoint adds totals to its usage report for Anthropic, if you set one up. What it passes on names nobody.",
+    "設備上不會運行任何會話，但本地 MCP 伺服器可以在設備上啟動。大多數其他配置項會被忽略：會話主機負責設定該策略。\\n\\n\\`inferenceCredentialKind\\` 及其關聯鍵適用於此端點。應用更新通常由此端點提供，在提供 \\`/api/desktop/\\` 之前不會獲取更新。\\n\\n在基本遙測未被阻止的情況下：\\n\\n- 崩潰和錯誤報告可帶有會話脫離設備運行的標記，以及描述該端點所提供特性的布爾值和計數。\\n- 應用按類型統計啟動次數和失敗次數，並在端點接受時將數字提交給端點。這些統計不包含任何消息、名稱、路徑、地址或 ID。端點可識別是誰的應用提交的。\\n- 如果你進行了配置，端點會將總數計入向 Anthropic 彙報的使用報告中。傳遞的內容不包含任何個人身份信息。"
+  ],
+  [
+    "Also use it to move a marketplace. A change to an entry's \\`url\\`, \\`repo\\` or \\`path\\` (not \\`ref\\`) counts as removing the marketplace, which uninstalls the plugins that users installed from it.\\n\\nTo avoid that, set the new entry's \\`expectedName\\` to the old marketplace's manifest name, in the same change that removes the old entry. Match the letter case and leave it set. Plugins that the new marketplace holds under the same names then normally stay installed. [Move a marketplace to a new source](${R}/extensions#move-a-marketplace-to-a-new-source) lists the exceptions.",
+    "也可用於遷移插件市場。更改條目的 \\`url\\`、\\`repo\\` 或 \\`path\\`（而非 \\`ref\\`）等同於移除該市場，這將卸載用户從中安裝的所有插件。\\n\\n為避免卸載，請在移除舊條目的同時，將新條目的 \\`expectedName\\` 設為舊市場的清單名稱。字母大小寫須完全一致並保持設定。新市場在相同名稱下提供的插件隨後通常可保持安裝狀態。[將插件市場遷移到新來源](${R}/extensions#move-a-marketplace-to-a-new-source) 列出了例外情況。"
+  ],
+  [
+    "- `available` (default): users install from the Directory's Organization tab.\\n- `auto_install`: installs once per pin. A plugin that a user removes stays removed until the pin changes.\\n- `required`: reinstalls at every sync, so a plugin cannot stay removed.\\n\\nBoth automatic values need a pin: a full commit SHA in `ref`, or `manifestSha256` for a `url` source.",
+    "- `available`（預設）：用户從目錄的“組織”標籤頁自行安裝。\\n- `auto_install`：每個固定版本安裝一次。用户移除的插件在固定版本更改前保持移除狀態。\\n- `required`：在每次同步時重新安裝，因此插件無法被移除。\\n\\n兩種自動安裝值均需要固定版本：在 `ref` 中指定完整的提交 SHA，或者針對 `url` 來源指定 `manifestSha256`。"
+  ],
+  [
+    "The helper script prints a token. It is sent as the Git password for user \\`x-access-token\\`, which GitHub, GitLab and Azure DevOps accept. For \\`url\\` sources it is sent as \\`Authorization: Bearer\\`.\\n\\n[Marketplace credentials](${R}/extensions#marketplace-credentials) lists other forms, for hosts that need a username or for custom HTTP headers.",
+    "輔助腳本輸出一個令牌。該令牌作為用户 \\`x-access-token\\` 的 Git 密碼發送，GitHub、GitLab 和 Azure DevOps 均接受此形式。對於 \\`url\\` 來源，它作為 \\`Authorization: Bearer\\` 發送。\\n\\n對於需要用户名的主機或自定義 HTTP 請求頭，[插件市場憑據](${R}/extensions#marketplace-credentials) 列出了其他支援形式。"
+  ],
+  [
+    "- If a \\`managedMcpServers\\` entry is for the same server (same URL, otherwise same name), the entry here is ignored. Put the locks in that entry's \\`toolPolicy\\`.\\n- Update all devices first: an older version ignores this list and enforces no locks.\\n- ${$n}",
+    "- 如果某條 \\`managedMcpServers\\` 條目對應相同的伺服器（URL 相同，否則名稱相同），此處的條目會被忽略。請在該條目的 \\`toolPolicy\\` 中配置鎖定規則。\\n- 請先更新所有設備：較舊版本會忽略此列表且不強制執行任何鎖定。\\n- ${$n}"
+  ],
+  [
+    "Each published item is sent as one HTTPS `POST` to `url`, for your own review pipeline to accept or reject. The app follows no redirects. Nothing is installed from this endpoint. Approved items reach users through `allowedPluginMarketplaces`.\\n\\nWith `credentialKind` set to `inferenceCredential`, `url` must be on your gateway's or bootstrap server's origin.",
+    "每個發佈的條目會以單個 HTTPS `POST` 發送到 `url`，供你自己的審核流水線決定接受或拒絕。應用不跟隨重定向。不會從此端點安裝任何內容。審核通過的條目通過 `allowedPluginMarketplaces` 分發給用户。\\n\\n當 `credentialKind` 設為 `inferenceCredential` 時，`url` 必須位於你的網關或引導伺服器的同源地址上。"
+  ],
+  [
+    "Nothing is deleted: turning it back on restores the hidden marketplaces.\\n\\n- It does not limit Claude Code in a terminal.\\n- ${$n} Restrict marketplaces in those settings as well.\\n\\nApplies only while the app runs in third-party mode. If users could otherwise sign in to Claude.ai on the device, also set \\`deploymentMode\\` to \\`3p\\`, or \\`disableDeploymentModeChooser\\`.",
+    "不會刪除任何內容：重新開啟即可恢復隱藏的插件市場。\\n\\n- 它不會限制終端中的 Claude Code。\\n- ${$n} 請在這些設定中同樣限制插件市場。\\n\\n僅在應用以第三方模式運行時生效。如果用户原本可以在設備上登入 Claude.ai，還需將 \\`deploymentMode\\` 設為 \\`3p\\` 或開啟 \\`disableDeploymentModeChooser\\`。"
+  ],
+  [
+    "Plugins that are already installed, or placed on disk outside the app, are not removed or blocked.\\n\\nApplies only while the app runs in third-party mode. If users could otherwise sign in to Claude.ai on the device, also set `deploymentMode` to `3p`, or `disableDeploymentModeChooser`.",
+    "已經安裝或放置在應用外部磁盤上的插件不會被移除或阻止。\\n\\n僅在應用以第三方模式運行時生效。如果用户原本可以在設備上登入 Claude.ai，還需將 `deploymentMode` 設為 `3p` 或開啟 `disableDeploymentModeChooser`。"
+  ],
+  [
+    "With `grpc`, some exports still go over HTTP to the same endpoint, such as the app's own events.\\n\\nChoose `grpc` only if your collector also accepts OTLP/HTTP at that address. Otherwise keep `http/protobuf` and point `otlpEndpoint` at the collector's OTLP/HTTP receiver, usually port 4318.",
+    "使用 `grpc` 時，某些導出仍會通過 HTTP 發送到同一端點（例如應用自身的事件）。\\n\\n僅在你的採集器同時在該地址接受 OTLP/HTTP 時選擇 `grpc`。否則請保留 `http/protobuf` 並將 `otlpEndpoint` 指向採集器的 OTLP/HTTP 接收端（通常為端口 4318）。"
+  ],
+  [
+    "The credential can also make model requests as the user. For a collector you do not operate, use `otlpHeadersHelper` with a credential that can only send telemetry.\\n\\nThe collector must accept the credential as issued. Some credentials are never sent, such as an AWS profile, a Google credentials file or a Claude Console sign-in. Telemetry then exports without the header, so use `otlpHeadersHelper` instead.",
+    "此憑據也可以代表用户發起模型請求。對於非你運維的採集器，請使用帶有僅能發送遙測憑據的 `otlpHeadersHelper`。\\n\\n採集器必須按原樣接受頒發的憑據。某些憑據絕不會發送，例如 AWS 配置檔案、Google 憑據檔案或 Claude Console 登入憑據。此時遙測導出將不帶請求頭，因此請改用 `otlpHeadersHelper`。"
+  ],
+  [
+    "The app runs it with no arguments. Sample output: `{\"Authorization\": \"Bearer \\u2026\"}`.\\n\\nCowork and Code sessions that stay open run it again as tokens rotate. On Windows use an `.exe`, `.cmd` or `.bat` file for that: a `.ps1` file applies at session start only.\\n\\nIf it fails, telemetry is sent without its headers.",
+    "應用在無參數下運行它。示例輸出：`{\"Authorization\": \"Bearer \\u2026\"}`。\\n\\n保持打開狀態的 Cowork 和 Code 會話會在令牌輪換時再次運行它。在 Windows 上請為此使用 `.exe`、`.cmd` 或 `.bat` 檔案：`.ps1` 檔案僅在會話啟動時生效一次。\\n\\n如果執行失敗，遙測將不帶其請求頭直接發送。"
+  ],
+  [
+    "`process.owner` (the OS login name) is always sent to your collector. Set it here to replace the value.",
+    "`process.owner`（操作系統登入名）始終會發送給你的採集器。在此處設定可替換該值。"
+  ],
+  [
+    "This data never reaches Anthropic.\\n\\n- \\`userPrompts\\`: what users type, and Claude's responses\\n- \\`assistantResponses\\`: Claude's responses\\n- \\`toolDetails\\`: tool inputs, such as a web search query\\n- \\`toolContent\\`: tool outputs, such as fetched page text or command output\\n- \\`rawApiBodies\\`: model request and response bodies\\n\\nTo send prompts without responses, leave out \\`rawApiBodies\\`. Then set \\`OTEL_LOG_ASSISTANT_RESPONSES\\` to \\`0\\` in the \\`env\\` block of the highest-priority Claude Code managed settings, not a per-user Windows registry policy. Update all devices first: an older version still sends responses.\\n\\nWithout \\`parentSettingsBehavior\\` set to \\`\"merge\"\\` in [those settings](${R}/code#interaction-with-claude-code%E2%80%99s-own-managed-settings), Claude Code can drop the restrictions that Claude Desktop passes to it.",
+    "此數據絕不會發送至 Anthropic。\\n\\n- \\`userPrompts\\`：用户輸入的內容以及 Claude 的回覆\\n- \\`assistantResponses\\`：Claude 的回覆\\n- \\`toolDetails\\`：工具輸入（例如網絡搜尋查詢）\\n- \\`toolContent\\`：工具輸出（例如抓取的頁面文本或命令輸出）\\n- \\`rawApiBodies\\`：模型請求與響應的主體\\n\\n若要僅發送提示詞而不發送回覆，請排除 \\`rawApiBodies\\`。然後在最高優先級的 Claude Code 託管設定的 \\`env\\` 塊中將 \\`OTEL_LOG_ASSISTANT_RESPONSES\\` 設為 \\`0\\`（而非按用户的 Windows 註冊表策略）。請先更新所有設備：舊版本仍會發送回復。\\n\\n如果 [這些設定](${R}/code#interaction-with-claude-code%E2%80%99s-own-managed-settings) 中的 \\`parentSettingsBehavior\\` 未設為 \\`\"merge\"\\`，Claude Code 可能會丟棄 Claude Desktop 傳遞給它的限制。"
+  ],
+  [
+    "Has no effect without `otlpEndpoint`. With it set, this key alone decides whether Cowork tasks and Code sessions export traces. Unset or `false` keeps traces off even if a user's or a project's Claude Code settings, or managed settings, turn tracing on.",
+    "未配置 `otlpEndpoint` 時無效。配置後，單憑此鍵即可決定 Cowork 任務和 Code 會話是否導出鏈路追蹤追蹤數據。未設定或設為 `false` 時即使用户或項目的 Claude Code 設定或託管設定開啟了鏈路追蹤，也會保持關閉。"
+  ],
+  [
+    "In Cowork tasks and Code sessions it applies to model responses, tool content and raw API bodies, not to user prompts.\n\nA cut request body loses its newest messages. To capture whole bodies with \\`rawApiBodies\\`, set this just above your longest body, not at the maximum.\n\nKeep your collector's request size limit at a few times your longest body. A collector refuses an export over its limit, and every event in that export is lost.\n\nThe Claude add-in for Microsoft 365 uses 4,000 when unset, and counts values above 32,000 as 32,000.",
+    "在 Cowork 任務和 Code 會話中，它適用於模型響應、工具內容和原始 API 請求體，但不適用於用户提示詞。\n\n截斷的請求體將丟失其最新的消息。若要使用 \\`rawApiBodies\\` 捕獲完整請求體，請將此值設為略高於你的最長請求體大小，而非直接設為最大值。\n\n請保持採集器的請求大小限制為最長請求體大小的數倍。採集器會拒絕超出限制的導出，導致該導出中的所有事件丟失。\n\nMicrosoft 365 的 Claude 加載項在未設定時預設使用 4,000，並將超過 32,000 的值視為 32,000。"
+  ],
+  [
+    "Has no effect unless `inferenceTokenWindowHours` is also set. A user with two devices can have a separate count on each.",
+    "除非同時設定了 `inferenceTokenWindowHours`，否則無效。擁有兩台設備的用户在每台設備上分別計算。"
+  ],
+  [
+    "Used with `inferenceMaxTokensPerWindow`. Each user's window starts the first time they use the app after their previous window ends. So 24 hours does not mean midnight to midnight.",
+    "與 `inferenceMaxTokensPerWindow` 配合使用。每個用户的時間窗口在他們上一個窗口結束後首次使用應用時開始。因此 24 小時並不代表自然日的午夜到午夜。"
+  ],
+  [
+    "Set `sshHostAllowlist` too. While it allows no host, Code has nowhere to start a session. SSH to `localhost` counts as local. Other names for this device are blocked only by leaving them out of `sshHostAllowlist`.\\n\\nChat and Cowork still run on the device. A running session goes on until its process stops, and then cannot be resumed. Claude Code started from a terminal ignores this key. Code routines set to run on the device are held while the key is set.\\n\\n`false` does not undo a `true` in Claude Code's managed setting of the same name. Where a bootstrap server or the Admin Console delivers configuration, set this key there. Its configuration replaces the MDM profile's value, even if it leaves this key out.",
+    "請同時設定 `sshHostAllowlist`。當它未允許任何主機時，Code 無法啟動會話。SSH 到 `localhost` 視為本地連接。若要阻止本設備的其他名稱，只能將其從 `sshHostAllowlist` 中排除。\\n\\nChat 和 Cowork 仍可在設備上運行。正在運行的會話會持續到進程停止為止，之後無法恢復。從終端啟動的 Claude Code 會忽略此鍵。設定在設備上運行的 Code 例程在此鍵生效期間處於保留掛起狀態。\\n\\n設定為 `false` 不會撤銷同名 Claude Code 託管設定中的 `true`。若由引導伺服器或管理控制枱下發配置，請在對應位置設定此鍵。其配置會覆蓋 MDM 配置檔案的值，即使未包含此鍵也是如此。"
+  ],
+  [
+    "The app forwards the session's inference credential to the SSH host, plus your collector endpoint and auth headers when `otlpEndpoint` is set. List only hosts you trust with those.\\n\\n- **Entries:** a hostname (`build01.corp.example.com`) or a wildcard (`*.corp.example.com`, which also matches `corp.example.com`).\\n- **Aliases:** list the `HostName` that the user's `~/.ssh/config` gives for a host, not its alias. List jump hosts too.\\n\\nThis key governs which hosts the app offers, not network access. A host's own Claude Code managed settings replace the rules the app sends, unless they set `parentSettingsBehavior` to `\\\"merge\\\"`.",
+    "應用會將該會話的推理憑據轉發給 SSH 主機，當配置了 `otlpEndpoint` 時還會同時轉發採集器端點與認證頭。請僅列出你信任的主機。\\n\\n- **條目：** 主機名（`build01.corp.example.com`）或通配符（`*.corp.example.com`，同時匹配 `corp.example.com`）。\\n- **別名：** 請填寫用户 `~/.ssh/config` 中為主機指定的 `HostName`，而非其別名。跳板機也須列出。\\n\\n此鍵控制應用提供哪些主機選項，而非網絡存取控制。主機自身的 Claude Code 託管設定會替換應用發送的規則，除非其將 `parentSettingsBehavior` 設定為 `\\\"merge\\\"`。"
+  ],
+  [
+    "Every connection is still checked against `sshHostAllowlist`. While that list allows no host, the SSH section is hidden.\\n\\nFor a connection from this list, the app does not first ask the user to confirm the host. SSH's own host-key checks still apply, so a first connection to a host missing from the user's `known_hosts` may ask the user or fail. Users can still add connections of their own.\\n\\nWhile `disableDesktopLocalSessions` is on, new sessions default to the first SSH connection in the user's list, which can be one of these.",
+    "每次連接仍會對照 `sshHostAllowlist` 進行檢查。當該列表未允許任何主機時，SSH 區域將隱藏。\\n\\n對於此列表中的連接，應用不會首先提示用户確認主機。SSH 自身的主機密鑰檢查依然有效，因此首次連接到用户 `known_hosts` 中缺失的主機時可能會提示用户或失敗。用户仍可新增自己的連接。\\n\\n當開啟 `disableDesktopLocalSessions` 時，新會話預設使用用户列表中的第一個 SSH 連接（可以是此處列出的主機之一）。"
+  ],
+  [
+    "The app never runs another `ssh` in its place. If the program is missing, SSH sessions fail. So deliver this key only to devices that have it. Where a bootstrap server or the Admin Console delivers configuration, set this key there too: the MDM profile's value alone has no effect.\\n\\nIt must be OpenSSH 7.6 or newer, and on Windows an `.exe`. Windows normally needs Microsoft OpenSSH 9.4 or newer. Without it, the built-in library connects if `sshTransport` is unset or `auto`. Under `system-openssh`, a Windows path may start with `%LOCALAPPDATA%\\\\`. Device management must set such a path as a plain string. Admin Console organizations cannot use one.\\n\\nChoose a path that users cannot write to. Anyone who can replace the program can see SSH passwords and get around this key and `sshHostAllowlist`.",
+    "應用絕不會運行另一個 `ssh` 來替代它。如果該程序缺失，SSH 會話將失敗。因此請僅將此鍵下發給安裝了該程序的設備。若由引導伺服器或管理控制枱提供配置，也請在此處設定此鍵：僅有 MDM 配置檔案的值將不會生效。\\n\\n必須為 OpenSSH 7.6 或更新版本，在 Windows 上必須是 `.exe`。Windows 通常需要 Microsoft OpenSSH 9.4 或更高版本。若沒有，當 `sshTransport` 未設定或為 `auto` 時，應用會使用內置庫連接。在 `system-openssh` 下，Windows 路徑可以以 `%LOCALAPPDATA%\\\\` 開頭。設備管理必須將此類路徑設為純字符串。管理控制枱組織無法使用此類路徑。\\n\\n請選擇普通用户無法寫入的路徑。任何能夠替換該程序的人都可以截獲 SSH 密碼並繞過此配置項和 `sshHostAllowlist`。"
+  ],
+  [
+    "With `system-openssh`, your OpenSSH client's own Kerberos, certificate and `ssh_config` support applies. See `sshClientPath` for which program runs.\\n\\n- The program must be OpenSSH 7.6 or newer, and on Windows normally Win32-OpenSSH 9.4 or newer.\\n- If `sshClientPath` is unset and Windows has no usable client, the app uses its built-in library instead.\\n\\nUnset or `auto` normally means OpenSSH. On Windows devices, a host already reached with the built-in library stays on it. For one engine on every host, set `system-openssh` or `builtin`.\\n\\nA bootstrap server or the Admin Console that leaves this key out still overrides device management's value. So set it everywhere you manage settings.",
+    "在 `system-openssh` 下，將使用你的 OpenSSH 客户端自身的 Kerberos、證書以及 `ssh_config` 支援。具體運行哪個程序請參見 `sshClientPath`。\\n\\n- 該程序必須是 OpenSSH 7.6 或更高版本，在 Windows 上通常為 Win32-OpenSSH 9.4 或更高版本。\\n- 如果 `sshClientPath` 未設定且 Windows 沒有可用的客户端，應用將改用其內置庫。\\n\\n未設定或 `auto` 通常代表 OpenSSH。在 Windows 設備上，已使用內置庫連接的主機會保持使用該庫。若要讓所有主機使用同一種引擎，請設定 `system-openssh` 或 `builtin`。\\n\\n省略此鍵的引導伺服器或管理控制枱仍會覆蓋設備管理的值。因此請在管理設定的所有位置都進行設定。"
+  ],
+  [
+    "Where Code sessions run on a self-hosted session host, users pick a session's repository from this list and cannot type an address. The session host still applies its own policy to what it clones.\n\n- **Unset or empty:** no repository is offered, and a session starts in the environment's own workspace.\n- **Sessions on the device or over SSH:** the key has no effect.",
+    "當 Code 會話在自託管會話主機上運行時，用户從此列表中選擇會話的代碼倉庫，不能手動輸入地址。會話主機仍會對克隆的內容應用自身的策略。\\n\\n- **未設定或為空：** 不提供任何倉庫，會話將在環境自身的工作區中啟動。\\n- **設備上或通過 SSH 運行的會話：** 此鍵無效果。"
+  ],
+  [
+    "Of the user's files, the sandbox can read only those attached to the conversation and folders added to the chat's project through the app (read-only).\\n\\nCommands reach the hosts in `coworkEgressAllowedHosts`, and none if that list is unset or empty. Plugin CLIs can always reach the hosts that their plugin declares.\\n\\nCommands run without an approval prompt. So they can upload anything the sandbox can read to a listed host, and run what they download from one. To have Claude ask before each command, set `Bash` to `ask` in `builtinToolPolicy`, which also applies to Cowork and Code.",
+    "在用户的檔案中，沙箱僅可讀取附加到對話中的檔案以及通過應用新增到聊天項目的檔案夾（只讀）。\\n\\n命令可以存取 `coworkEgressAllowedHosts` 中的主機，如果該列表未設定或為空則無法存取任何主機。插件 CLI 始終可以存取其插件聲明的主機。\\n\\n命令執行無需審批提示。因此命令可以將沙箱可讀的任何內容上傳到列表中的主機，並運行從中下載的內容。若要讓 Claude 在執行每條命令前詢問，請在 `builtinToolPolicy` 中將 `Bash` 設為 `ask`，此設定同樣適用於 Cowork 和 Code。"
+  ],
+  [
+    "\\`standard\\` turns on Unified Claude. \\`off\\` turns Chat and Cowork off, which leaves only Code, or nothing where Code is off. \\`isClaudeCodeForDesktopEnabled\\` still decides Code. Under \\`standard\\`, if you use \\`chatSessionRetentionDays\\`, set \\`coworkSessionRetentionDays\\` as well: it covers new conversations that are Cowork tasks.\\n\\n**Unset:** the three settings that this key replaces decide until ${Tr(Cr)} (${Ar}). Current versions of the app started after that read an unset key as \\`${_s.value}\\`, whatever those three say. Cowork is then on even where \\`${_s.toggles.cowork}\\` is \\`false\\`.\\n\\nA non-empty value that the app does not recognize, such as \\`Standard\\`, is read as \\`off\\`.",
+    "\\`standard\\` 開啟統一 Claude。\\`off\\` 關閉 Chat 和 Cowork，僅保留 Code，如果 Code 也關閉則不保留任何界面。\\`isClaudeCodeForDesktopEnabled\\` 仍決定 Code 是否開啟。在 \\`standard\\` 下，如果使用了 \\`chatSessionRetentionDays\\`，請同時設定 \\`coworkSessionRetentionDays\\`：它涵蓋作為 Cowork 任務的新對話。\\n\\n**未設定：** 在 ${Tr(Cr)} (${Ar}) 之前，由該鍵所取代的三個設定決定。在此之後啟動的當前版本應用會將未設定的鍵讀取為 \\`${_s.value}\\`，無論那三個設定如何。屆時即使 \\`${_s.toggles.cowork}\\` 為 \\`false\\`，Cowork 也會保持開啟。\\n\\n應用無法識別的非空值（如 \\`Standard\\`）將被解讀為 \\`off\\`。"
+  ],
+  [
+    "In a third-party deployment, turning this on loads extensions that are already installed. Users cannot install new ones.",
+    "在第三方部署中，開啟此項會加載已安裝的擴展。用户無法安裝新擴展。"
+  ],
+  [
+    "When you install a newer version while Claude is open, the app shows a restart notice in the sidebar. To have Claude restart by itself if nobody restarts it, use `installedUpdateEnforcementEnabled`.\\n\\nOn Windows the notice covers installs from the MSIX package, not the Microsoft Store version or the .exe installer. The switch to the newer version may end the Cowork tasks of other users signed in on that device.",
+    "當在 Claude 運行時安裝了較新版本，應用會在邊欄中顯示重啟通知。若要讓 Claude 在無人重啟時自行重啟，請使用 `installedUpdateEnforcementEnabled`。\\n\\n在 Windows 上，該通知適用於 MSIX 包安裝，不適用於 Microsoft Store 版本或 .exe 安裝程序。切換到較新版本可能會中斷該設備上登入的其他用户的 Cowork 任務。"
+  ],
+  [
+    "`installedUpdateEnforcementHours` sets how long the app waits.\\n\\n- **Unset:** off in third-party deployments. Where users sign in with Claude.ai it follows Anthropic's rollout, and `false` keeps it off.\\n- **Windows:** if Windows does not reopen Claude, scheduled tasks and background work stop until a user opens it. The restart may also end the Cowork tasks of other users signed in on that device.",
+    "`installedUpdateEnforcementHours` 設定應用等待的時長。\\n\\n- **未設定：** 在第三方部署中預設關閉。在用户使用 Claude.ai 登入的環境中遵循 Anthropic 的灰度發佈節奏，設為 `false` 可保持關閉。\\n- **Windows：** 如果 Windows 未重新打開 Claude，定時任務和後台任務會暫停，直到用户打開應用。重啟也可能會中斷該設備上登入的其他用户的 Cowork 任務。"
+  ],
+  [
+    "Applies only while `disableAutoUpdates` is on and the restart is on (see `installedUpdateEnforcementEnabled`).\\n\\n- Only time with the app open and the device awake counts toward the hours.\\n- Idle means 10 minutes without input. Where the system reports no idle time, as some Wayland sessions do, an unset key never restarts: set a number.\\n- The restart waits while Claude is mid-task on the device.",
+    "僅在開啟了 `disableAutoUpdates` 且啟用了重啟（參見 `installedUpdateEnforcementEnabled`）時生效。\\n\\n- 僅應用處於打開狀態且設備處於喚醒狀態的時間才計入此小時數。\\n- 空閒指連續 10 分鐘無輸入操作。在系統無法上報空閒時間的環境中（如部分 Wayland 會話），未設定的鍵絕不會自動重啟：請明確指定數字。\\n- 當 Claude 在設備上執行任務中途時，重啟會等待。"
+  ],
+  [
+    "- **Unset:** after 72 hours the app restarts once the device has been idle for 10 minutes.\n- **Any number, even 72:** the app restarts when the time is up, whether or not the user is active.\n\nIn both cases the restart waits while Claude is mid-task on the device, or while the update server gives no answer.\n\nThese hours do not delay an update. It usually installs sooner, after 10 minutes with no Claude window in use and no task running.",
+    "- **未設定：** 超過 72 小時後，一旦設備空閒達到 10 分鐘，應用便會自動重啟。\\n- **任意數字（即使是 72）：** 時間到達後應用即行重啟，無論用户當前是否活躍。\\n\\n在這兩種情況下，如果 Claude 正在設備上執行任務，或者更新伺服器沒有響應，重啟都會等待。\\n\\n這些小時數不會推遲更新。通常在沒有 Claude 窗口在使用且沒有任務運行 10 分鐘後，更新會更早安裝。"
+  ],
+  [
+    "The installer still downloads from `downloads.claude.ai`, so keep that host open.\\n\\nIf an MDM profile sets `bootstrapUrl` to a `config.claude.com` URL and leaves `bootstrapEnabled` on, the app reads the feed from `releases.claude.com` whatever this key says. Turn this key on anyway: an older version reads it from there only when this key is on.",
+    "安裝程序仍從 `downloads.claude.ai` 下載，因此請保持該主機連通。\\n\\n如果 MDM 配置檔案將 `bootstrapUrl` 設為 `config.claude.com` 的 URL 並保持 `bootstrapEnabled` 開啟，無論此鍵如何設定，應用都會從 `releases.claude.com` 讀取更新源。建議仍開啟此鍵：較舊版本僅在此鍵開啟時才會從此處讀取。"
+  ],
+  [
+    "`staggered` usually updates on Thursdays and is typically 7 to 14 days behind `stable`.\\n\\n- Devices on `staggered` get features and fixes, security fixes included, later than devices on `stable`.\\n- Write the value in lowercase. A value that cannot be read, such as `Stable`, is read as `staggered`.\\n- Users who sign in to Claude.ai follow `stable`, unless their organization manages Claude Desktop from the Admin Console.\\n- No effect on Linux or Microsoft Store installs.",
+    "`staggered` 通常在週四更新，通常比 `stable` 落後 7 到 14 天。\\n\\n- 處於 `staggered` 渠道的設備獲取功能和修復（包括安全修復）的時間晚於 `stable` 渠道的設備。\\n- 請使用全小寫輸入取值。無法讀取的值（例如 `Stable`）將被解讀為 `staggered`。\\n- 登入 Claude.ai 的用户預設遵循 `stable`，除非其組織通過管理控制枱管理 Claude Desktop。\\n- 對 Linux 或 Microsoft Store 安裝沒有影響。"
+  ],
+  [
+    "Update checks take no release above this version. The cap never downgrades a device. An update downloaded before the cap arrived can still install, and that device is then blocked.\n\n- **Update all devices first:** an older version ignores the cap, updates past it and is then blocked.\n- **Security:** if you use it, raise it as you approve each version.\n- **No block:** a cap set only in the local Setup window or a per-user Windows policy limits updates but does not block.\n- **Linux:** it limits no updates but still blocks newer versions.",
+    "更新檢查不會獲取高於此版本的版本。上限絕不會讓設備版本降級。在達到上限前已下載的更新仍可安裝，隨後該設備將被阻止。\\n\\n- **請先更新所有設備：** 較舊版本會忽略上限並更新越過上限，隨後被阻止。\\n- **安全提示：** 如果使用上限，請在審批通過每個版本後相應提高上限。\\n- **不阻止：** 僅在本地設定窗口或按用户的 Windows 策略中設定的上限會限制更新，但不會阻止運行。\\n- **Linux：** 它不限制更新，但仍會阻止較高版本運行。"
+  ],
+  [
+    "Users must not be able to change the file.\\n\\n- **macOS and Linux:** a program, or an executable script that starts with `#!`. The file and every parent folder must be owned by root and not writable by group or others. It cannot be under `/home`, `/net` or `/Volumes`.\\n- **Windows:** an `.exe`, `.ps1`, `.cmd` or `.bat` file. It must be under a Program Files folder on the Windows drive.\\n\\nOtherwise it does not run, and the log says why.\\n\\nClaude does not check the interpreter on a `#!` line, so keep that out of users' reach too. An interpreter can also load code from the user's folders. Start Python isolated (for example `#!/usr/bin/python3 -I`) or use a compiled program.",
+    "用户絕不能具備修改該檔案的權限。\\n\\n- **macOS 和 Linux：** 程序或以 `#!` 開頭的可執行腳本。該檔案及其所有父檔案夾必須歸 root 所有，且組或其他用户不可寫。不能位於 `/home`、`/net` 或 `/Volumes` 之下。\\n- **Windows：** `.exe`、`.ps1`、`.cmd` 或 `.bat` 檔案。必須位於 Windows 系統盤的 Program Files 檔案夾之下。\\n\\n否則將不會運行，日誌中會記錄原因。\\n\\nClaude 不會檢查 `#!` 行上的解釋器，因此也請確保普通用户無法修改解釋器。解釋器也可以從用户檔案夾加載代碼。請以隔離模式啟動 Python（例如 `#!/usr/bin/python3 -I`）或使用已編譯的二進製程序。"
+  ],
+  [
+    "Under `win32`, `darwin` or `linux`, give that operating system's `command`. Set the setting's own `command` too, even if all three systems have one.\\n\\n- A path under `win32` starts with a drive letter. A path under `darwin` or `linux` has no drive letter and no backslash.\\n- A path in the wrong form, or an unknown name such as `windows`, turns the status line off on every operating system.\\n- An older version rejects the whole setting if this is present, and shows no status line. Add it only after all devices are updated.\\n- In the Admin Console, a group that sets only `command` keeps the organization's programs here, and devices on those systems run them, not the group's. To change one, also set that system's `command` in the group.",
+    "在 `win32`、`darwin` 或 `linux` 下，提供該操作系統的 `command`。同時請設定此項自身的 `command`，即使三種系統都已單獨配置。\\n\\n- `win32` 下的路徑以驅動器盤符開頭。`darwin` 或 `linux` 下的路徑沒有盤符和反斜槓。\\n- 格式錯誤的路徑或未知名稱（如 `windows`）會導致狀態欄在所有操作系統上關閉。\\n- 舊版本在存在此項時會拒絕整個設定，且不顯示狀態欄。請僅在所有設備均已更新後新增它。\\n\\n在管理控制枱中，僅配置 `command` 的組將保留組織在此處的程序，這些系統上的設備將運行組織程序而非組程序。若要更改某一系統，請在該組中同時配置該系統的 `command`。"
+  ],
+  [
+    "Has no effect unless `inferenceMaxTokensPerWindow` and `inferenceTokenWindowHours` are both set.\\n\\nUsage is counted each time Claude finishes a reply. One long-running request can reach the limit before the warning appears.",
+    "除非同時設定了 `inferenceMaxTokensPerWindow` 和 `inferenceTokenWindowHours`，否則無效。\\n\\n每次 Claude 完成回覆時都會計算用量。單個耗時較長的請求可能在警告出現之前就已經達到上限。"
+  ],
+  [
+    "- **Runs:** on the user's device, as the signed-in user, when a session opens, a turn ends, the app regains focus or the model changes.\n- **Input:** one JSON line on standard input: \\`{\"session_id\": \"\\u2026\", \"model\": {\"id\": \"\\u2026\", \"display_name\": \"\\u2026\"}}\\`. Fields with no value are left out. Do not build a file path from these values.\n- **Output:** Claude shows the first non-empty line, up to 200 characters. ANSI codes 31 to 36 and 91 to 96 set the color.\n- **Limits:** 10 seconds and 64 KiB of output. Past either, Claude stops the program.",
+    "- **運行機制：** 在用户的設備上作為已登入用户運行，觸發時機包括打開會話、輪次結束、應用重新獲得焦點或更換模型時。\\n- **輸入：** 標準輸入接收一行 JSON：\\`{\"session_id\": \"\\u2026\", \"model\": {\"id\": \"\\u2026\", \"display_name\": \"\\u2026\"}}\\`。無值的字段會被省略。切勿根據這些值拼接檔案路徑。\\n- **輸出：** Claude 會顯示首個非空行，最多 200 個字符。支援 ANSI 顏色代碼 31 到 36 以及 91 到 96。\\n- **限制：** 超時 10 秒，輸出上限 64 KiB。超過任一限制，Claude 都會終止該程序。"
+  ],
+  [
+    "When unset, the bootstrap sign-in uses a device code on the bootstrap server's own origin.\\n\\nIn an MDM profile, write this key as one JSON string. Separate values such as `bootstrapOidc.clientId` do not work: the app silently uses the device-code sign-in instead.",
+    "未設定時，引導登入會在引導伺服器自身的源地址上使用設備代碼。\\n\\n在 MDM 配置檔案中，請將此鍵寫為一個 JSON 字符串。拆分設定的值（如 `bootstrapOidc.clientId`）無法生效：應用會靜默改為使用設備代碼登入。"
+  ],
+  [
+    "If `bootstrapOidc` is unset, the app treats these headers as sufficient authentication and requires no per-user sign-in for the bootstrap fetch.\\n\\nThese headers, and those of `bootstrapHeadersHelper`, also go to a plugin marketplace on this server\\'s own origin, if its `allowedPluginMarketplaces` entry sets `credentialKind: \"inferenceCredential\"`.\\n\\nHeader values are masked in diagnostics and telemetry.",
+    "如果未設定 `bootstrapOidc`，應用會將這些請求頭視為充分的身份憑證，並在獲取引導配置時無需用户逐一登入。\\n\\n如果此伺服器自身源上的插件市場條目的 `allowedPluginMarketplaces` 設定了 `credentialKind: \"inferenceCredential\"`，這些請求頭以及 `bootstrapHeadersHelper` 的請求頭也會發送給該市場。\\n\\n請求頭的值在診斷和遙測中均會被掩碼隱藏。"
+  ],
+  [
+    "Example output: `{\"Authorization\": \"Bearer \\u2026\"}`. The app runs the helper script with no arguments and reuses its output for a few minutes.\\n\\nIf `bootstrapOidc` is unset, the app treats these headers as sufficient authentication and requires no per-user sign-in for the bootstrap fetch. If a per-user sign-in also runs, its token takes priority for the `Authorization` header.",
+    "示例輸出：`{\"Authorization\": \"Bearer \\u2026\"}`。應用在無參數下運行該輔助腳本，並在數分鐘內複用其輸出。\\n\\n如果未設定 `bootstrapOidc`，應用會將這些請求頭視為充分的身份憑證，並在獲取引導配置時無需用户逐一登入。如果同時運行了每用户登入流程，該用户的令牌將優先用於 `Authorization` 請求頭。"
+  ],
+  [
+    "When the time is up, a restart dialog blocks the app. The app then restarts by itself after 2 minutes with no activity and no running task.\n\nWhen an MDM profile that sets more than app-behavior keys first reaches a running app, the restart dialog can show with no countdown.",
+    "倒計時結束時，重啟對話框會阻止操作。隨後在連續 2 分鐘無操作且無運行中任務時，應用會自動重啟。\n\n當配置了超出應用行為設定的 MDM 配置檔案首次推送到運行中的應用時，重啟對話框可能會在沒有倒計時的情況下直接彈出。"
+  ],
+  [
+    "A change that needs a restart starts the `relaunchEnforcementHours` countdown.",
+    "需要重啟的配置變更會啟動 `relaunchEnforcementHours` 倒計時。"
+  ],
+  [
+    "While this is on, the app's crash reporting does not start on these devices. Error stack traces and performance timings still leave these devices unless \\`disableEssentialTelemetry\\` is on.\n\nAn earlier copy is cut down at the next launch that reaches the Admin Console.\n\nOnly the Admin Console can set this key. A value from an MDM profile or a bootstrap server is ignored.",
+    "開啟此項後，這些設備上的應用崩潰報告不會啟動。除非同時開啟 \\`disableEssentialTelemetry\\`，否則錯誤堆棧追蹤與性能耗時仍會離開設備。\n\n在下次啟動並連接到管理控制枱時，先前的副本會被裁剪清理。\n\n僅管理控制枱可以設定此鍵。來自 MDM 配置檔案或引導伺服器的值將被忽略。"
+  ],
+  [
+    "Enter a Claude model ID such as `claude-sonnet-5`. Region prefixes, dates and upper case are fine. A family name without `claude-`, such as `sonnet-5`, is ignored. The model picker also ignores a model that Claude Desktop does not know.\\n\\nIf `name` contains a Claude model name with its version, as in `acme-claude-sonnet-4`, Claude Code uses that model and ignores this value. Enter that same model here. If that ID serves a different model, rename it so that it contains no version.",
+    "輸入 Claude 模型 ID（如 `claude-sonnet-5`）。支援區域前綴、日期和大小寫。不帶 `claude-` 的系列名稱（如 `sonnet-5`）將被忽略。模型選擇器也會忽略 Claude Desktop 未知的模型。\\n\\n如果 `name` 包含帶有版本的 Claude 模型名稱（如 `acme-claude-sonnet-4`），Claude Code 會使用該模型並忽略此值。請在此處輸入完全相同的模型。如果該 ID 提供不同的模型，請對其重命名使其不包含版本號。"
+  ],
+  [
+    "Turn this off if your network cannot reach your inference provider's model-list endpoint.\\n\\n- **Off:** `inferenceModels` is required and must use full model IDs. Tier aliases such as `sonnet` need discovery.\\n- **Unset:** on. With a gateway or the Anthropic provider, the app skips discovery when `inferenceModels` is set and holds no tier alias.",
+    "如果你的網絡無法連接推理提供商的模型列表端點，請關閉此項。\\n\\n- **關閉：** `inferenceModels` 變為必填項，且必須使用完整的模型 ID。類似 `sonnet` 的層級別名需要自動發現支援。\\n- **未設定：** 開啟。對於網關或 Anthropic 提供商，當 `inferenceModels` 已設定且不含層級別名時，應用會自動跳過模型發現。"
+  ],
+  [
+    "A listed model offers 1M when its `inferenceModels` entry sets `supports1m`. Without a list, a model offers 1M when your gateway's model list marks it.",
+    "當列出的模型的 `inferenceModels` 條目設定了 `supports1m` 時，該模型提供 1M 上下文。在未配置列表時，當網關的模型列表標記支援時提供 1M。"
+  ],
+  [
+    "Each entry is a model ID string or an object:\\n```json\\n[\\n  {\"name\": \"claude-sonnet-5\",\\n   \"supports1m\": true},\\n  \"claude-opus-4-8\"\\n]\\n```\\nUse your inference provider\\'s exact model ID:\\n\\n- **Vertex:** the publisher ID (`claude-sonnet-5`).\\n- **Bedrock:** the inference-profile ID (`us.anthropic.claude-sonnet-5`).\\n- **Foundry:** the deployment name.\\n- **Gateway:** the exact ID that its `/v1/models` endpoint returns.\\n\\nFor Auto mode on a gateway, also list `claude-sonnet-5`. Its safety classifier calls that ID by default (see `autoModeEnabled`).",
+    "每個條目是一個模型 ID 字符串或一個對象：\\n```json\\n[\\n  {\"name\": \"claude-sonnet-5\",\\n   \"supports1m\": true},\\n  \"claude-opus-4-8\"\\n]\\n```\\n請使用推理提供商準確的模型 ID：\\n\\n- **Vertex：** 發佈者 ID（`claude-sonnet-5`）。\\n- **Bedrock：** 推理配置檔案 ID（`us.anthropic.claude-sonnet-5`）。\\n- **Foundry：** 部署名稱。\\n- **網關：** 其 `/v1/models` 端點返回的準確 ID。\\n\\n若要在網關上使用自動模式，請同時列出 `claude-sonnet-5`。其安全分類器預設調用該 ID（參見 `autoModeEnabled`）。"
+  ],
+  [
+    "- A user's own effort choice for that model still applies, unless `alwaysStartWithDefaultModel` is on.\\n- A level that the model does not offer becomes the nearest lower level, or its lowest if none is lower.\\n- In Code, the `CLAUDE_CODE_EFFORT_LEVEL` environment variable or `effortLevel` in Claude Code's settings takes priority.\\n\\nWithout `inferenceModels`, the default model is the first one your endpoint returns.",
+    "- 用户自身對該模型的強度選擇仍然有效，除非開啟了 `alwaysStartWithDefaultModel`。\\n- 模型未提供的強度級別會自動轉換為相鄰的較低級別；如果沒有更低級別則轉換為其最低級別。\\n- 在 Code 中，`CLAUDE_CODE_EFFORT_LEVEL` 環境變量或 Claude Code 設定中的 `effortLevel` 具有最高優先級。\\n\\n未設定 `inferenceModels` 時，預設模型為你的端點返回的第一個模型。"
+  ],
+  [
+    "The estimate is in USD. `inferenceModelPricingMultiplier` and `inferenceModelPricing` adjust it, and are ignored while this is off.\\n\\nModel IDs that cannot be matched to a Claude model, such as an opaque gateway alias, are left out until `inferenceModelPricing` gives them a rate.\\n\\nA `modelPricing` in Claude Code's managed settings takes priority over all three keys.",
+    "預估金額單位為美元。`inferenceModelPricingMultiplier` 和 `inferenceModelPricing` 用於調整該預估，在此項關閉時被忽略。\\n\\n無法與 Claude 模型匹配的模型 ID（例如不透明的網關別名）會被排除，直到 `inferenceModelPricing` 為其指定費率。\\n\\nClaude Code 託管設定中的 `modelPricing` 優先於所有這三個鍵。"
+  ],
+  [
+    "On unless set to `false`. The app fetches Anthropic's signed catalog from `downloads.claude.ai`, or from `modelCatalogUrl` if that is set. The catalog never changes which models are offered, their order or the default model.\\n\\nWhen off, the app makes no catalog request. A model released after the installed version may then show no effort options until the app is updated.",
+    "開啟（除非設為 `false`）。應用會從 `downloads.claude.ai`（或已設定的 `modelCatalogUrl`）獲取 Anthropic 的簽名目錄。該目錄絕不會更改所提供的模型、它們的順序或預設模型。\\n\\n關閉時，應用不會發起目錄請求。在已安裝版本之後發佈的模型可能會在應用更新前無法顯示深度選項。"
+  ],
+  [
+    "Mirror two Anthropic files unchanged: `https://downloads.claude.ai/model-catalog/v1/catalog.json` and its signature file. The app looks for the signature at this URL with `.raw-sig.json` added to the path.\\n\\n- The app refuses an edited or re-signed copy and keeps its last good one.\\n- Use `https://`. The app does not follow redirects.\\n- An invalid value turns the catalog fetch off. The app does not fall back to `downloads.claude.ai`.",
+    "原樣鏡像兩個 Anthropic 檔案：`https://downloads.claude.ai/model-catalog/v1/catalog.json` 及其簽名檔案。應用在此 URL 的路徑後追加 `.raw-sig.json` 來查找簽名。\\n\\n- 應用會拒絕經過編輯或重新簽名的副本，並保留上一個已知良好的副本。\\n- 請使用 `https://`。應用不跟隨重定向。\\n- 無效的值將關閉目錄獲取。應用不會回退到 `downloads.claude.ai`。"
+  ],
+  [
+    "In an MDM profile, this key also keeps that profile in charge. Without it, a user can sign in to Claude.ai with an organization that configures Claude Desktop in the Admin Console. The device then mostly follows that organization's configuration, at later launches too.\\n\\n- A value sent only by the bootstrap server does not do this.\\n- `forceLoginOrgUUID` in the profile limits the move to the organizations it lists.\\n- Added to a profile that sets only app-behavior keys such as `disableAutoUpdates`, it makes that profile the device's whole configuration.",
+    "在 MDM 配置檔案中，此鍵也用於保持該配置檔案的控制權。若無此鍵，用户可以使用在管理控制枱中配置了 Claude Desktop 的組織登入 Claude.ai。隨後設備在後續啟動時大多會遵循該組織的配置。\\n\\n- 僅由引導伺服器發送的值不具備此效果。\\n- 配置檔案中的 `forceLoginOrgUUID` 可將遷移限制在所列的組織範圍內。\\n- 新增到僅設定應用行為鍵（如 `disableAutoUpdates`）的配置檔案中，會使該配置檔案成為設備的完整配置。"
+  ],
+  [
+    "Replaces `disableDeploymentModeChooser`: use `3p` for its `true`. `3p` or `1p` wins over it. A bootstrap server can change it, not this key. Earlier versions do not read this key.\\n\\n- `3p`: keeps the app on the connection this configuration names, with no Claude.ai sign-in. With no connection, Claude.ai sign-in opens. To block Claude.ai sign-in, name a connection.\\n- `1p`: always Claude.ai sign-in, even where a connection is named. No Claude API account sign-in and no setup of the user's own.\\n- `any`: the same as unset.\\n\\nIn an MDM profile, `3p` or `1p` blocks a move to an Admin Console organization. It also makes that profile the device's whole configuration, even one of app-behavior keys only. In a user's own saved configuration, the user can change it.\\n\\nA misspelled value counts as `3p`.",
+    "取代 `disableDeploymentModeChooser`：使用 `3p` 代表其 `true`。`3p` 或 `1p` 優先於舊設定。引導伺服器可以更改部署模式，但不能更改此鍵。早期版本不讀取此鍵。\\n\\n- `3p`：保持應用使用此配置指定的連接，不允許 Claude.ai 登入。未指定連接時會彈出 Claude.ai 登入。若要阻止 Claude.ai 登入，請指定連接。\\n- `1p`：始終使用 Claude.ai 登入，即使指定了連接也是如此。不允許 Claude API 賬户登入，也不允許用户自行配置。\\n- `any`：等同於未設定。\\n\\n在 MDM 配置檔案中，`3p` 或 `1p` 會阻止遷移到管理控制枱組織。它還會使該配置檔案成為設備的完整配置，即便該配置檔案僅包含應用行為項也是如此。在用户自己的已儲存配置中，用户可以自行更改。\\n\\n拼寫錯誤的值視為 `3p`。"
+  ],
+  [
+    "If the profile uses Claude Console sign-in with the Anthropic (Claude API) provider, this list also applies to that sign-in. This version still uses a Claude Console sign-in from an unlisted organization, with a configuration warning naming the organization. It also still uses a saved key from an earlier version of the app, with a configuration warning naming no organization. A coming version will allow only listed Claude Console organizations. A value that lists no organization ([]) or cannot be read will then allow none. The coming version will stop using a key from an earlier version of the app, whatever the list holds, until someone signs in again. If you set this list, add your Claude Console organization\\u2019s ID to it now.",
+    "如果配置檔案使用 Anthropic（Claude API）提供商的 Claude 控制枱登入，此列表同樣適用於該登入。當前版本仍允許使用未列出組織的 Claude 控制枱登入，並顯示指明該組織的配置警告。它也仍可使用來自較早版本應用的已儲存密鑰，並顯示不含組織名稱的配置警告。未來版本將僅允許已列出的 Claude 控制枱組織。未列出任何組織（[]）或無法讀取的值屆時將不允許任何組織。未來版本無論列表內容如何，都將停止使用來自較早版本應用的密鑰，直到重新登入。如果你配置了此列表，請立即將你的 Claude 控制枱組織 ID 新增進去。"
+  ],
+  [
+    "Set it in your MDM profile: a user's own configuration is ignored. It does nothing while the device is signed in to an Admin Console organization. The copy runs once per account and organization.\n\nOriginals stay, and no session is uploaded. Project instructions apply with no review prompt. Except in HIPAA-regulated organizations, the app also brings over:\n\n- **Skills:** uploaded to the user's own skills, once the organization allows skill creation and scans uploads.\n- **Local MCP servers and allowed desktop extensions:** added unprompted, and started if on.\n- **Plugins:** uploaded plugins install unscanned, and git plugin marketplaces are added to the user's account.\n\nIf Anthropic enabled memory import and memory is not paused, Cowork memory is copied unreviewed and can sync.",
+    "在你的 MDM 配置檔案中設定：用户的自有配置將被忽略。當設備登入到管理控制枱組織時無效果。每個賬户和組織僅複製一次。\\n\\n原始內容會保留，且不會上傳任何會話。項目指示詞生效無需審核提示。除受 HIPAA 監管的組織外，應用還會一併遷移：\\n\\n- **技能：** 上傳至用户自有的技能庫中（前提是組織允許創建技能並對上傳內容進行掃描）。\\n- **本地 MCP 伺服器和允許的桌面擴展：** 無需提示即自動新增，開啟時自動啟動。\\n- **插件：** 已上傳的插件不經掃描直接安裝，Git 插件市場也會新增到用户賬户中。\\n\\n如果 Anthropic 啟用了記憶導入且記憶未被暫停，Cowork 記憶將不經審核直接複製並可進行同步。"
+  ],
+  [
+    "Cowork and Chat then offer no sign-in to a connector that a plugin brings. That sign-in returns to the app by a claude:// link.",
+    "Cowork 和 Chat 將不會為插件引入的連接器提供登入入口。此類登入會通過 claude:// 鏈接返回應用。"
+  ],
+  [
+    "The OS identity broker is Web Account Manager on Windows and the Company Portal SSO extension on macOS. Linux has no broker, so `required` is not supported there.\\n\\nWith `required` the refresh token stays held by the broker.\\n\\nUpdate all devices first: an older version treats `required` as `disabled`, so it signs in through the browser.",
+    "操作系統身份協調程序在 Windows 上是 Web Account Manager，在 macOS 上是公司門户 SSO 擴展。Linux 沒有此類協調程序，因此不支援 `required`。\\n\\n設為 `required` 時，刷新令牌由系統身份協調程序保管。\\n\\n請先更新所有設備：較舊版本會將 `required` 視為 `disabled`，從而通過瀏覽器發起登入。"
+  ],
+  [
+    "It needs both of these:\\n\\n- `microsoftAuthBroker` is not `disabled`.\\n- The `tenantId` of the `microsoft365` entry in `managedMcpServers` is a tenant GUID, not `common`, `organizations` or `consumers`.\\n\\nUsers still get the account picker in some cases, such as a failed silent sign-in or a guest or personal account. They also get it once they have disconnected Microsoft 365 on the device.\\n\\nTurning this off signs nobody out.",
+    "需要同時滿足以下兩項：\\n\\n- `microsoftAuthBroker` 未設為 `disabled`。\\n- `managedMcpServers` 中 `microsoft365` 條目的 `tenantId` 為租户 GUID，而非 `common`、`organizations` 或 `consumers`。\\n\\n在某些情況下用户仍會看到賬户選擇器，例如靜默登入失敗、訪客或個人賬户。在設備上斷開與 Microsoft 365 的連接後也會顯示。\\n\\n關閉此項不會導致任何用户退出登入。"
+  ],
+  [
+    "If unset, the app uses the organization of your Anthropic sign-in, where the connection has one. Otherwise, local data is stored under a placeholder UUID shared with other unconfigured deployments. Telemetry is then tagged with a value the app derives from your connection settings, or with that placeholder.\n\n**Changing this value leaves data behind.** Sessions, skills and plugins stored under the previous value do not move to the new one.",
+    "若未設定，當連接具備 Anthropic 登入時，應用會使用該登入所屬的組織。否則，本地數據將存儲在與其他未配置部署共享的佔位符 UUID 下。遙測數據隨後會帶上應用從你的連接設定派生的值，或該佔位符。\n\n**更改此值會遺留數據。** 在先前值下存儲的會話、技能和插件不會遷移到新組織標識下。"
+  ],
+  [
+    "Reports include **error messages and stack traces**, **the process that crashed**, **startup failure reasons**, **performance timings**, and **version/OS metadata**. Turning this on also stops Claude Code's error reports. Reports carry a random install ID and an organization ID, which the app picks if you set none (see \\`deploymentOrganizationUuid\\`).\n\nReports can also include:\n\n- a summary of your settings\n- the host names of addresses you configured\n- text you set for display\n- a one-way digest of a session ID\n\nLeave this off unless your policy requires zero outbound telemetry.",
+    "報告包含**錯誤消息與堆棧追蹤**、**發生崩潰的進程**、**啟動失敗原因**、**性能耗時統計**以及**版本/操作系統元數據**。開啟此項同時會停止 Claude Code 的錯誤報告。報告會攜帶隨機安裝 ID 以及組織 ID（若未配置，應用會自動選取，參見 \\`deploymentOrganizationUuid\\`）。\\n\\n報告還可能包含：\\n\\n- 你的設定摘要\\n- 你配置的地址的主機名\\n- 你設定的顯示文本\\n- 會話 ID 的單向摘要哈希\\n\\n除非你的合規策略要求完全阻止出站遙測，否則請保持此項關閉。"
+  ],
+  [
+    "The product-usage analytics come from the app and from Claude Code. Turning this on also stops Claude Code's error reports and its other nonessential requests to Anthropic.\\n\\nApplies only while the app runs in third-party mode. If users could otherwise sign in to Claude.ai on the device, also set `deploymentMode` to `3p`, or `disableDeploymentModeChooser`.",
+    "產品使用分析數據來自應用本身和 Claude Code。開啟此項同時會停止 Claude Code 的錯誤報告以及向 Anthropic 發起的其他非必要請求。\\n\\n僅在應用以第三方模式運行時生效。如果用户原本可以在設備上登入 Claude.ai，還需將 `deploymentMode` 設為 `3p` 或開啟 `disableDeploymentModeChooser`。"
+  ],
+  [
+    "With this on:\n\n- Artifacts still render locally.\n- Excel files in the Code tab preview only through Claude\\u2019s workspace (the local VM).\n- Spellcheck underlines are off on Linux.\n\nWindows still downloads a dictionary for a language it cannot check natively. This key does not stop that download.",
+    "開啟後：\n\n- Artifact 仍會在本地渲染。\n- Code 標籤頁中的 Excel 檔案只能通過 Claude 的工作區（本地虛擬機）預覽。\n- Linux 上的拼寫檢查波浪線將關閉。\n\nWindows 仍會下載系統無法原生檢查的語言詞典。此鍵不會阻止該下載。"
+  ],
+  [
+    "This key stays off for organizations under HIPAA or customer-managed encryption keys.\\n\\nWhen on, each signed-in Claude Desktop periodically reports usage counters to your Claude.ai organization. No prompts, responses, file contents, tool inputs or outputs are included.\\n\\nThis is independent of `disableEssentialTelemetry` and `disableNonessentialTelemetry`, which govern diagnostics sent to Anthropic.",
+    "此鍵對於受 HIPAA 監管或採用客户自管加密密鑰的組織保持關閉。\\n\\n開啟時，每個已登入的 Claude Desktop 會定期向你的 Claude.ai 組織彙報用量計數。不包含任何提示詞、回覆、檔案內容、工具輸入或輸出。\\n\\n這獨立於控制向 Anthropic 發送診斷信息的 `disableEssentialTelemetry` 和 `disableNonessentialTelemetry`。"
+  ],
+  [
+    "Values of an entry\\'s `toolPolicy`, per tool name:\\n\\n- `allow`: pre-approves the tool, except in Code and for built-in connector tools that send or cannot be undone.\\n- `ask`: every call needs approval, with no option to always allow. A scheduled Cowork task waits at the prompt.\\n- `blocked`: the tool is removed from the session.\\n\\nA name can contain `*`, as in `read_*`. When several wildcards match, the strictest applies. An exact name normally takes priority over a wildcard. To block by default, use `\"*\": \"blocked\"` plus exact `allow` entries.",
+    "條目 `toolPolicy` 的取值（按工具名稱劃分）：\\n\\n- `allow`：預先批准該工具，但在 Code 中以及針對具有發送行為或無法撤銷的內置連接器工具除外。\\n- `ask`：每次調用都需要批准，無法選擇始終允許。Cowork 中的計劃任務會在提示符處等待。\\n- `blocked`：從會話中完全移除該工具。\\n\\n名稱中可包含 `*`（如 `read_*`）。當命中多個通配符時，採用最嚴格的規則。精確名稱通常優先於通配符。若要預設阻止所有工具，請使用 `\"*\": \"blocked\"` 搭配具體的 `allow` 條目。"
+  ],
+  [
+    "When off, persistent approvals that users saved earlier in Chat and Cowork stop applying. Scheduled tasks also stop offering and reusing them, unless `mcpScheduledTaskApprovalLifetimeDays` is 1 or more.\\n\\nIn Code, any allow rule in a user's or a project's Claude Code settings keeps allowing a tool until it is removed. So do hooks in its settings or plugins.",
+    "關閉時，用户先前在 Chat 和 Cowork 中儲存的持久化批准將失效。定時任務也會停止提供和複用它們，除非 `mcpScheduledTaskApprovalLifetimeDays` 為 1 或更高。\\n\\n在 Code 中，用户或項目 Claude Code 設定中的任何允許規則都會持續允許該工具，直到被移除。其設定或插件中的鈎子也是如此。"
+  ],
+  [
+    "- If `mcpPersistentAlwaysAllowEnabled` is off, a limit of 1 or more brings the persistent option back for scheduled tasks only.\\n- In Code, any allow rule in a user's or a project's Claude Code settings keeps allowing the tool, even at `0`, until it is removed. Earlier approvals were usually saved as such rules.\\n- If the bootstrap server sets this key, scheduled tasks ask again after each app start until the app has fetched the configuration.",
+    "- 如果 `mcpPersistentAlwaysAllowEnabled` 為關閉狀態，設為 1 或更大的限制僅會為定時任務重新啟用持久化選項。\\n- 在 Code 中，用户或項目 Claude Code 設定中的任何允許規則都會持續允許該工具（即使設為 `0`），直到被移除。先前的批准通常以此類規則形式儲存。\\n- 如果引導伺服器設定了此鍵，定時任務在每次應用啟動後都會重新詢問，直到應用成功獲取配置。"
+  ],
+  [
+    "Set this key in the session host's policy document, not in an MDM profile. It covers every connector in `managedMcpServers` that the session host runs.\\n\\nA widget's page is code from the connector's MCP server and runs in the app. Turn this on only if you trust all of those servers.",
+    "請在會話主機的策略文檔中設定此鍵，而非 MDM 配置檔案。它涵蓋會話主機運行的 `managedMcpServers` 中的所有連接器。\\n\\n小組件的頁面來自連接器的 MCP 伺服器代碼並在應用內部運行。僅在信任所有此類伺服器時開啟。"
+  ],
+  [
+    "- Page content is never relayed through Anthropic servers, and inference stays on the configured provider.\n- The extension's hosted URL-safety check stays on, so the address of each page the agent acts on is checked against the Anthropic API.\n- Before any tool call, Claude Desktop and the extension each obtain a short-lived signed identity statement from the Anthropic API. Those two small requests do go to Anthropic. They pair only when both belong to the same account in your organization.",
+    "- 頁面內容絕不會經由 Anthropic 伺服器中繼，推理完全保留在已配置的提供商處。\n- 擴展託管的 URL 安全檢查保持開啟，因此智能體操作的每個頁面地址都會經過 Anthropic API 進行檢查。\n- 在調用任何工具前，Claude Desktop 和擴展各自會從 Anthropic API 獲取短期的簽名身份證明。這兩個簡短請求確實會發送至 Anthropic。只有當兩者屬於你組織中的同一個賬户時才會完成配對。"
+  ],
+  [
+    "macOS only. Requires `claudeInChromeEnabled`.\\n\\nThe user approves each request in the password manager, and Claude never receives the credential itself. It passes on the device between the password manager, its browser extension and the page.\\n\\nThe app's usage telemetry for the integration (outcomes only, no sites, credentials or item names) follows `disableNonessentialTelemetry`.",
+    "僅限 macOS。需要 `claudeInChromeEnabled`。\\n\\n用户在密碼管理器中逐一批准每個請求，Claude 本身絕不會獲取憑據。憑據在設備本地於密碼管理器、其瀏覽器擴展和目標頁面之間流轉。\\n\\n應用針對該集成的用量遙測（僅限操作結果，不含網址、憑據或項目名稱）遵循 `disableNonessentialTelemetry`。"
+  ],
+  [
+    "On third-party deployments, \\`false\\` covers \\`.mcpb\\` bundles and plugins from every marketplace, your organization's included. Plugins in the org-plugins directory on the device are not affected. In Code, it also stops the local servers that a user or a project configures for Claude Code.\\n\\nWhen \\`false\\` comes from an MDM profile, the app starts only the local \\`managedMcpServers\\` entries in that same profile, exactly as written there. A \\`false\\` from any other source does not do this.\\n\\n${$n}",
+    "在第三方部署中，\\`false\\` 涵蓋來自所有市場（包括你組織自身市場）的 \\`.mcpb\\` 包和插件。設備上 org-plugins 目錄中的插件不受影響。在 Code 中，它也會停止用户或項目為 Claude Code 配置的本地伺服器。\\n\\n當 \\`false\\` 來自 MDM 配置檔案時，應用僅啟動該配置檔案中完全按原樣書寫的本地 \\`managedMcpServers\\` 條目。來自其他任何來源的 \\`false\\` 均不具備此效果。\\n\\n${$n}"
+  ],
+  [
+    "- **Entries:** \\`{\"serverUrl\": \"https://*.example.com/*\"}\\`. No other entry form is read.\\n- **Once set:** no entry allows a plugin's local (\\`stdio\\`) server, and servers that a user or a project configures for Claude Code are not connected.\\n- **\\`policy-only\\`:** a \\`managedMcpServers\\` entry with that \\`transport\\` does not allow its server. List the server's own URL here too.\\n\\n${$n}",
+    "- **條目：** \\`{\"serverUrl\": \"https://*.example.com/*\"}\\`。不讀取其他條目格式。\\n- **設定後：** 沒有任何條目允許插件的本地（\\`stdio\\`）伺服器，且用户或項目為 Claude Code 配置的伺服器將不會連接。\\n- **\\`policy-only\\`：** 具有該 \\`transport\\` 的 \\`managedMcpServers\\` 條目不自動放行其伺服器。請在此處同樣列出該伺服器自身的 URL。\\n\\n${$n}"
+  ],
+  [
+    "An entry matches an address, not a server. The same server under another host name or IP address, or behind a plugin's local server, is not matched. To keep a plugin's servers out whatever address they use, set \\`allowedPluginMcpServers\\`.\\n\\n- **Entries:** \\`{\"serverUrl\": \"https://*.example.com/*\"}\\`. This example does not match \\`http://\\`, \\`wss://\\` or \\`example.com\\` itself. A pattern with no scheme matches nothing.\\n- **Not affected:** \\`managedMcpServers\\` and servers from the org-plugins directory on the device.\\n- **Any other form**, such as \\`serverName\\`, is reported and blocks every plugin's remote server.\\n\\n${$n}",
+    "條目匹配的是地址，而非伺服器。位於其他主機名或 IP 地址下的相同伺服器，或位於插件本地伺服器之後的伺服器，均不會被匹配。若要無論插件伺服器使用何種地址都予以阻止，請配置 \\`allowedPluginMcpServers\\`。\\n\\n- **條目：** \\`{\"serverUrl\": \"https://*.example.com/*\"}\\`。此示例不匹配 \\`http://\\`、\\`wss://\\` 或 \\`example.com\\` 本身。不含協議方案的模式不會匹配任何內容。\\n- **不受影響：** \\`managedMcpServers\\` 以及來自設備上 org-plugins 目錄的伺服器。\\n- **任何其他格式**（如 \\`serverName\\`）都會被上報並阻止所有插件的遠程伺服器。\\n\\n${$n}"
+  ],
+  [
+    "- **Unset:** Chat and Cowork use 180 seconds, and the app sets no timeout in Code. Calls to user-added local servers are also limited to 60 seconds.\\n- **Set:** the value applies in Code too.\\n- **One server:** `toolTimeoutSec` on its `managedMcpServers` entry replaces this value for that server.\\n- **Cowork's shell tool:** a single command's timeout cannot exceed this value, or 600 seconds if that is lower.",
+    "- **未設定：** Chat 和 Cowork 使用 180 秒，應用在 Code 中不設定超時。對用户自行新增的本地伺服器的調用限制為 60 秒。\\n- **設定後：** 該數值在 Code 中同樣生效。\\n- **單伺服器指定：** 該伺服器在 `managedMcpServers` 條目中的 `toolTimeoutSec` 會替換此全局數值。\\n- **Cowork 的 Shell 工具：** 單個命令的超時時間不能超過此數值，若 600 秒更小則以 600 秒為上限。"
+  ],
+  [
+    "Desktop checks this list inside the distro for a WSL session that starts under it. `~` also means the distro user's home. The session needs both bubblewrap and socat there to start. Shell commands can read the Windows drives under `/mnt`. To hide them, apart from listed `/mnt` folders, set `blockReadsOutsideWorkingDirectories`. Users can re-open them. Claude Code's server-managed settings, managed settings in the distro or a Windows policy with `wslInheritsWindowsSettings` replace Desktop's session settings. A session can then run with no sandbox, with or without those programs. Shell commands can read the drives and write outside the list, with no prompt in Auto or bypass mode. If the one in force sets `parentSettingsBehavior` to `merge`, those settings stay, but it can undo them.",
+    "Desktop 會在發行版內部針對在其下啟動的 WSL 會話檢查此列表。`~` 同樣代表發行版用户的主目錄。會話需要其內部同時安裝 bubblewrap 和 socat 才能啟動。Shell 命令可以讀取 `/mnt` 下的 Windows 盤符。若要隱藏它們（列出的 `/mnt` 檔案夾除外），請設定 `blockReadsOutsideWorkingDirectories`。用户可以重新打開它們。Claude Code 的伺服器託管設定、發行版內部的託管設定或帶有 `wslInheritsWindowsSettings` 的 Windows 策略會替換 Desktop 的會話設定。隨後會話可能會在沒有沙箱的情況下運行，無論是否包含這些程序。Shell 命令可以讀取驅動器並在列表外部寫入，在自動或繞過模式下無需提示。若生效的設定將 `parentSettingsBehavior` 設為 `merge`，這些設定將被保留但可能被其撤銷。"
+  ],
+  [
+    "- **Code on the device:** Claude's file tools cannot change the folder. Shell commands still can.\\n- **Code over SSH:** the same, but shell commands are partly limited where Claude Code's sandbox runs on the host. Nothing is enforced on Windows hosts.\\n\\nIn Code, a device or SSH host with Claude Code managed settings enforces nothing, unless they set `parentSettingsBehavior` to `merge`. Where a folder must not change, use the operating system's permissions. A read-only folder that holds Claude's own data, such as the home folder, is enforced in Cowork only.",
+    "- **設備上的 Code：** Claude 的檔案工具無法更改該檔案夾。Shell 命令仍可更改。\\n- **通過 SSH 運行的 Code：** 類似，但當主機上運行 Claude Code 沙箱時，Shell 命令會受到部分限制。在 Windows 主機上不強制執行任何限制。\\n\\n在 Code 中，帶有 Claude Code 託管設定的設備或 SSH 主機不會強制執行任何限制，除非它們將 `parentSettingsBehavior` 設為 `merge`。若某檔案夾絕對不能更改，請利用操作系統的檔案權限。包含 Claude 自身數據（如主目錄）的只讀檔案夾僅在 Cowork 中強制執行。"
+  ],
+  [
+    "Skills already on the device stay usable. Plugins from your organization and bundled skills are not affected. To turn off bundled skills, use `disableBundledSkills`.",
+    "已在設備上的技能保持可用。來自你組織的插件和內置技能不受影響。若要關閉內置技能，請使用 `disableBundledSkills`。"
+  ],
+  [
+    "How well the scan catches unsafe skills depends on your model. A skill judged possibly unsafe becomes usable, with a caution. Scan tokens count toward the user's usage and token limit.\n\nThe app does not scan:\n- plugins\n- skills saved before you turn this on\n- skill files added or changed any other way, such as by a Code session\n- skills a session loads from \\`.claude/skills\\` folders\n- files in a skill named as PDFs or as some image, font, audio or video types, whatever they hold, and dependency lock files\n\nWith \\`otlpEndpoint\\` set and \\`otlpDesktopLogLevel\\` not \\`off\\`, the app sends your OpenTelemetry collector one record for each finished scan, with no retry. It holds the skill's name, a scan id, the verdict and the model's short summary of why, which may quote the skill.",
+    "掃描識別不安全技能的效果取決於你使用的模型。被判定為可能不安全的技能仍可使用，但會顯示警告。掃描消耗的令牌會計入用户的用量和令牌上限。\\n\\n應用不會掃描：\\n- 插件\\n- 開啟此項之前已儲存的技能\\n- 以其他方式新增或修改的技能檔案（例如由 Code 會話修改）\\n- 會話從 \\`.claude/skills\\` 檔案夾加載的技能\\n- 技能中被命名為 PDF 或某些圖片、字體、音頻、視頻類型的檔案（無論內容為何）以及依賴鎖定檔案\\n\\n在配置了 \\`otlpEndpoint\\` 且 \\`otlpDesktopLogLevel\\` 未設為 \\`off\\` 時，應用會在每次掃描完成後向你的 OpenTelemetry 採集器發送一條記錄（不進行重試）。記錄包含技能名稱、掃描 ID、判定結果以及模型的簡短原因摘要（可能引用技能原文）。"
+  ],
+  [
+    "Existing tasks are kept, not deleted, and run again when this is turned back on. While off, sessions also start without Claude Code's own scheduling tools, such as the `/loop` command.",
+    "現有任務將被保留而非刪除，在此項重新開啟時會恢復運行。關閉期間，啟動會話時也不會帶有 Claude Code 自身的計劃任務工具（例如 `/loop` 命令）。"
+  ],
+  [
+    "Turning this off only hides projects. Their tasks and chats stay in the list, ungrouped. Their data stays where it is. Projects come back when you turn it on again.\\n\\nA task that is still open in a project keeps working with what it was started with. A scheduled task set up in a project keeps running in it. To stop it, turn off `scheduledTasksEnabled`, which stops all scheduled tasks.",
+    "關閉此項只會隱藏項目。其任務和對話仍保留在列表中，只是取消分組。它們的數據仍保留在原處。重新開啟時項目會恢復顯示。\\n\\n在項目中仍處於打開狀態的任務會繼續使用啟動時的環境。項目中配置的定時任務會繼續在其中運行。若要停止它，請關閉 `scheduledTasksEnabled`，這將停止所有定時任務。"
+  ],
+  [
+    "Set it in the session host's policy document: a value in an MDM profile has no effect. Update the session host first: an older release ignores this key.\\n\\nNot covered: memory and instructions that users write or upload, their skills (see `skillCreationEnabled`), and files already in a session. Tools on the user's device, such as connected folders and local MCP servers, are not covered either. To block those, use the `remote-devices` entry of `managedMcpServers`.",
+    "請在會話主機的策略文檔中設定此項：MDM 配置檔案中的值沒有效果。請先更新會話主機：較舊版本會忽略此鍵。\\n\\n不涵蓋：用户編寫或上傳的記憶和提示詞指令、用户的技能（參見 `skillCreationEnabled`）以及會話中已存在的檔案。用户設備上的工具（如連接的檔案夾和本地 MCP 伺服器）也未涵蓋。若要阻止這些工具，請使用 `managedMcpServers` 的 `remote-devices` 條目。"
+  ],
+  [
+    "Set it in the session host's policy document, not in an MDM profile. Update the session host first: an older release ignores this key.\n\nHooks in the hook files of plugins from your organization's marketplaces keep running. Hooks declared in a skill stop, in those plugins too.\n\nSessions on the device or over SSH are not covered.",
+    "請在會話主機的策略文檔中設定此項，而非 MDM 配置檔案中。請先更新會話主機：較舊版本會忽略此鍵。\n\n來自你組織插件市場的插件鈎子檔案中的鈎子會繼續運行。在技能中聲明的鈎子會停止運行（在這些插件中也是如此）。\n\n設備上或通過 SSH 運行的會話不受此項控制。"
+  ],
+  [
+    "Unpacked extensions that are already installed keep working. An extension folder copied by hand into the app's extensions folder is not blocked. Packaged (`.mcpb`) extensions follow `isDesktopExtensionEnabled`, not this key.",
+    "已安裝的已解包擴展仍可正常工作。手動複製到應用擴展檔案夾中的擴展檔案夾不會被阻止。打包後的（`.mcpb`）擴展遵循 `isDesktopExtensionEnabled`，不受此鍵控制。"
+  ],
+  [
+    "Unset keeps the built-in shortcut: double-tap Option on macOS, `Ctrl+Alt+Space` elsewhere.\\n\\n- **Combination:** pair `Ctrl`, `Cmd` or `Super` with `Alt` or `Shift`, plus one key other than `Insert`, `Capslock` or `F5`. Names are case-sensitive.\\n- `off`: the string, not `false`.\\n- `double-tap-option`: macOS only.\\n\\nClaude ignores a value that it does not accept, as if unset. Other apps do not receive the shortcut while Claude runs, so choose one that users do not need elsewhere.",
+    "未設定時保留內置快捷鍵：在 macOS 上雙擊 Option，在其他系統上為 `Ctrl+Alt+Space`。\\n\\n- **組合鍵：** 將 `Ctrl`、`Cmd` 或 `Super` 與 `Alt` 或 `Shift` 配對，再加一個除 `Insert`、`Capslock` 或 `F5` 之外的按鍵。名稱區分大小寫。\\n- `off`：使用字符串而非 `false`。\\n- `double-tap-option`：僅限 macOS。\\n\\nClaude 會忽略不接受的值，如同未設定。Claude 運行期間其他應用將無法接收該快捷鍵，因此請選擇用户在其他位置不需要的按鍵。"
+  ],
+  [
+    "When off, another app's window that a user mentions with @ in a chat also comes without its picture.\\n\\nNot covered: screenshots that users take with the operating system's own tools and paste in, and pictures that Claude takes of its own content. A local MCP server or desktop extension can still capture the screen (`isLocalDevMcpEnabled`, `isDesktopExtensionEnabled`).",
+    "關閉時，用户在聊天中使用 @ 提及的另一應用的窗口也不會隨附其截圖。\\n\\n不涵蓋：用户使用操作系統自身工具截取並粘貼的截圖，以及 Claude 對自身內容截取的圖片。本地 MCP 伺服器或桌面擴展仍可截取屏幕（參見 `isLocalDevMcpEnabled`、`isDesktopExtensionEnabled`）。"
+  ],
+  [
+    "Off applies even where the Accessibility permission is already granted. Another app's window that a user mentions with @ in a chat then also comes without its file. Not covered: Claude's other uses of that permission, and files that users attach themselves.",
+    "即使已授予輔助功能權限，關閉選項依然生效。用户在聊天中使用 @ 提及的另一應用的窗口隨後也不會隨附其檔案。不涵蓋：Claude 對該權限的其他用途，以及用户自行附加的檔案。"
+  ],
+  [
+    "Entries use the same tool names and rules as \\`disabledBuiltinTools\\`, with the same limits. Command rules are not a security boundary, and \\`Bash(\\u2026)\\` rules do not cover \\`PowerShell\\`.\\n\\n\\`ask\\` also turns off the user's saved \\u201Calways allow\\u201D choices for that tool. A scheduled task in Cowork waits at the prompt.\\n\\n**Rules such as \\`Bash(curl *)\\`:** ${$n} A tool name such as \\`Bash\\` still applies. Update all devices first: an older version drops these rules, so the tool runs without a prompt.\\n\\nAn unusable entry is dropped and recorded as a configuration error.",
+    "條目使用與 \\`disabledBuiltinTools\\` 相同的工具名稱和規則，且限制相同。命令規則並非安全邊界，且 \\`Bash(\\u2026)\\` 規則不涵蓋 \\`PowerShell\\`。\\n\\n\\`ask\\` 還會停用用户之前儲存的該工具“始終允許”選項。Cowork 中的計劃任務會在提示符處等待。\\n\\n**類似 \\`Bash(curl *)\\` 的規則：** ${$n} 類似 \\`Bash\\` 的工具名稱依然有效。請先更新所有設備：較舊版本會丟棄這些規則，導致工具無需提示即可運行。\\n\\n無法使用的條目會被丟棄並記錄為配置錯誤。"
+  ],
+  [
+    "Unless it is `false`, new Code sessions normally start in Auto mode.\\n\\nBy default on a gateway, Auto mode sends its own requests to Claude Sonnet 5. Your gateway must accept the ID `claude-sonnet-5` and the `anthropic-beta` value `context-1m-2025-08-07`. If you set `inferenceModels`, list that ID there and in any group's model list. If not, Auto mode can block actions it would normally allow.",
+    "除非設為 `false`，否則新的 Code 會話通常以自動模式啟動。\\n\\n預設情況下在網關上，自動模式會向 Claude Sonnet 5 發送請求。你的網關必須接受 ID `claude-sonnet-5` 以及 `anthropic-beta` 值 `context-1m-2025-08-07`。如果設定了 `inferenceModels`，請在此處及各組的模型列表中列出該 ID。否則自動模式可能會阻止其通常允許的操作。"
+  ],
+  [
+    "Your gateway or provider must accept what tool search adds, such as `tool-search-tool-2025-10-19` in the `anthropic-beta` header. Otherwise requests fail with HTTP 400. On Foundry or a custom base URL, requests also carry Claude Code's other experimental betas.\\n\\nOn Claude API, Vertex AI, Bedrock and Bedrock Mantle with no custom base URL, tool search is normally on and this key has no effect.",
+    "你的網關或提供商必須支援工具搜尋所新增的內容，例如 `anthropic-beta` 請求頭中的 `tool-search-tool-2025-10-19`。否則請求將因 HTTP 400 失敗。在 Foundry 或自定義基礎 URL 上，請求還會攜帶 Claude Code 的其他實驗性 Beta 參數。\\n\\n在未指定自定義基礎 URL 的 Claude API、Vertex AI、Bedrock 和 Bedrock Mantle 上，工具搜尋通常預設開啟，此鍵無效果。"
+  ],
+  [
+    "Before fetching a page, Claude Code's WebFetch tool asks \\`api.anthropic.com\\` whether the domain is on Anthropic's content blocklist.\n\n- **Off:** where the host is reachable, every fetched hostname is sent to Anthropic. Where it is blocked, every WebFetch in Code sessions fails.\n- **On:** Code sessions fetch without the lookup and never contact that host for it.",
+    "在抓取頁面之前，Claude Code 的 WebFetch 工具會向 \\`api.anthropic.com\\` 詢問該域名是否在 Anthropic 的內容阻止列表中。\\n\\n- **關閉：** 在主機可達時，每個抓取的主機名都會發送給 Anthropic。在主機被阻止時，Code 會話中的所有 WebFetch 均會失敗。\\n- **開啟：** Code 會話無需查詢直接抓取，且絕不會為此聯繫該主機。"
+  ],
+  [
+    "Claude can read and write in every listed folder unless its \\`mode\\` is \\`ro\\`. An empty list allows none.\\n\\n- **Paths:** \\`~\\` and these variables expand per user: \\`%OneDrive%\\`, \\`%OneDriveCommercial%\\`, \\`%OneDriveConsumer%\\`, \\`%APPDATA%\\`, \\`%LOCALAPPDATA%\\`, \\`%USERNAME%\\`, \\`%XDG_DOCUMENTS_DIR%\\`. An entry with any other variable, or an unset one, adds no folder.\\n- **Code shell commands:** this key turns on Claude Code's sandbox on macOS, and on Linux and WSL2 where bubblewrap and socat work. There, most writes outside the list are refused, and most reads are not. Elsewhere, Windows included, only Claude's file tools follow the list. ${$n}\\n\\nDo not list a home folder: it holds SSH keys and shell start-up files.",
+    "Claude 可以在列出的每個檔案夾中讀取和寫入，除非其 \\`mode\\` 設為 \\`ro\\`。空列表不允許存取任何檔案夾。\\n\\n- **路徑：** \\`~\\` 以及這些環境變量會按用户展開：\\`%OneDrive%\\`、\\`%OneDriveCommercial%\\`、\\`%OneDriveConsumer%\\`、\\`%APPDATA%\\`、\\`%LOCALAPPDATA%\\`、\\`%USERNAME%\\`、\\`%XDG_DOCUMENTS_DIR%\\`。包含其他變量或未設定變量的條目不會新增任何檔案夾。\\n- **Code Shell 命令：** 此鍵在 macOS 以及支援 bubblewrap 和 socat 的 Linux 和 WSL2 上開啟 Claude Code 沙箱。在這些環境中，列表之外的大多數寫入都會被拒絕，而大多數讀取則不會被拒絕。在其他環境中（包括 Windows），僅 Claude 的檔案工具遵循此列表。${$n}\\n\\n切勿列出主目錄：它包含 SSH 密鑰和 Shell 啟動配置檔案。"
+  ],
+  [
+    "- **File tools** refuse most reads outside the session folder and any \\`allowedWorkspaceFolders\\`, in every permission mode.\\n- **Shell commands:** where Claude Code's sandbox runs (see \\`allowedWorkspaceFolders\\`), most reads in the home folder and other user folders are refused. Elsewhere such reads ask for approval.\\n- **Users** can re-open folders, even their whole home folder, in their own Claude Code settings.\\n\\nThe user's git configuration files stay readable, and they can hold credentials. If the app cannot download its Claude Code, sessions may run on an older copy without this block.\\n\\n${$n}",
+    "- **檔案工具**在每種權限模式下均拒絕大多數會話檔案夾及任何 \\`allowedWorkspaceFolders\\` 之外的讀取。\\n- **Shell 命令：** 在運行 Claude Code 沙箱的環境中（參見 \\`allowedWorkspaceFolders\\`），主目錄及其他用户檔案夾中的大多數讀取都會被拒絕。在其他環境中，此類讀取會請求用户批准。\\n- **用户**可以在其自身的 Claude Code 設定中重新打開檔案夾（甚至是整個主目錄）。\\n\\n用户的 Git 配置檔案保持可讀，並且可能包含憑據。如果應用無法下載其 Claude Code，會話可能會在沒有此阻止機制的舊副本上運行。\\n\\n${$n}"
+  ],
+  [
+    "MDM profile only. Only a machine-wide `false` (`HKLM`) allows WSL sessions on a device with any managed configuration.\\n\\nFor a WSL session that starts under `allowedWorkspaceFolders`, Desktop checks it inside the distro, so `~` also means the distro user's home. The session needs both bubblewrap and socat there to start. Shell commands can read the Windows drives under `/mnt`. `blockReadsOutsideWorkingDirectories` hides them, apart from listed `/mnt` folders. Users can re-open them. Claude Code's server-managed settings, among others, can take away that read limit and the sandbox: see the list's Path help.",
+    "僅限 MDM 配置檔案。在具有託管配置的設備上，僅全機範圍的 `false`（`HKLM`）才允許 WSL 會話。\\n\\n對於在 `allowedWorkspaceFolders` 下啟動的 WSL 會話，Desktop 會在發行版內部進行檢查，因此 `~` 也代表發行版用户的主目錄。會話需要其內部同時安裝 bubblewrap 和 socat 才能啟動。Shell 命令可以讀取 `/mnt` 下的 Windows 驅動器盤符。`blockReadsOutsideWorkingDirectories` 可隱藏它們（列出的 `/mnt` 檔案夾除外）。用户可以重新打開它們。Claude Code 的伺服器託管設定等可能會移除該讀取限制和沙箱：參見列表中的路徑説明。"
+  ],
+  [
+    "The launcher comes from the device's managed settings, not server-managed settings. SSH sessions to Linux or macOS hosts use the one in the host's managed-settings files.\n\n- **Credentials:** the app passes the launcher no inference credential. The launcher must supply one, such as \\`ANTHROPIC_AUTH_TOKEN\\`, or every reply fails.\n- **Not used:** on Windows for sessions on the device, in WSL, in Cowork, and for the connection test and title generation.\n\nTo stop users bypassing the launcher, set this key in your MDM profile, with \\`disableDeploymentModeChooser\\` if that profile sets more than app-behavior keys.",
+    "啟動程序來自設備的託管設定，而非伺服器託管設定。前往 Linux 或 macOS 主機的 SSH 會話使用該主機託管設定檔案中的啟動程序。\\n\\n- **憑據：** 應用不會向啟動程序傳遞推理憑據。啟動程序必須自行提供（如 \\`ANTHROPIC_AUTH_TOKEN\\`），否則每次回覆都會失敗。\\n- **未使用的場景：** 在 Windows 上針對設備本機運行的會話、在 WSL 中、在 Cowork 中，以及用於連接測試和標題生成時。\\n\\n若要防止用户繞過啟動程序，請在 MDM 配置檔案中設定此鍵；如果該配置檔案設定了超出應用行為設定的項，請同時配置 \\`disableDeploymentModeChooser\\`。"
+  ],
+  [
+    "The new local folder starts empty, so users sign in again and re-enter their settings and MCP servers. Nothing is deleted from the share, and removing the key returns the app to it with its previous contents.",
+    "新的本地檔案夾在初始時為空，因此用户需要重新登入並重新輸入其設定和 MCP 伺服器。共享中不會刪除任何內容，移除此鍵可使應用恢復並讀取先前的共享內容。"
+  ],
+  [
+    "Does not cover web search, model requests or MCP servers.\\n\\n- **Entries:** a hostname, a wildcard (\\`*.corp.com\\`, subdomains only) or \\`*\\` for all.\\n- **Ports:** an entry other than \\`*\\` can end in \\`:port\\`, which only Code ignores. Update all devices first: older versions then block every host in Cowork's shell.\\n- **Plugins:** command-line tools also reach hosts their plugin declares.\\n- **Built-in browser:** a list other than \\`*\\`, even an empty one, limits Claude's browsing.\\n- **Code:** a list other than \\`*\\` locks Claude Code's sandbox on, for shell commands only, where it runs (see \\`allowedWorkspaceFolders\\`). So does an unset list, except where a local file is the only configuration and \\`blockReadsOutsideWorkingDirectories\\` is off. ${$n}",
+    "不涵蓋網絡搜尋、模型請求或 MCP 伺服器。\\n\\n- **條目：** 主機名、通配符（\\`*.corp.com\\`，僅限子網域）或 \\`*\\`（全部）。\\n- **端口：** 除 \\`*\\` 以外的條目可以以 \\`:port\\` 結尾，僅 Code 會忽略端口。請先更新所有設備：較舊版本會阻止 Cowork 的 Shell 中的所有主機。\\n- **插件：** 命令行工具也可以存取其插件所聲明的主機。\\n- **內置瀏覽器：** 除 \\`*\\` 以外的列表（即便是空列表）都會限制 Claude 的網頁瀏覽。\\n- **Code：** 任何非 \\`*\\` 列表都會強制鎖定 Claude Code 的沙箱（僅限 Shell 命令，在其運行的位置，參見 \\`allowedWorkspaceFolders\\`）。未設定的列表也是如此，除非本地檔案是唯一配置且 \\`blockReadsOutsideWorkingDirectories\\` 處於關閉狀態。${$n}"
+  ],
+  [
+    "This sets a route. It is not a network access control. If the proxy is unreachable, requests fail instead of connecting directly.\n\n**Not sent through this proxy:** Cowork's workspace VM on Linux, credential and header helper scripts, update downloads, the OS identity broker and the system browser.\n\nSOCKS proxies and embedded credentials (\\`user:pass@\\`) are rejected.",
+    "這只用於指定路由，並非網絡存取控制。如果代理不可達，請求將直接失敗而不會嘗試直連。\n\n**不經過此代理的流量：** Linux 上的 Cowork 工作區虛擬機、憑據與請求頭輔助腳本、更新包下載、操作系統身份協調程序以及系統瀏覽器。\n\n不支援 SOCKS 代理和嵌入憑據（\\`user:pass@\\`）。"
+  ],
+  [
+    "If the PAC file cannot be downloaded, the app connects directly. On macOS and Windows, the Cowork workspace VM gets its own copy at each start. If that download fails, the VM connects directly until it next starts, with no warning. Block direct connections on your network if that is unacceptable.\\n\\nClaude Code, which runs Chat, Cowork and Code sessions, uses one proxy: the one the script returns for your inference endpoint. Return an HTTP `PROXY host:port` entry there. With `DIRECT` or only `SOCKS`, it uses no proxy.\\n\\nWhat `egressProxyUrl` lists as not sent through its proxy skips the PAC file too.",
+    "如果無法下載 PAC 檔案，應用將嘗試直連。在 macOS 和 Windows 上，Cowork 工作區虛擬機在每次啟動時都會獲取其自有副本。如果該下載失敗，虛擬機將在下次啟動前直接直連，且不會發出警告。如果在你的網絡中不可接受直連，請在網絡層面予以阻止。\\n\\n運行 Chat、Cowork 和 Code 會話的 Claude Code 僅使用一個代理：腳本為你推理端點返回的那個代理。請在此處返回 HTTP `PROXY host:port` 條目。使用 `DIRECT` 或僅使用 `SOCKS` 時，將不使用任何代理。\\n\\n`egressProxyUrl` 中列出的不經其代理的流量同樣會跳過 PAC 檔案。"
+  ],
+  [
+    "Each time the workspace VM starts on macOS or Windows, it runs the package's `install.sh` as root if the vendor named in `coworkEDRIntegrationVendor` signed it. Outside a fully third-party deployment, it also needs recent contact with Anthropic, which can switch it off.\\n\\nPut the signature beside the package, named as the package plus `.sig`. Keep both, and every folder above them, where ordinary users cannot write. On Windows, use `HKLM\\\\SOFTWARE\\\\Policies\\\\Claude`.\\n\\nClaude does not check what the sensor downloads later, or limit which hosts it reaches. Use your own network controls.",
+    "在 macOS 或 Windows 上每次工作區虛擬機啟動時，如果 `coworkEDRIntegrationVendor` 中指定的廠商對其進行了簽名，它將以 root 身份運行該安裝包的 `install.sh`。在非完全第三方部署的環境中，它還需要近期與 Anthropic 成功連接（Anthropic 可將其關閉）。\\n\\n請將簽名與安裝包放在同級目錄下，命名為安裝包名稱追加 `.sig`。請將兩者及上層所有檔案夾置於普通用户不可寫入的路徑。在 Windows 上，請使用 `HKLM\\\\SOFTWARE\\\\Policies\\\\Claude`。\\n\\nClaude 不會檢查探針傳感器隨後下載的內容，也不會限制其存取的主機。請配合你自己的網絡安全控制。"
+  ],
+  [
+    "Ask your vendor which ID to use. It has 1 to 32 characters from a to z, 0 to 9 and the hyphen, and does not start with a hyphen.\n\nA malformed ID, or one that this version of Claude does not accept, installs nothing. \\`cowork_vm_node.log\\` records the reason.\n\nRemoving either key only stops later runs. An installed sensor stays until the workspace VM is deleted or replaced.",
+    "請向你的安全軟件供應商諮詢應使用的 ID。它由 1 到 32 個 a 到 z、0 到 9 以及連字符字符組成，且不能以連字符開頭。\\n\\n格式錯誤的 ID，或當前版本 Claude 不支援的 ID，均不會安裝任何內容。\\`cowork_vm_node.log\\` 會記錄具體原因。\\n\\n移除任一配置鍵只會停止後續啟動。已安裝的探針傳感器將保留，直到工作區虛擬機被刪除或重建。"
+  ],
+  [
+    "The program runs as the signed-in user, with no arguments. Store it where users cannot write. On macOS it needs its own Full Disk Access. If it is missing, no local session starts.\\n\\n- **Input:** one line of JSON on standard input. Read it with a JSON parser. `messages[last].content[last].input.file_path` is the full path with links resolved, so a mapped drive appears as `\\\\\\\\server\\\\share\\\\\\u2026`.\\n- **Origin:** `metadata[\"claude-desktop.origin\"]` is `tool`, `attachment`, `open_with` or `upload` (the file leaves the device). Treat unknown values as the strictest.\\n- **Session:** `session_id` is the ID of the task or chat, or `null` for `open_with`.\\n- **Allow:** print exactly `{\"action\":\"allow\"}` and exit with code 0.\\n- **Block:** print `{\"action\":\"deny\",\"deny_reason\":\"\\u2026\"}` and exit with code 0. Anything else also blocks.",
+    "程序作為已登入用户運行，不帶任何參數。請將其儲存在用户不可寫入的路徑。在 macOS 上它需要自身的“完全磁盤存取權限”。如果程序缺失，將無法啟動本地會話。\\n\\n- **輸入：** 標準輸入一行 JSON。使用 JSON 解析器讀取。`messages[last].content[last].input.file_path` 為解析鏈接後的完整路徑，映射的驅動器盤符會顯示為 `\\\\\\\\server\\\\share\\\\\\u2026`。\\n- **來源：** `metadata[\\\"claude-desktop.origin\\\"]` 可為 `tool`、`attachment`、`open_with` 或 `upload`（檔案將離開設備）。未知值請按最嚴格方式處理。\\n- **會話：** `session_id` 為任務或對話的 ID，對於 `open_with` 則為 `null`。\\n- **允許：** 準確輸出 `{\\\"action\\\":\\\"allow\\\"}` 並以退出碼 0 退出。\\n- **阻止：** 輸出 `{\\\"action\\\":\\\"deny\\\",\\\"deny_reason\\\":\\\"\\u2026\\\"}` 並以退出碼 0 退出。其他任何輸出均視為阻止。"
+  ],
+  [
+    "A new version of the program at the same path, or new rules, does not clear remembered allows. To stop relying on them sooner, set this to `0`. Keep `0` for at least the old number of seconds, or old allows count again.\\n\\nAn allow counts for one file, one origin and one session (see `command`). A block is never remembered. If the program's answer can change with what the session read before, set this to `0`.",
+    "相同路徑上的新版本程序或新規則不會清除已記錄的允許操作。若要提前停止信任它們，請將此項設為 `0`。請保持 `0` 至少達到先前設定的秒數，否則舊的允許操作會再次生效。\\n\\n單次允許操作僅適用於單個檔案、單個來源和單個會話（參見 `command`）。阻止操作絕不會被記錄。如果程序的響應會隨會話先前讀取的內容而改變，請將此項設為 `0`。"
+  ],
+  [
+    "Applies only while the app runs in third-party mode, so put your connection keys and `disableDeploymentModeChooser` in the same policy. It guards ordinary use: a model that tries can bypass it.\\n\\n- **Checked:** files that Read, Edit or Grep opens in connected or project folders, attachments and Claude in Chrome uploads.\\n- **Not checked, among others:** the Code tab, connectors, local MCP servers, plugins, writes, `CLAUDE.md` files, `.claude/rules` files and files that Claude already opened.\\n- **Users notice:** commands in the workspace VM do not get the connected folders.\\n\\nOn Windows use `HKLM`, not `HKCU`.",
+    "僅在應用以第三方模式運行時生效，因此請將你的連接鍵與 `disableDeploymentModeChooser` 放在同一策略中。它用於防範日常普通操作：模型如若刻意嘗試仍可繞過它。\\n\\n- **受檢查的內容：** Read、Edit 或 Grep 在連接的檔案夾或項目檔案夾中打開的檔案、附件以及 Claude in Chrome 上傳的檔案。\\n- **未受檢查的內容（包括但不限於）：** Code 標籤頁、連接器、本地 MCP 伺服器、插件、寫入操作、`CLAUDE.md` 檔案、`.claude/rules` 檔案以及 Claude 已經打開過的檔案。\\n- **用户感知：** 工作區虛擬機中的命令將無法獲取連接的檔案夾。\\n\\n在 Windows 上請使用 `HKLM`，而非 `HKCU`。"
+  ],
+  [
+    "IPv6 works in the VM only where the device's own IPv6 works.\\n\\nThis is not a network access control. `coworkEgressAllowedHosts` still decides which hosts tools can reach, by name, over either protocol. It does not accept IPv6 addresses. Make sure your network filters the allowed hosts over IPv6 the way you intend.",
+    "工作區虛擬機中的 IPv6 僅在設備自身的 IPv6 可用時才能使用。\\n\\n這並非網絡存取控制。`coworkEgressAllowedHosts` 依然按照主機名來決定工具可以通過任一協議存取哪些主機。它不接受 IPv6 地址。請確保你的網絡按你的預期過濾允許通過 IPv6 存取的主機。"
+  ],
+  [
+    "The identity comes from the user's sign-in, or is the OS login name when sign-in gives none. A static `enduser.id` in `otlpResourceAttributes` takes priority in telemetry, and is sent even when this setting is off.\\n\\nThe `process.owner` attribute (the OS login name) is always sent. To replace it, set a static `process.owner` in `otlpResourceAttributes`.",
+    "身份信息來自用户的登入態；當未提供登入信息時，使用操作系統的登入名稱。在 `otlpResourceAttributes` 中配置的靜態 `enduser.id` 在遙測中具有更高優先級，即使此設定關閉也會發送。\\n\\n`process.owner` 屬性（操作系統登入名）始終會發送。若要替換它，請在 `otlpResourceAttributes` 中設定靜態的 `process.owner`。"
+  ],
+  [
+    "Claude is told that they take priority over a user's personal preferences.\\n\\nA value over 3,000 characters is ignored with a configuration error, not shortened. The Group Policy (ADMX) and Intune text box holds a single line. JSON, `.mobileconfig` and `.reg` files keep line breaks.",
+    "Claude 會被告知它們優先於用户的個人偏好設定。\\n\\n超過 3,000 個字符的值將被忽略並報告配置錯誤，不會被自動截短。組策略（ADMX）和 Intune 文本框僅支援單行。JSON、`.mobileconfig` 和 `.reg` 檔案可保留換行符。"
+  ],
+  [
+    "The user confirms another device\\u2019s export is their own. Memory and some app preferences apply at once. Tasks, plugins, and skills arrive turned off. Local MCP servers start when the user adds them in a dialog. Each needs its setting on: `scheduledTasksEnabled`, `userPluginUploadsEnabled`, `skillCreationEnabled`, `isLocalDevMcpEnabled`.",
+    "用户確認另一台設備的導出為其本人所有。記憶及部分應用偏好設定會立即生效。任務、插件和技能在導入後處於關閉狀態。當用户在對話框中新增本地 MCP 伺服器時，這些伺服器才會啟動。每種組件都需要開啟對應設定：`scheduledTasksEnabled`、`userPluginUploadsEnabled`、`skillCreationEnabled`、`isLocalDevMcpEnabled`。"
+  ],
+  [
+    "- The list narrows `enabled`. It turns nothing on by itself and does not affect `automatic3pImport`.\\n- An empty list, or one that cannot be read, allows no organization, so no import is offered. A null or empty string counts as unset.\\n- Each import is reported to your OpenTelemetry collector with the ID of its organization. Set `otlpDesktopLogLevel` to `info` to receive it.",
+    "- 此列表用於收窄 `enabled`。它本身不會開啟任何內容，且不影響 `automatic3pImport`。\\n- 空列表或無法讀取的列表不允許任何組織，因此不會提供導入選項。null 或空字符串視為未設定。\\n- 每次導入操作都會連同其組織 ID 一併彙報給你的 OpenTelemetry 採集器。將 `otlpDesktopLogLevel` 設為 `info` 即可接收。"
+  ],
+  [
+    "Unset is off, except in Admin Console organizations, where it is on unless an admin turns it off. Without the Admin Console, also set \\`deploymentOrganizationUuid\\`. Only sessions stored before you set it are copied.\n\nIt brings back more than sessions, without asking the user. That includes:\n\n- The user's Cowork memory, global instructions and Instructions for Claude, which are used at once, unreviewed.\n- Scheduled tasks. A task that was on runs at its next scheduled time.\n- Uploaded plugins, unless \\`userPluginUploadsEnabled\\` is off. They can run programs on the device.\n- Saved skills, unless \\`skillCreationEnabled\\` is off.",
+    "未設定時為關閉，但在管理控制枱組織中預設為開啟（除非管理員將其關閉）。在沒有管理控制枱的情況下，還需設定 \\`deploymentOrganizationUuid\\`。只有在設定此項之前存儲的會話才會被複制。\\n\\n它會在無需詢問用户的情況下遷移比會話更多的內容。包括：\\n\\n- 用户的 Cowork 記憶、全局指令以及 Instructions for Claude（未經審核即直接生效）。\\n- 定時任務。先前開啟的任務將在其下次計劃時間正常運行。\\n- 已上傳的插件（除非 \\`userPluginUploadsEnabled\\` 處於關閉狀態）。它們可以在設備上運行程序。\\n- 已儲存的技能（除非 \\`skillCreationEnabled\\` 處於關閉狀態）。"
+  ],
+  [
+    "The zip contains sessions, projects and their files, memory, scheduled tasks, saved skills, uploaded plugins, some app preferences, and local MCP servers. Passwords or API keys in them are included. Sign-ins and the servers\\u2019 variable values are not. Treat it as sensitive data.",
+    "zip 壓縮包可包含會話、項目及其檔案、記憶、定時任務、已儲存技能、已上傳插件、部分應用偏好設定以及本地 MCP 伺服器。其中包含的密碼或 API 密鑰會被一併收錄。登入態與伺服器的環境變量值不會被收錄。請將其視為敏感數據謹慎對待。"
+  ],
+  [
+    "When any statement in this list checks uploaded files, the add-in refuses uploads whose label it cannot read, such as encrypted or legacy Office files. If the add-in cannot read the policy, it turns off every feature.",
+    "當此列表中的任何語句對上傳檔案進行檢查時，加載項會拒絕標籤不可讀的檔案（例如已加密或舊版 Office 格式）。如果加載項無法讀取該策略，它將停用所有功能。"
+  ],
+  [
+    "The app checks the addresses of public sites that open or are framed in the browser (query removed) against Anthropic's site safety list on \\`${Ze}\\`.\\n\\n- The check is signed out, with no account, organization, or device identifier. In an Admin Console organization it is signed in, on the host that serves the configuration.\\n- Private addresses, names resolving to them, and internal-suffix or single-label names are never sent. A name under a public domain is checked even if only your VPN resolves it.\\n- Allow \\`${Ze}\\` through your firewall. If a check fails, users can browse but Claude's page tools stay off for that site.",
+    "應用會根據 Anthropic 在 \\`${Ze}\\` 上的站點安全列表，對在瀏覽器中打開或在 iframe 中嵌套的公共站點地址進行檢查（已移除查詢參數）。\\n\\n- 檢查是以未登入狀態進行的，不包含任何賬户、組織或設備標識符。在管理控制枱組織中，檢查是以登入狀態進行的（發往提供配置的主機）。\\n- 私有地址、解析到私有地址的名稱、內部後綴或單標籤名稱絕不會被髮送。公共域名下的名稱即使僅通過你的 VPN 才能解析也會被檢查。\\n- 請在防火牆中放行 \\`${Ze}\\`。如果檢查失敗，用户仍可正常瀏覽網頁，但 Claude 針對該站點的頁面工具將被禁用。"
+  ],
+  [
+    "A `coworkEgressAllowedHosts` list other than `*` applies on top of either value: Claude cannot open sites outside it.\\n\\nPages, even ones that a user opened, cannot load frames, scripts or images from other sites that the policy does not allow. Under `block`, or with a `coworkEgressAllowedHosts` list, include the CDN and API hosts that your allowed sites depend on.",
+    "非 `*` 的 `coworkEgressAllowedHosts` 列表會在上述兩種取值的基礎上疊加生效：Claude 無法打開該列表之外的站點。\\n\\n網頁（即便是用户主動打開的頁面）也無法加載策略所不允許的其他站點的 iframe 框架、腳本或圖片。在 `block` 模式下，或設定了 `coworkEgressAllowedHosts` 列表時，請一併包含你允許的站點所依賴的 CDN 和 API 主機。"
+  ],
+  [
+    "Entries use the same format as `coworkEgressAllowedHosts`, except:\\n\\n- `example.com` also covers `www.example.com`, but no other subdomain.\\n- `*` is ignored, and so is a wildcard on a public suffix, such as `*.co.uk`.\\n\\nA site that Anthropic's site safety list blocks stays blocked to Claude. Where that list only asks for confirmation, Claude works with a listed site without asking before each action.",
+    "條目使用與 `coworkEgressAllowedHosts` 相同的格式，但有以下例外：\\n\\n- `example.com` 同時涵蓋 `www.example.com`，但不涵蓋其他子網域。\\n- `*` 會被忽略，公共後綴上的通配符（如 `*.co.uk`）也是如此。\\n\\n被 Anthropic 站點安全列表阻止的站點對 Claude 依然保持阻止。如果該列表僅要求確認，Claude 在針對所列站點執行每項操作前無需提示確認。"
+  ],
+  [
+    "Entries use the same format as `coworkEgressAllowedHosts`. `*` blocks every external site. `example.com` also covers `www.example.com`, but no other subdomain. An entry outside that format matches nothing.\\n\\nA blocked site is refused before the site safety check, so its address is never sent to Anthropic.",
+    "條目使用與 `coworkEgressAllowedHosts` 相同的格式。`*` 會阻止所有外部站點。`example.com` 同時涵蓋 `www.example.com`，但不涵蓋其他子網域。超出此格式的條目不會匹配任何內容。\\n\\n被阻止的站點會在站點安全檢查之前就被拒絕，因此其地址絕不會發送給 Anthropic。"
+  ],
+  [
+    "Meant to be set per user or group.\n\n- Deletion stops at the first configuration fetch that carries the hold, before any restart.\n- A device that cannot reach its bootstrap server deletes nothing.\n\nThe hold does not stop Claude Code's own cleanup, which can delete parts of the app's Code sessions, conversations included. For users on hold, add \\`\"cleanupPeriodDays\": 36500\\` to Claude Code's user settings (usually \\`~/.claude/settings.json\\`) on each computer where their sessions run. If Claude Code's managed settings set \\`cleanupPeriodDays\\`, raise it to \\`36500\\` there too.\n\nIn MDM, do not deploy the hold in a profile of its own: the app would then ignore the device's local configuration.",
+    "旨在按用户或用户組進行設定。\\n\\n- 刪除操作會在首次獲取包含此保留標誌的配置時停止，無需等待重啟。\\n- 無法連接其引導伺服器的設備不會刪除任何內容。\\n\\n此保全操作不會停止 Claude Code 自身的清理機制（該機制可能會刪除應用的部分 Code 會話，包括對話內容）。對於處於保留狀態的用户，請在其會話運行的每台計算機上的 Claude Code 用户設定（通常為 \\`~/.claude/settings.json\\`）中新增 \\`\"cleanupPeriodDays\": 36500\\`。如果 Claude Code 的託管設定中配置了 \\`cleanupPeriodDays\\`，請在此處同樣提高到 \\`36500\\`。\\n\\n在 MDM 中，切勿將保留標誌單獨部署在獨立的配置檔案中：否則應用會忽略設備的本地配置。"
+  ],
+  [
+    "The app opens in third-party mode unless the user chose to sign in to Claude.ai at the login screen. `deploymentMode` at `3p`, or `disableDeploymentModeChooser`, removes that choice.\\n\\nWhen this key is unset, the app opens in standard mode unless another key, such as `bootstrapUrl`, asks for third-party mode.\\n\\nA misspelt value from a machine-wide MDM profile still asks for third-party mode, which then shows a configuration error. From the local configuration file or Windows policy under `HKCU`, it reads as unset.",
+    "應用以第三方模式啟動，除非用户在登入界面選擇登入到 Claude.ai。將 `deploymentMode` 設為 `3p` 或開啟 `disableDeploymentModeChooser` 會移除該選項。\\n\\n未設定此鍵時，應用以標準模式啟動，除非其他配置項（如 `bootstrapUrl`）要求第三方模式。\\n\\n全機 MDM 配置檔案中拼寫錯誤的值仍會要求第三方模式，隨後會顯示配置錯誤。在本地配置檔案或 `HKCU` 下的 Windows 策略中，拼寫錯誤的值將被解讀為未設定。"
   ]
 ]

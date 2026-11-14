@@ -27,7 +27,8 @@ class UserLocaleTests(unittest.TestCase):
             self.assertTrue(config_file.is_file())
             data = json.loads(config_file.read_text(encoding="utf-8"))
             self.assertEqual(data.get("locale"), "zh-CN")
-            self.assertEqual(config_file.stat().st_mode & 0o777, 0o600)
+            if hasattr(os, "geteuid"):
+                self.assertEqual(config_file.stat().st_mode & 0o777, 0o600)
 
     def test_skips_creating_third_party_dir_when_absent(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -55,8 +56,8 @@ class UserLocaleTests(unittest.TestCase):
             self.assertEqual(data.get("locale"), "zh-TW")
             self.assertEqual(data.get("foo"), "bar")
 
-    @patch("os.chown")
-    def test_chowns_parent_directories_and_file_when_sudo(self, mock_chown):
+    @patch.object(patcher, "safe_chown")
+    def test_chowns_parent_directories_and_file_when_sudo(self, mock_safe_chown):
         with tempfile.TemporaryDirectory() as tmp:
             user_home = Path(tmp)
             claude_dir = user_home / "Library" / "Application Support" / "Claude"
@@ -65,16 +66,16 @@ class UserLocaleTests(unittest.TestCase):
             with patch.dict(os.environ, {"SUDO_UID": "1001", "SUDO_GID": "1002"}):
                 patcher.set_user_locale(user_home, "zh-CN")
 
-            # Check that chown was invoked with (uid=1001, gid=1002) for claude_dir and config_file
-            chowned_paths = [call[0][0] for call in mock_chown.call_args_list]
+            # Check that safe_chown was invoked with (uid=1001, gid=1002) for claude_dir and config_file
+            chowned_paths = [call[0][0] for call in mock_safe_chown.call_args_list]
             self.assertIn(claude_dir, chowned_paths)
             self.assertIn(config_file, chowned_paths)
-            for call in mock_chown.call_args_list:
+            for call in mock_safe_chown.call_args_list:
                 self.assertEqual(call[0][1], 1001)
                 self.assertEqual(call[0][2], 1002)
 
-    @patch("os.chown")
-    def test_repairs_ownership_even_when_locale_already_matches(self, mock_chown):
+    @patch.object(patcher, "safe_chown")
+    def test_repairs_ownership_even_when_locale_already_matches(self, mock_safe_chown):
         with tempfile.TemporaryDirectory() as tmp:
             user_home = Path(tmp)
             claude_dir = user_home / "Library" / "Application Support" / "Claude"
@@ -85,7 +86,7 @@ class UserLocaleTests(unittest.TestCase):
             with patch.dict(os.environ, {"SUDO_UID": "1001", "SUDO_GID": "1002"}):
                 patcher.set_user_locale(user_home, "zh-CN")
 
-            chowned_paths = [call[0][0] for call in mock_chown.call_args_list]
+            chowned_paths = [call[0][0] for call in mock_safe_chown.call_args_list]
             # Must repair parent directory and config file even when locale is already zh-CN
             self.assertIn(claude_dir, chowned_paths)
             self.assertIn(config_file, chowned_paths)

@@ -1257,6 +1257,16 @@ def clear_quarantine(app: Path) -> None:
         print("Cleared Gatekeeper quarantine attribute")
 
 
+def safe_chown(path: Path, uid: int, gid: int) -> None:
+    if hasattr(os, "chown") and path.exists():
+        try:
+            st = path.stat()
+            if st.st_uid != uid or st.st_gid != gid:
+                os.chown(path, uid, gid)
+        except OSError:
+            pass
+
+
 def set_user_locale(user_home: Path, lang_code: str) -> None:
     """Write locale into Claude (+ Claude-3p if present) user config."""
     targets = [
@@ -1265,7 +1275,7 @@ def set_user_locale(user_home: Path, lang_code: str) -> None:
     ]
     sudo_uid = os.environ.get("SUDO_UID")
     sudo_gid = os.environ.get("SUDO_GID")
-    if not (sudo_uid and sudo_gid) and os.geteuid() == 0:
+    if not (sudo_uid and sudo_gid) and hasattr(os, "geteuid") and os.geteuid() == 0:
         # macOS `do shell script ... with administrator privileges` does not
         # provide SUDO_UID/GID; preserve the owner of the requested home.
         owner = user_home.stat()
@@ -1278,20 +1288,9 @@ def set_user_locale(user_home: Path, lang_code: str) -> None:
         if sudo_uid and sudo_gid:
             curr = config.parent
             while curr != user_home and curr.parent != curr:
-                try:
-                    st = curr.stat()
-                    if st.st_uid != int(sudo_uid) or st.st_gid != int(sudo_gid):
-                        os.chown(curr, int(sudo_uid), int(sudo_gid))
-                except OSError:
-                    pass
+                safe_chown(curr, int(sudo_uid), int(sudo_gid))
                 curr = curr.parent
-            if config.exists():
-                try:
-                    st = config.stat()
-                    if st.st_uid != int(sudo_uid) or st.st_gid != int(sudo_gid):
-                        os.chown(config, int(sudo_uid), int(sudo_gid))
-                except OSError:
-                    pass
+            safe_chown(config, int(sudo_uid), int(sudo_gid))
         data: dict[str, Any] = {}
         if config.exists():
             try:
@@ -1308,12 +1307,12 @@ def set_user_locale(user_home: Path, lang_code: str) -> None:
             continue
         data["locale"] = lang_code
         save_json(config, data)
-        os.chmod(config, 0o600)
+        try:
+            os.chmod(config, 0o600)
+        except OSError:
+            pass
         if sudo_uid and sudo_gid:
-            try:
-                os.chown(config, int(sudo_uid), int(sudo_gid))
-            except OSError:
-                pass
+            safe_chown(config, int(sudo_uid), int(sudo_gid))
         print(f"Set Claude config locale: {config} -> {lang_code}")
 
 
@@ -1323,7 +1322,7 @@ def chown_to_sudo_user(path: Path) -> None:
     sudo_uid = os.environ.get("SUDO_UID")
     sudo_gid = os.environ.get("SUDO_GID")
     if sudo_uid and sudo_gid and path.exists():
-        os.chown(path, int(sudo_uid), int(sudo_gid))
+        safe_chown(path, int(sudo_uid), int(sudo_gid))
 
 
 def load_json_object_or_backup(path: Path, dry_run: bool = False) -> dict[str, Any]:

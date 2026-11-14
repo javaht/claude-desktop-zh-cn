@@ -300,38 +300,32 @@ function Get-ClaudeAppxPackages {
 }
 
 function Find-ClaudePath {
-    $packages = @(Get-ClaudeAppxPackages)
-    foreach ($package in $packages) {
-        if ($package.InstallLocation -and (Test-Path $package.InstallLocation)) {
-            return $package.InstallLocation
-        }
+    $packages = @(Get-ClaudeAppxPackages |
+        Where-Object { $_.InstallLocation -and (Test-Path $_.InstallLocation) } |
+        Sort-Object `
+            @{ Expression = {
+                try { [System.Version]$_.Version } catch { [System.Version]::new(0, 0) }
+            }; Descending = $true })
+    if ($packages.Count -gt 0) {
+        return $packages[0].InstallLocation
     }
 
     $fallback = Get-ChildItem "C:\Program Files\WindowsApps" -Directory -Filter "*Claude*" -ErrorAction SilentlyContinue |
-        Sort-Object LastWriteTime -Descending |
+        Sort-Object `
+            @{ Expression = {
+                if ($_.Name -match '_(\d+(?:\.\d+)+)_') {
+                    try { [System.Version]$Matches[1] } catch { [System.Version]::new(0, 0) }
+                } else {
+                    [System.Version]::new(0, 0)
+                }
+            }; Descending = $true },
+            @{ Expression = { $_.LastWriteTime }; Descending = $true } |
         Select-Object -First 1
     if ($fallback) {
         return $fallback.FullName
     }
 
     return $null
-}
-
-function Get-ClaudeExeProductVersion {
-    param([string]$ClaudePath)
-
-    foreach ($name in @("Claude.exe", "claude.exe")) {
-        $exePath = Join-Path $ClaudePath $name
-        if (Test-Path -LiteralPath $exePath) {
-            try {
-                return [string](Get-Item -LiteralPath $exePath).VersionInfo.ProductVersion
-            }
-            catch {
-                return "未知"
-            }
-        }
-    }
-    return "未知"
 }
 
 function Get-ClaudeExePath {
@@ -349,6 +343,24 @@ function Get-ClaudeExePath {
         }
     }
     return $null
+}
+
+function Get-ClaudeExeProductVersion {
+    param([string]$ClaudePath)
+
+    $exePath = Get-ClaudeExePath $ClaudePath
+    if ($exePath -and (Test-Path -LiteralPath $exePath)) {
+        try {
+            $ver = [string](Get-Item -LiteralPath $exePath).VersionInfo.ProductVersion
+            if ($ver -and $ver.Trim()) {
+                return $ver.Trim()
+            }
+        }
+        catch {
+            return "未知"
+        }
+    }
+    return "未知"
 }
 
 function Remove-LegacyAppxForkArtifacts {
@@ -3442,53 +3454,56 @@ function Test-ServiceControlAvailable {
 }
 
 function Stop-CoworkVMService {
-    $serviceName = "CoworkVMService"
     if (-not (Test-ServiceControlAvailable)) {
         return
     }
 
-    $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-    if (-not $service) {
-        return
-    }
-
-    if ($service.Status -ne "Stopped") {
-        try {
-            Write-Host "  正在停止 $serviceName 服务..." -ForegroundColor DarkGray
-            Stop-Service -Name $serviceName -Force -ErrorAction Stop
-            Start-Sleep -Seconds 1
-        }
-        catch {
-            Write-Host "  [提示] 停止 $serviceName 服务: $($_.Exception.Message)" -ForegroundColor DarkGray
+    $serviceNames = @("CoworkVMService", "CoworkVMServiceStore")
+    foreach ($serviceName in $serviceNames) {
+        $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+        if ($service -and $service.Status -ne "Stopped") {
+            try {
+                Write-Host "  正在停止 $serviceName 服务..." -ForegroundColor DarkGray
+                Stop-Service -Name $serviceName -Force -ErrorAction Stop
+                Start-Sleep -Seconds 1
+            }
+            catch {
+                Write-Host "  [提示] 停止 $serviceName 服务: $($_.Exception.Message)" -ForegroundColor DarkGray
+            }
         }
     }
 }
 
 function Start-CoworkVMService {
-    $serviceName = "CoworkVMService"
     if (-not (Test-ServiceControlAvailable)) {
         return
     }
 
-    $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-    if (-not $service) {
-        Write-Host "  [提示] 未找到 $serviceName 服务，跳过。" -ForegroundColor DarkGray
-        return
-    }
-
-    if ($service.Status -eq "Running") {
-        Write-Host "  $serviceName 已在运行" -ForegroundColor Green
-        return
-    }
-
-    try {
-        Start-Service -Name $serviceName -ErrorAction Stop
-        Start-Sleep -Seconds 2
+    $serviceNames = @("CoworkVMService", "CoworkVMServiceStore")
+    $foundAny = $false
+    foreach ($serviceName in $serviceNames) {
         $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-        Write-Host "  $serviceName 已启动，当前状态: $($service.Status)" -ForegroundColor Green
+        if ($service) {
+            $foundAny = $true
+            if ($service.Status -eq "Running") {
+                Write-Host "  $serviceName 已在运行" -ForegroundColor Green
+                continue
+            }
+
+            try {
+                Start-Service -Name $serviceName -ErrorAction Stop
+                Start-Sleep -Seconds 2
+                $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+                Write-Host "  $serviceName 已启动，当前状态: $($service.Status)" -ForegroundColor Green
+            }
+            catch {
+                Write-Host "  [警告] 启动 $serviceName 失败: $($_.Exception.Message)" -ForegroundColor Yellow
+            }
+        }
     }
-    catch {
-        Write-Host "  [警告] 启动 $serviceName 失败: $($_.Exception.Message)" -ForegroundColor Yellow
+
+    if (-not $foundAny) {
+        Write-Host "  [提示] 未找到 CoworkVMService 服务，跳过。" -ForegroundColor DarkGray
     }
 }
 
@@ -4087,7 +4102,12 @@ function Install-WindowsLanguagePack {
         Write-Host "  app: $claudePath" -ForegroundColor Green
         Write-Host "  resources: $resourcesPath" -ForegroundColor Green
         if ($installKind -eq "AppX") {
-            Write-Host "  安装类型: 商店版 (MSIX/AppX)" -ForegroundColor DarkGray
+            if ($resourcesPath -match '(?i)\\WindowsApps\\AnthropicPBC\.Claude_') {
+                Write-Host "  安装类型: Microsoft Store 商店版 (MSIX/AppX)" -ForegroundColor DarkGray
+            }
+            else {
+                Write-Host "  安装类型: 官网安装包 (MSIX/AppX)" -ForegroundColor DarkGray
+            }
         }
         # 先只读校验完整性标记，再动任何 asar：4.4212 曾出现「asar 已改、exe 哈希写不回」
         # 的半坏状态，这里在结构不兼容时零副作用地快速失败。

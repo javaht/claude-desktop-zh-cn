@@ -19,6 +19,8 @@ param(
     [string]$OriginalAppData = "",
     [string]$OriginalLocalAppData = "",
 
+    [string]$ClaudePath = "",
+
     # 非交互安装（脚本调用、自动化）默认不允许接管 WindowsApps 的所有权。
     # 需要显式授权，避免在没人确认的情况下静默改动系统保护目录的 ACL。
     [switch]$AllowTakeOwnership
@@ -37,6 +39,11 @@ $script:InstallLogPath = $null
 $script:InstallTranscriptStarted = $false
 $script:PreInstallCleanupDone = $false
 $script:SkipFrontendFileBackups = $false
+
+$script:ExplicitClaudePath = ""
+if ($ClaudePath) { $script:ExplicitClaudePath = $ClaudePath }
+elseif ($env:CLAUDE_PATH) { $script:ExplicitClaudePath = $env:CLAUDE_PATH }
+elseif ($env:CLAUDE_ZH_CUSTOM_PATH) { $script:ExplicitClaudePath = $env:CLAUDE_ZH_CUSTOM_PATH }
 
 if ($OriginalUserSid) { $env:CLAUDE_ZH_ORIGINAL_USER_SID = $OriginalUserSid }
 if ($OriginalUserProfile) { $env:CLAUDE_ZH_ORIGINAL_USER_PROFILE = $OriginalUserProfile }
@@ -265,6 +272,89 @@ function Test-UnpackagedClaudeAppDirectory {
         (Test-Path -LiteralPath (Join-Path $Directory.FullName "resources"))
 }
 
+function Get-CustomClaudePaths {
+    $custom = @()
+    if ($script:ExplicitClaudePath) { $custom += $script:ExplicitClaudePath }
+    if ($env:CLAUDE_PATH) { $custom += $env:CLAUDE_PATH }
+    if ($env:CLAUDE_ZH_CUSTOM_PATH) { $custom += $env:CLAUDE_ZH_CUSTOM_PATH }
+
+    $valid = @()
+    foreach ($path in ($custom | Where-Object { $_ } | Select-Object -Unique)) {
+        if (-not (Test-Path -LiteralPath $path)) { continue }
+        $res = Join-Path $path "resources"
+        if (-not (Test-Path -LiteralPath $res)) {
+            $res = Join-Path $path "app\resources"
+        }
+        if ((Test-Path -LiteralPath $res) -and (Get-ClaudeExePath $path)) {
+            try {
+                $valid += (Resolve-Path -LiteralPath $path).Path
+            }
+            catch {
+                $valid += $path
+            }
+        }
+    }
+    return @($valid | Select-Object -Unique)
+}
+
+function Get-ScoopClaudePaths {
+    $scoopRoots = @()
+    if ($env:SCOOP) { $scoopRoots += $env:SCOOP }
+    if ($env:CLAUDE_ZH_ORIGINAL_SCOOP) { $scoopRoots += $env:CLAUDE_ZH_ORIGINAL_SCOOP }
+    if ($env:CLAUDE_ZH_ORIGINAL_USER_PROFILE) {
+        $scoopRoots += Join-Path $env:CLAUDE_ZH_ORIGINAL_USER_PROFILE "scoop"
+    }
+    $userProfile = [Environment]::GetFolderPath('UserProfile')
+    if ($userProfile) {
+        $scoopRoots += Join-Path $userProfile "scoop"
+    }
+    if ($env:SCOOP_GLOBAL) { $scoopRoots += $env:SCOOP_GLOBAL }
+    $programData = [Environment]::GetFolderPath('CommonApplicationData')
+    if ($programData) {
+        $scoopRoots += Join-Path $programData "scoop"
+    }
+
+    $candidates = @()
+    foreach ($root in ($scoopRoots | Where-Object { $_ } | Select-Object -Unique)) {
+        if (-not (Test-Path -LiteralPath $root)) { continue }
+        foreach ($appName in @("claude", "claude-desktop", "AnthropicClaude")) {
+            $appBase = Join-Path $root (Join-Path "apps" $appName)
+            if (-not (Test-Path -LiteralPath $appBase)) { continue }
+
+            # 1. current 目录（Scoop 标准活动目录软链接/Junction）
+            $current = Join-Path $appBase "current"
+            if (Test-Path -LiteralPath $current) {
+                try {
+                    $candidates += (Resolve-Path -LiteralPath $current).Path
+                }
+                catch {
+                    $candidates += $current
+                }
+            }
+
+            # 2. 版本子目录（如 5.11492.5）
+            $versionDirs = @(Get-ChildItem -LiteralPath $appBase -Directory -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -ne "current" } |
+                Sort-Object `
+                    @{ Expression = {
+                        if ($_.Name -match '^\d+(?:\.\d+)+$') {
+                            try { [System.Version]$_.Name } catch { [System.Version]::new(0, 0) }
+                        } else {
+                            [System.Version]::new(0, 0)
+                        }
+                    }; Descending = $true },
+                    @{ Expression = { $_.LastWriteTime }; Descending = $true } |
+                ForEach-Object { $_.FullName })
+            $candidates += $versionDirs
+        }
+    }
+
+    return @($candidates | Where-Object {
+        $res = Join-Path $_ "resources"
+        (Test-Path -LiteralPath $res) -and (Get-ClaudeExePath $_)
+    } | Select-Object -Unique)
+}
+
 function Get-UnpackagedClaudePaths {
     $localAppData = [Environment]::GetFolderPath('LocalApplicationData')
     if (-not $localAppData) {
@@ -383,6 +473,41 @@ function Remove-LegacyAppxForkArtifacts {
 }
 
 function Get-ClaudeResourcesPath {
+    # 1. 显式指定的自定义安装路径（-ClaudePath / CLAUDE_PATH）
+    $customCandidates = @(Get-CustomClaudePaths)
+    foreach ($candidatePath in $customCandidates) {
+        $candidateResources = Join-Path $candidatePath "resources"
+        if (-not (Test-Path $candidateResources)) {
+            $candidateResources = Join-Path $candidatePath "app\resources"
+        }
+        if ((Test-Path $candidateResources) -and (Test-FrontendBundleAvailable $candidateResources)) {
+            Write-Host "  Claude 版本: $(Get-ClaudeExeProductVersion $candidatePath)" -ForegroundColor DarkGray
+            return @{
+                App = $candidatePath
+                Resources = $candidateResources
+                InstallKind = "Custom"
+            }
+        }
+    }
+
+    # 2. Scoop 安装目录（Scoop extras/claude）
+    $scoopCandidates = @(Get-ScoopClaudePaths)
+    foreach ($candidatePath in $scoopCandidates) {
+        $candidateResources = Join-Path $candidatePath "resources"
+        if (-not (Test-Path $candidateResources)) {
+            $candidateResources = Join-Path $candidatePath "app\resources"
+        }
+        if ((Test-Path $candidateResources) -and (Test-FrontendBundleAvailable $candidateResources)) {
+            Write-Host "  Claude 版本: $(Get-ClaudeExeProductVersion $candidatePath)" -ForegroundColor DarkGray
+            return @{
+                App = $candidatePath
+                Resources = $candidateResources
+                InstallKind = "Scoop"
+            }
+        }
+    }
+
+    # 3. 官方 Squirrel 历史解包路径（%LocalAppData%\AnthropicClaude\app-*）
     $script:DetectedUnpackagedClaudePaths = @(Get-UnpackagedClaudePaths)
     $script:DetectedMultipleClaudeInstalls = $false
 
@@ -431,7 +556,7 @@ function Get-ClaudeResourcesPath {
         if ($script:DetectedUnpackagedClaudePaths.Count -gt 0) {
             throw "未找到可补丁的 Claude Desktop 安装：本地 app-* 目录均缺前端 bundle，商店版也未检测到。请确认 Claude Desktop 已完整安装（安装后至少启动过一次），或清理旧 app-* 目录后重试。"
         }
-        throw "未找到 Claude Desktop 安装。"
+        throw "未找到 Claude Desktop 安装。若使用非标准目录安装（如 Scoop 等），可通过设置环境变量 CLAUDE_PATH 指向安装目录后重试。"
     }
 
     $resourcesPath = Join-Path $claudePath "app\resources"
@@ -3912,7 +4037,11 @@ function Test-ClaudeDesktopProcessPath {
     if (-not $Path) {
         return $false
     }
-    return ($Path -match "WindowsApps\\Claude_" -or $Path -match "AnthropicClaude\\app-")
+    return ($Path -match "(?i)WindowsApps\\.*Claude" -or
+            $Path -match "(?i)AnthropicClaude\\app-" -or
+            $Path -match "(?i)scoop\\apps\\(?:claude|claude-desktop)" -or
+            ($script:ExplicitClaudePath -and $Path.StartsWith($script:ExplicitClaudePath, [System.StringComparison]::OrdinalIgnoreCase)) -or
+            ($env:CLAUDE_PATH -and $Path.StartsWith($env:CLAUDE_PATH, [System.StringComparison]::OrdinalIgnoreCase)))
 }
 
 function Get-ClaudeDesktopProcesses {
@@ -4045,25 +4174,29 @@ function Restart-Claude {
 
     Stop-ClaudeProcesses
 
-    # AppX(MSIX) 安装优先用包激活启动: 进程带包身份, 更新检查走 msix 路径
+    # 仅对 AppX(MSIX) 安装优先用包激活启动: 进程带包身份, 更新检查走 msix 路径
     # (直接启动 exe 会被更新器误判为 Squirrel 解包安装而报 "Can not find Squirrel",
     #  Cowork 客户端校验也只能靠签名回退)
-    try {
-        $app = Get-StartApps -ErrorAction Stop | Where-Object { $_.AppID -like "*Claude_*!*" } | Select-Object -First 1
-        if ($app -and $app.AppID) {
-            Start-Process -FilePath "explorer.exe" -ArgumentList "shell:AppsFolder\$($app.AppID)"
-            Write-Host "  已通过 AppX 激活重启 Claude Desktop ($($app.AppID))" -ForegroundColor Green
-            return
+    if ($ClaudePath -match "WindowsApps") {
+        try {
+            $app = Get-StartApps -ErrorAction Stop | Where-Object { $_.AppID -like "*Claude_*!*" } | Select-Object -First 1
+            if ($app -and $app.AppID) {
+                Start-Process -FilePath "explorer.exe" -ArgumentList "shell:AppsFolder\$($app.AppID)"
+                Write-Host "  已通过 AppX 激活重启 Claude Desktop ($($app.AppID))" -ForegroundColor Green
+                return
+            }
+        } catch {
+            Write-Host "  [提示] AppX 激活不可用($($_.Exception.Message))，改用直接启动。" -ForegroundColor DarkYellow
         }
-    } catch {
-        Write-Host "  [提示] AppX 激活不可用($($_.Exception.Message))，改用直接启动。" -ForegroundColor DarkYellow
     }
 
     $exe = Get-ClaudeExePath $ClaudePath
     if ($exe) {
         Start-Process -FilePath "explorer.exe" -ArgumentList "`"$exe`""
         Write-Host "  restarted Claude Desktop" -ForegroundColor Green
-        Write-Host "  [提示] MSIX 安装建议从开始菜单启动 Claude，以获得完整功能(自动更新/Cowork)。" -ForegroundColor DarkYellow
+        if ($ClaudePath -match "WindowsApps") {
+            Write-Host "  [提示] MSIX 安装建议从开始菜单启动 Claude，以获得完整功能(自动更新/Cowork)。" -ForegroundColor DarkYellow
+        }
         return
     }
 
@@ -4108,6 +4241,12 @@ function Install-WindowsLanguagePack {
             else {
                 Write-Host "  安装类型: 官网安装包 (MSIX/AppX)" -ForegroundColor DarkGray
             }
+        }
+        elseif ($installKind -eq "Scoop") {
+            Write-Host "  安装类型: Scoop 安装包 (extras/claude)" -ForegroundColor DarkGray
+        }
+        elseif ($installKind -eq "Custom") {
+            Write-Host "  安装类型: 自定义路径" -ForegroundColor DarkGray
         }
         # 先只读校验完整性标记，再动任何 asar：4.4212 曾出现「asar 已改、exe 哈希写不回」
         # 的半坏状态，这里在结构不兼容时零副作用地快速失败。

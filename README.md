@@ -100,7 +100,7 @@ CC Switch skills 同步会扫描 `~/.cc-switch/skills` 下包含 `SKILL.md` 的�
 6. 选择语言：`1`=简体中文，`2`=繁體中文（台灣），`3`=繁體中文（香港）。
 7. 脚本会备份被修改的文件、写入中文资源并重启 Claude Desktop。Claude `4.29+` 的 `ion-dist.asar` 会先解包到临时目录，完成汉化后再重打包并更新 `Claude.exe` 内的 ASAR 头哈希。如果没有自动切换，打开左下角账号菜单，选择 `Language` -> 对应的中文选项。
 
-支持官网安装包（包括历史 Squirrel 版本与官网 MSIX 包）。安装器会自动识别当前系统安装的最新版本，并自动跳过历史升级残留的旧版本目录。
+支持官网安装包（包括历史 Squirrel 版本与官网 MSIX 包）以及 Scoop（`scoop install extras/claude`）安装。安装器会自动识别当前系统安装的最新版本并跳过历史升级残留的旧版本目录。若安装在非标准自定义路径，可设置环境变量 `CLAUDE_PATH`（或通过参数 `-ClaudePath`）指定目录后运行脚本。
 
 > **关于 Microsoft Store 商店版**：从微软应用商店（Microsoft Store）安装的包受 Windows 内核防篡改保护（Process Trust Label），系统强制禁止改写程序目录文件（管理员提权与接管所有权均无法绕过），因此**不支持直接对微软商店版打补丁**。请卸载商店版，并前往官网下载安装包（`ClaudeSetup.exe`）进行安装，即可正常使用本补丁。
 

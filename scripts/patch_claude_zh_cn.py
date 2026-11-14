@@ -1272,9 +1272,26 @@ def set_user_locale(user_home: Path, lang_code: str) -> None:
         sudo_uid, sudo_gid = str(owner.st_uid), str(owner.st_gid)
 
     for config in targets:
-        if config.name.startswith("Claude-3p") and not config.parent.exists():
+        if config.parent.name.startswith("Claude-3p") and not config.parent.exists():
             continue
         config.parent.mkdir(parents=True, exist_ok=True)
+        if sudo_uid and sudo_gid:
+            curr = config.parent
+            while curr != user_home and curr.parent != curr:
+                try:
+                    st = curr.stat()
+                    if st.st_uid != int(sudo_uid) or st.st_gid != int(sudo_gid):
+                        os.chown(curr, int(sudo_uid), int(sudo_gid))
+                except OSError:
+                    pass
+                curr = curr.parent
+            if config.exists():
+                try:
+                    st = config.stat()
+                    if st.st_uid != int(sudo_uid) or st.st_gid != int(sudo_gid):
+                        os.chown(config, int(sudo_uid), int(sudo_gid))
+                except OSError:
+                    pass
         data: dict[str, Any] = {}
         if config.exists():
             try:
@@ -1293,7 +1310,10 @@ def set_user_locale(user_home: Path, lang_code: str) -> None:
         save_json(config, data)
         os.chmod(config, 0o600)
         if sudo_uid and sudo_gid:
-            os.chown(config, int(sudo_uid), int(sudo_gid))
+            try:
+                os.chown(config, int(sudo_uid), int(sudo_gid))
+            except OSError:
+                pass
         print(f"Set Claude config locale: {config} -> {lang_code}")
 
 

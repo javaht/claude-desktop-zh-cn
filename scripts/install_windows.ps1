@@ -39,6 +39,7 @@ $script:InstallLogPath = $null
 $script:InstallTranscriptStarted = $false
 $script:PreInstallCleanupDone = $false
 $script:SkipFrontendFileBackups = $false
+$script:PreferredResourcesPath = ""
 
 $script:ExplicitClaudePath = ""
 if ($ClaudePath) { $script:ExplicitClaudePath = $ClaudePath }
@@ -192,6 +193,11 @@ function Read-InteractiveSelection {
             Write-Host "        将继续安装流程。" -ForegroundColor Yellow
         }
         Write-Host ""
+    }
+
+    if ($selectedAction -eq "install") {
+        # 同时存在官网版与商店版等多个 Claude 时，先让用户指定汉化哪一个，避免“打错包”。
+        try { [void](Select-ClaudeInstallTarget) } catch { Write-Host ("[提示] 安装目标选择失败：" + $_.Exception.Message) -ForegroundColor DarkYellow }
     }
 
     Write-Host "请选择要安装的语言："
@@ -418,6 +424,48 @@ function Find-ClaudePath {
     return $null
 }
 
+function Select-ClaudeInstallTarget {
+    # 检测到多个可补丁的 WindowsApps(MSIX/AppX) 安装时，让用户指定要汉化/启动哪一个。
+    # 痛点：官网版与微软商店版同时存在时，前端资源互不相同，若自动选错，会出现
+    # “补丁打在 A、启动的却是 B”，于是看起来像是补丁没生效。
+    $packages = @(Get-ClaudeAppxPackages |
+        Where-Object { $_.InstallLocation -and (Test-Path -LiteralPath $_.InstallLocation) } |
+        Sort-Object @{ Expression = { try { [System.Version]$_.Version } catch { [System.Version]::new(0,0) } }; Descending = $true })
+    if ($packages.Count -le 1) {
+        return $script:PreferredResourcesPath
+    }
+    if ($script:PreferredResourcesPath) {
+        return $script:PreferredResourcesPath
+    }
+
+    Write-Host ""
+    Write-Host "检测到多个 Claude 安装，请选择要汉化并启动的那一个：" -ForegroundColor Yellow
+    $opts = @()
+    for ($i = 0; $i -lt $packages.Count; $i++) {
+        $pkg = $packages[$i]
+        $isStore = ([string]$pkg.Name -match '^AnthropicPBC\.') -or ([string]$pkg.Publisher -notmatch 'Anthropic, PBC')
+        $label = if ($isStore) { "微软商店版（MSIX/AppX，可能受商店防篡改限制）" } else { "官网安装版（MSIX/AppX）" }
+        $ver = try { ([string]$pkg.Version) } catch { "?" }
+        Write-Host ("  [{0}] {1}  {2}  {3}" -f ($i + 1), $pkg.Name, $label, $ver)
+        Write-Host ("      " + $pkg.InstallLocation) -ForegroundColor DarkGray
+        $opts += @{ Path = $pkg.InstallLocation; IsStore = $isStore }
+    }
+    while ($true) {
+        $sel = (Read-Host ("请输入序号 [1-" + $packages.Count + "]")).Trim()
+        if ($sel -match '^\d+$' -and [int]$sel -ge 1 -and [int]$sel -le $packages.Count) {
+            $chosen = $opts[[int]$sel - 1]
+            $res = Join-Path $chosen.Path "app\resources"
+            if (-not (Test-Path -LiteralPath $res)) { $res = Join-Path $chosen.Path "resources" }
+            $script:PreferredResourcesPath = $res
+            if ($chosen.IsStore) {
+                Write-Host "  已选择微软商店版：若系统防篡改阻止写入，安装会在写入权限处明确报错（不会静默失败）。" -ForegroundColor DarkYellow
+            }
+            return $res
+        }
+        Write-Host "输入无效，请输入 1-$($packages.Count)。" -ForegroundColor Yellow
+    }
+}
+
 function Get-ClaudeExePath {
     param([string]$ClaudePath)
 
@@ -511,6 +559,24 @@ function Get-ClaudeResourcesPath {
     $script:DetectedUnpackagedClaudePaths = @(Get-UnpackagedClaudePaths)
     $script:DetectedMultipleClaudeInstalls = $false
 
+    # 若用户已显式选择了某个 AppX 包（多包共存时的选择），直接用它，不再走解包/自动检测。
+    if ($script:PreferredResourcesPath) {
+        $prefResources = $script:PreferredResourcesPath
+        $prefApp = Split-Path -Parent $prefResources
+        if ((Split-Path -Leaf $prefApp) -ieq 'app') { $prefApp = Split-Path -Parent $prefApp }
+        $prefPkg = Get-ClaudeAppxPackages | Where-Object { $_.InstallLocation -and ($_.InstallLocation.TrimEnd('\') -ieq ([string]$prefApp).TrimEnd('\')) } | Select-Object -First 1
+        $prefKind = "AppX"
+        if ($prefPkg -and ([string]$prefPkg.Name -match '^AnthropicPBC\.')) { $prefKind = "AppXStore" }
+        Write-Host "  Claude 版本: $(Get-ClaudeExeProductVersion $prefApp)" -ForegroundColor DarkGray
+        return @{
+            App = $prefApp
+            Resources = $prefResources
+            InstallKind = $prefKind
+            PackageName = if ($prefPkg) { [string]$prefPkg.Name } else { "" }
+            PackageFamilyName = if ($prefPkg) { [string]$prefPkg.PackageFamilyName } else { "" }
+        }
+    }
+
     # 化石目录防线（issue #196）：升级/换渠道安装后，%LocalAppData%\AnthropicClaude
     # 可能残留旧渠道的 app-* 目录（例如 fast-ring 时代的 app-1.0.x）。它们能通过
     # Claude.exe + resources 的基础检测，但里面没有前端 bundle；旧逻辑选中这类目录
@@ -571,10 +637,15 @@ function Get-ClaudeResourcesPath {
     }
 
     Write-Host "  Claude 版本: $(Get-ClaudeExeProductVersion $claudePath)" -ForegroundColor DarkGray
+    $appxPkg = Get-ClaudeAppxPackages | Where-Object { $_.InstallLocation -and ($_.InstallLocation.TrimEnd('\') -ieq ([string]$claudePath).TrimEnd('\')) } | Select-Object -First 1
+    $installKind = "AppX"
+    if ($appxPkg -and ([string]$appxPkg.Name -match '^AnthropicPBC\.')) { $installKind = "AppXStore" }
     return @{
         App = $claudePath
         Resources = $resourcesPath
-        InstallKind = "AppX"
+        InstallKind = $installKind
+        PackageName = if ($appxPkg) { [string]$appxPkg.Name } else { "" }
+        PackageFamilyName = if ($appxPkg) { [string]$appxPkg.PackageFamilyName } else { "" }
     }
 }
 
@@ -4169,6 +4240,40 @@ function Stop-ClaudeProcesses {
     }
 }
 
+function Get-AppxEntryForPath {
+    # 从已安装目录反推该 MSIX/AppX 包的可激活条目（PFN!AppId）。
+    # 旧实现用 Get-StartApps 的模糊通配取“第一个”，在官网版与商店版同时存在时
+    # 会选错包，导致“补丁打在 A、重启的却是 B”。这里改为按安装路径精确匹配。
+    param([string]$Path)
+
+    if (-not $Path) { return $null }
+    $normalized = ([string]$Path).TrimEnd('\')
+    $pkg = Get-ClaudeAppxPackages |
+        Where-Object { $_.InstallLocation -and ($_.InstallLocation.TrimEnd('\') -ieq $normalized) } |
+        Select-Object -First 1
+    if (-not $pkg) { return $null }
+
+    $appId = "Claude"
+    $manifest = Join-Path $pkg.InstallLocation "AppxManifest.xml"
+    if (Test-Path -LiteralPath $manifest) {
+        try {
+            [xml]$xml = Get-Content -LiteralPath $manifest -Raw
+            $apps = @($xml.Package.Applications.Application)
+            $executable = $apps | Where-Object {
+                $_.Executable -and ([System.IO.Path]::GetFileName([string]$_.Executable) -ieq 'Claude.exe')
+            } | Select-Object -First 1
+            if (-not $executable) { $executable = $apps | Select-Object -First 1 }
+            if ($executable -and $executable.Id) { $appId = [string]$executable.Id }
+        } catch {
+        }
+    }
+    return [pscustomobject]@{
+        AppID             = "$($pkg.PackageFamilyName)!$appId"
+        PackageFamilyName = [string]$pkg.PackageFamilyName
+        Name              = [string]$pkg.Name
+    }
+}
+
 function Restart-Claude {
     param([string]$ClaudePath)
 
@@ -4178,16 +4283,22 @@ function Restart-Claude {
     # (直接启动 exe 会被更新器误判为 Squirrel 解包安装而报 "Can not find Squirrel",
     #  Cowork 客户端校验也只能靠签名回退)
     if ($ClaudePath -match "WindowsApps") {
-        try {
-            $app = Get-StartApps -ErrorAction Stop | Where-Object { $_.AppID -like "*Claude_*!*" } | Select-Object -First 1
-            if ($app -and $app.AppID) {
-                Start-Process -FilePath "explorer.exe" -ArgumentList "shell:AppsFolder\$($app.AppID)"
-                Write-Host "  已通过 AppX 激活重启 Claude Desktop ($($app.AppID))" -ForegroundColor Green
-                return
+        $app = $null
+        try { $app = Get-AppxEntryForPath $ClaudePath } catch { $app = $null }
+        # 兜底：仅在无法按路径匹配时，才退回到“类似 Claude”的第一个开始菜单项。
+        if (-not $app) {
+            try {
+                $fallbackApp = Get-StartApps -ErrorAction Stop | Where-Object { $_.AppID -like "*Claude*!*" } | Select-Object -First 1
+                if ($fallbackApp -and $fallbackApp.AppID) { $app = [pscustomobject]@{ AppID = $fallbackApp.AppID } }
+            } catch {
             }
-        } catch {
-            Write-Host "  [提示] AppX 激活不可用($($_.Exception.Message))，改用直接启动。" -ForegroundColor DarkYellow
         }
+        if ($app -and $app.AppID) {
+            Start-Process -FilePath "explorer.exe" -ArgumentList "shell:AppsFolder\$($app.AppID)"
+            Write-Host "  已通过 AppX 激活重启 Claude Desktop ($($app.AppID))" -ForegroundColor Green
+            return
+        }
+        Write-Host "  [提示] 未能按安装路径匹配 AppX 包，改用直接启动。" -ForegroundColor DarkYellow
     }
 
     $exe = Get-ClaudeExePath $ClaudePath
@@ -4234,8 +4345,8 @@ function Install-WindowsLanguagePack {
         $installKind = $paths["InstallKind"]
         Write-Host "  app: $claudePath" -ForegroundColor Green
         Write-Host "  resources: $resourcesPath" -ForegroundColor Green
-        if ($installKind -eq "AppX") {
-            if ($resourcesPath -match '(?i)\\WindowsApps\\AnthropicPBC\.Claude_') {
+        if ($installKind -eq "AppX" -or $installKind -eq "AppXStore") {
+            if ($installKind -eq "AppXStore" -or $resourcesPath -match '(?i)\\WindowsApps\\AnthropicPBC\.Claude_') {
                 Write-Host "  安装类型: Microsoft Store 商店版 (MSIX/AppX)" -ForegroundColor DarkGray
             }
             else {

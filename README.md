@@ -1,4 +1,6 @@
-# Claude Desktop 中文补丁
+# Claude Desktop 中文汉化版（Windows / Microsoft Store）
+
+> 本项目基于 [javaht/claude-desktop-zh-cn](https://github.com/javaht/claude-desktop-zh-cn) 开发，面向 Windows 和 Microsoft Store 版 Claude Desktop 提供中文汉化支持。
 
 一个用于 Claude Desktop 的本地中文界面补丁，支持简体中文、繁體中文（台灣）和繁體中文（香港）。
 

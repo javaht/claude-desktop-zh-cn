@@ -466,10 +466,198 @@ function Remove-LegacyAppxForkArtifacts {
         Remove-Item $shortcutPath -Force -ErrorAction SilentlyContinue
     }
 
-    if ($env:LOCALAPPDATA) {
-        $forkBase = Join-Path $env:LOCALAPPDATA "ClaudeDesktopZhCn\appx-fork"
-        Remove-Item $forkBase -Recurse -Force -ErrorAction SilentlyContinue
+    # 保留可写副本。当前版本会把 Microsoft Store 包复制到这里再打补丁，
+    # 如果每次安装前清掉副本，卸载和重新安装就无法复用同一份补丁状态。
+}
+
+function Get-AppxForkRoot {
+    $localAppData = [Environment]::GetFolderPath('LocalApplicationData')
+    if (-not $localAppData) {
+        return $null
     }
+    return (Join-Path $localAppData "ClaudeDesktopZhCn\appx-fork")
+}
+
+function Get-AppxForkCandidates {
+    $root = Get-AppxForkRoot
+    if (-not $root -or -not (Test-Path -LiteralPath $root)) {
+        return @()
+    }
+
+    $candidates = @()
+    foreach ($directory in @(Get-ChildItem -LiteralPath $root -Directory -ErrorAction SilentlyContinue)) {
+        $resources = Join-Path $directory.FullName "app\resources"
+        if (-not (Test-Path -LiteralPath $resources)) {
+            $resources = Join-Path $directory.FullName "resources"
+        }
+        if ((Test-Path -LiteralPath $resources) -and (Get-ClaudeExePath $directory.FullName)) {
+            $candidates += $directory.FullName
+        }
+    }
+
+    return @($candidates | Sort-Object {
+        if ($_.ToString() -match '_(\d+(?:\.\d+)+)_') {
+            try { [version]$Matches[1] } catch { [version]'0.0' }
+        } else {
+            [version]'0.0'
+        }
+    } -Descending)
+}
+
+function Get-AppxForkMetadataPath {
+    param([string]$ForkPath)
+    return (Join-Path $ForkPath ".claude-zh-store-fork.json")
+}
+
+function Read-AppxForkMetadata {
+    param([string]$ForkPath)
+    $metadataPath = Get-AppxForkMetadataPath $ForkPath
+    if (-not (Test-Path -LiteralPath $metadataPath)) {
+        return $null
+    }
+    try {
+        return Get-Content -LiteralPath $metadataPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    }
+    catch {
+        return $null
+    }
+}
+
+function Copy-PlainFileTree {
+    param(
+        [string]$SourcePath,
+        [string]$DestinationPath
+    )
+
+    $sourceRoot = [System.IO.Path]::GetFullPath($SourcePath).TrimEnd('\')
+    New-Item -ItemType Directory -Path $DestinationPath -Force | Out-Null
+
+    foreach ($item in @(Get-ChildItem -LiteralPath $sourceRoot -Force -Recurse -ErrorAction Stop)) {
+        $relative = $item.FullName.Substring($sourceRoot.Length).TrimStart('\')
+        $target = Join-Path $DestinationPath $relative
+
+        if ($item.PSIsContainer) {
+            New-Item -ItemType Directory -Path $target -Force | Out-Null
+            continue
+        }
+
+        $targetParent = Split-Path -Parent $target
+        New-Item -ItemType Directory -Path $targetParent -Force | Out-Null
+        $inputStream = $null
+        $outputStream = $null
+        try {
+            # 不调用 CopyFile/robocopy，直接读取受保护文件的明文并写入普通文件，
+            # 避免 Windows 试图把 Application Protected 属性连同文件一起复制。
+            $inputStream = [System.IO.File]::Open(
+                $item.FullName,
+                [System.IO.FileMode]::Open,
+                [System.IO.FileAccess]::Read,
+                [System.IO.FileShare]::ReadWrite
+            )
+            $outputStream = [System.IO.File]::Open(
+                $target,
+                [System.IO.FileMode]::Create,
+                [System.IO.FileAccess]::Write,
+                [System.IO.FileShare]::None
+            )
+            $inputStream.CopyTo($outputStream, 1024 * 1024)
+        }
+        finally {
+            if ($null -ne $outputStream) { $outputStream.Dispose() }
+            if ($null -ne $inputStream) { $inputStream.Dispose() }
+        }
+    }
+}
+
+function Copy-AppxInstallToWritablePath {
+    param([string]$SourcePath)
+
+    if (-not $SourcePath -or -not (Test-Path -LiteralPath $SourcePath)) {
+        throw "找不到 Microsoft Store 版 Claude 安装目录: $SourcePath"
+    }
+
+    $root = Get-AppxForkRoot
+    if (-not $root) {
+        throw "无法确定当前用户的 LocalAppData 目录，无法创建 Store 可写副本。"
+    }
+    New-Item -ItemType Directory -Path $root -Force | Out-Null
+
+    $leaf = Split-Path -Leaf $SourcePath
+    $destination = Join-Path $root $leaf
+    $metadata = Read-AppxForkMetadata $destination
+    $existingResources = Join-Path $destination "app\resources"
+    if (-not (Test-Path -LiteralPath $existingResources)) {
+        $existingResources = Join-Path $destination "resources"
+    }
+    if ($metadata -and [string]$metadata.SourcePath -ieq $SourcePath -and
+        (Test-Path -LiteralPath $existingResources)) {
+        Write-Host "  已复用 Store 可写副本: $destination" -ForegroundColor DarkGray
+        return $destination
+    }
+
+    # 已有目录一律保留，避免在重新安装或版本切换时覆盖可回退的副本。
+    # 新副本使用独立目录，卸载时只删除当前实际使用的那一份。
+    if (Test-Path -LiteralPath $destination) {
+        $suffix = 1
+        do {
+            $candidate = Join-Path $root ("$leaf-zh-$suffix")
+            $suffix++
+        } while (Test-Path -LiteralPath $candidate)
+        $destination = $candidate
+    }
+
+    $staging = Join-Path $root (".$([System.IO.Path]::GetFileName($destination)).copying-" + $PID)
+    if (Test-Path -LiteralPath $staging) {
+        Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    Write-Host "  正在把 Store 包复制到用户目录（原包不会被改写）..." -ForegroundColor Yellow
+    New-Item -ItemType Directory -Path $staging -Force | Out-Null
+    try {
+        # 只复制 Electron 实际运行所需的 app 目录；AppxManifest、签名和
+        # WindowsApps 的保护元数据不参与副本启动，也不应被带出。
+        Copy-PlainFileTree (Join-Path $SourcePath "app") (Join-Path $staging "app")
+    }
+    catch {
+        Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue
+        throw "复制 Microsoft Store 版 Claude 失败: $($_.Exception.Message)"
+    }
+
+    $stagingResources = Join-Path $staging "app\resources"
+    if (-not (Test-Path -LiteralPath $stagingResources)) {
+        $stagingResources = Join-Path $staging "resources"
+    }
+    if (-not (Test-Path -LiteralPath $stagingResources) -or -not (Get-ClaudeExePath $staging)) {
+        Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue
+        throw "Store 包副本缺少 Claude.exe 或 resources，无法继续汉化。"
+    }
+
+    $metadata = [ordered]@{
+        SourcePath = $SourcePath
+        SourcePackage = $leaf
+        CreatedAt = (Get-Date).ToString('o')
+    }
+    $metadata | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Get-AppxForkMetadataPath $staging) -Encoding UTF8
+    Move-Item -LiteralPath $staging -Destination $destination -Force
+    Write-Host "  Store 可写副本已创建: $destination" -ForegroundColor Green
+    return $destination
+}
+
+function Remove-AppxForkDirectory {
+    param([string]$ForkPath)
+
+    if (-not $ForkPath -or -not (Test-Path -LiteralPath $ForkPath)) {
+        return
+    }
+
+    $root = [System.IO.Path]::GetFullPath((Get-AppxForkRoot)).TrimEnd('\') + '\'
+    $target = [System.IO.Path]::GetFullPath($ForkPath).TrimEnd('\') + '\'
+    if (-not $target.StartsWith($root, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "拒绝删除 Store 副本目录之外的路径: $ForkPath"
+    }
+
+    Remove-Item -LiteralPath $ForkPath -Recurse -Force -ErrorAction Stop
+    Write-Host "  已删除 Store 可写副本，原 Microsoft Store 包未改动。" -ForegroundColor Green
 }
 
 function Get-ClaudeResourcesPath {
@@ -551,6 +739,26 @@ function Get-ClaudeResourcesPath {
         Write-Host "  [提示] 继续尝试商店版（AppX）安装检测。" -ForegroundColor Yellow
     }
 
+    # Microsoft Store 包本身不能写入，但之前已经生成的用户目录副本可以继续
+    # 用于卸载、重新安装和启动。优先复用副本，避免每次操作都重新复制整个包。
+    foreach ($forkPath in @(Get-AppxForkCandidates)) {
+        $forkResources = Join-Path $forkPath "app\resources"
+        if (-not (Test-Path -LiteralPath $forkResources)) {
+            $forkResources = Join-Path $forkPath "resources"
+        }
+        if (-not (Test-Path -LiteralPath $forkResources) -or -not (Test-FrontendBundleAvailable $forkResources)) {
+            continue
+        }
+        Write-Host "  已找到 Store 可写副本: $forkPath" -ForegroundColor DarkGray
+        Write-Host "  Claude 版本: $(Get-ClaudeExeProductVersion $forkPath)" -ForegroundColor DarkGray
+        return @{
+            App = $forkPath
+            Resources = $forkResources
+            InstallKind = "AppXFork"
+            SourceApp = $null
+        }
+    }
+
     $claudePath = Find-ClaudePath
     if (-not $claudePath) {
         if ($script:DetectedUnpackagedClaudePaths.Count -gt 0) {
@@ -575,6 +783,7 @@ function Get-ClaudeResourcesPath {
         App = $claudePath
         Resources = $resourcesPath
         InstallKind = "AppX"
+        SourceApp = $claudePath
     }
 }
 
@@ -957,6 +1166,13 @@ function Get-LanguageResources {
 
 function Enable-WriteAccess {
     param([string]$ResourcesPath)
+
+    if ($ResourcesPath -match '(?i)\\WindowsApps\\') {
+        # 原始 Microsoft Store 包保持不可写，避免卸载或异常路径触发 takeown/icacls。
+        # 正常安装流程会先复制到用户目录，再从副本进入这里。
+        Write-Host "  [权限] 检测到原始 Microsoft Store 包，跳过 ACL 修改。" -ForegroundColor DarkYellow
+        return $false
+    }
 
     $appPath = Get-ClaudeAppPathFromResources $ResourcesPath
     $paths = @(
@@ -4248,14 +4464,36 @@ function Install-WindowsLanguagePack {
         elseif ($installKind -eq "Custom") {
             Write-Host "  安装类型: 自定义路径" -ForegroundColor DarkGray
         }
+        elseif ($installKind -eq "AppXFork") {
+            Write-Host "  安装类型: Microsoft Store 可写副本" -ForegroundColor DarkGray
+        }
         # 先只读校验完整性标记，再动任何 asar：4.4212 曾出现「asar 已改、exe 哈希写不回」
         # 的半坏状态，这里在结构不兼容时零副作用地快速失败。
         Assert-ClaudeExeIntegrityMarkers $resourcesPath
 
         Write-Step "修复桌面 Claude 快捷方式"
-        Repair-ClaudeDesktopShortcut $claudePath
+        if ($installKind -eq "AppXFork" -or
+            ($installKind -eq "AppX" -and $resourcesPath -match '(?i)\\WindowsApps\\')) {
+            Write-Host "  [跳过] Store 可写副本不使用原 AppX 快捷方式，安装完成后将直接启动副本。" -ForegroundColor DarkGray
+        }
+        else {
+            Repair-ClaudeDesktopShortcut $claudePath
+        }
 
         Write-Step "[3/7] 准备写入权限"
+        if ($installKind -eq "AppX" -and $resourcesPath -match '(?i)\\WindowsApps\\') {
+            # Store/MSIX 的 WindowsApps 目录受 Process Trust Label 保护，
+            # 接管 ACL 也不能可靠地改写原包。复制到当前用户目录后再打补丁，
+            # 由本地 Claude.exe 直接运行，原 Store 包保持完整并可继续更新。
+            $forkPath = Copy-AppxInstallToWritablePath $claudePath
+            $claudePath = $forkPath
+            $resourcesPath = Join-Path $forkPath "app\resources"
+            if (-not (Test-Path -LiteralPath $resourcesPath)) {
+                $resourcesPath = Join-Path $forkPath "resources"
+            }
+            $installKind = "AppXFork"
+            Write-Host "  安装类型: Microsoft Store 可写副本" -ForegroundColor DarkGray
+        }
         Assert-WriteAccess $resourcesPath "安装"
         Remove-LegacyAppxForkArtifacts
         $patchTarget = Initialize-FrontendPatchTarget $resourcesPath
@@ -4290,8 +4528,14 @@ function Install-WindowsLanguagePack {
         Write-Step "重启 Claude Desktop"
         Restart-Claude $claudePath
 
-        Write-Step "启动 CoworkVMService"
-        Start-CoworkVMService
+        if ($installKind -eq "AppXFork") {
+            Write-Step "跳过 CoworkVMService"
+            Write-Host "  [提示] Store 可写副本以普通桌面程序启动，Cowork/沙箱功能可能仍需从原 Store 版启动。" -ForegroundColor DarkYellow
+        }
+        else {
+            Write-Step "启动 CoworkVMService"
+            Start-CoworkVMService
+        }
 
         Write-Host ""
         Write-Host "安装完成。如果界面未立即切换，请在 Language 中选择 $label。" -ForegroundColor Green
@@ -4327,6 +4571,7 @@ function Uninstall-WindowsLanguagePack {
     $paths = Get-ClaudeResourcesPath
     $claudePath = $paths["App"]
     $resourcesPath = $paths["Resources"]
+    $installKind = $paths["InstallKind"]
 
     # 旧版本提供过 Frida 常驻模式，相关脚本已移除。这里只做一次性兜底清理，
     # 让从旧版升级的用户不会残留计划任务和便携运行时。
@@ -4381,6 +4626,10 @@ function Uninstall-WindowsLanguagePack {
 
     Write-Step "[4/4] 恢复用户语言配置"
     Set-ClaudeLocale "en-US"
+
+    if ($installKind -eq "AppXFork") {
+        Remove-AppxForkDirectory $claudePath
+    }
 
     Write-Host ""
     Write-Host "卸载完成。请重启 Claude Desktop 使更改生效。" -ForegroundColor Green

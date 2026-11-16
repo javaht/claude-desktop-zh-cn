@@ -48,7 +48,7 @@ macOS 双击 `install-mac.command`；Windows 双击 `install-windows.bat` 后按
 - macOS 和 Windows 只汉化第三方 API 模式的本地界面：Claude 官方账号登录页面已原生支持中文，这两个平台的脚本不再改动它。
 - macOS 和 Windows 的本地斜杠菜单支持“英文命令名 + 中文说明”，兼容三种中文变体；命令 ID、搜索与点击行为保持不变。
 - macOS 和 Linux 会合并当前 Claude 版本的英文语言文件与随包中文翻译；新版本新增但暂未翻译的字段保留英文，避免界面缺失文本。
-- Windows 安装脚本会备份并修改当前 Claude Desktop 的资源文件，卸载时从备份恢复。Claude `4.29+` 的前端改为 `ion-dist.asar` 后，脚本会解包、重打包并同步 `Claude.exe` 中对应的 ASAR 头哈希；同时会就地改写 `app.asar`（保留 `unpacked`/`executable` 等元数据，不解包重打包），把桌面词库补进并合并进 `resources/i18n`，让主进程菜单栏也显示中文。两者都会使原有 Authenticode 签名失效。
+- Windows 安装脚本会备份并修改当前 Claude Desktop 的资源文件，卸载时从备份恢复。Claude `4.29+` 的前端改为 `ion-dist.asar` 后，脚本会解包、重打包并同步 `Claude.exe` 中对应的 ASAR 头哈希；同时会就地改写 `app.asar`（保留 `unpacked`/`executable` 等元数据，不解包重打包），把桌面词库补进并合并进 `resources/i18n`，让主进程菜单栏也显示中文。两者都会使原有 Authenticode 签名失效。微软商店版不会改写原始 `WindowsApps` 目录，而是复制到用户目录副本后再处理。
 - Linux 安装脚本会备份并修改 deb 包安装目录下的资源文件和 `app.asar`，卸载时从备份恢复；Claude Desktop 升级后会识别版本变化并重新备份。
 - macOS 安装前自动备份原始 `/Applications/Claude.app`。
 - 自动写入 Claude 用户配置，将语言设置为所选中文变体。
@@ -92,7 +92,7 @@ CC Switch skills 同步会扫描 `~/.cc-switch/skills` 下包含 `SKILL.md` 的�
 2. 下载或克隆本项目。
 3. 双击 `install-windows.bat`；脚本会复制安装文件到当前用户的临时目录，并弹出 UAC 管理员授权窗口。
 4. 先选择操作：
-   - `1` 安装中文补丁（第三方 API 模式，例如 DeepSeek）：安装中文资源、注册中文语言并汉化前端 bundle 与主进程菜单。脚本会在必要时就地改写 `app.asar` 补入桌面词库；Claude `4.29+` 会重建 `ion-dist.asar` 并更新 `Claude.exe` 中对应的完整性哈希，原有 Authenticode 签名会失效；同时脚本会自动修补 `cowork-svc.exe` 的客户端签名校验分支，彻底解决 Cowork 工作区因签名失效报 `RPC pipe closed` 的问题（卸载时自动恢复官方原包）。安装后 `English` 界面同样会显示中文（词库被合并覆盖进 `en-US`），切换语言无法回到纯英文，需要卸载或恢复备份才能还原。若 Claude 装在 `WindowsApps` 下且管理员拿不到写权限，脚本会接管该目录的所有权（所有者从 TrustedInstaller 改为 Administrators，卸载后不自动恢复，详见下文注意事项）。第三方模型需在网关或 CC Switch 中映射为 Claude/Anthropic 风格名称。
+   - `1` 安装中文补丁（第三方 API 模式，例如 DeepSeek）：安装中文资源、注册中文语言并汉化前端 bundle 与主进程菜单。脚本会在必要时就地改写 `app.asar` 补入桌面词库；Claude `4.29+` 会重建 `ion-dist.asar` 并更新 `Claude.exe` 中对应的完整性哈希，原有 Authenticode 签名会失效；同时脚本会自动修补 `cowork-svc.exe` 的客户端签名校验分支，彻底解决 Cowork 工作区因签名失效报 `RPC pipe closed` 的问题（卸载时自动恢复补丁副本中的原文件）。安装后 `English` 界面同样会显示中文（词库被合并覆盖进 `en-US`），切换语言无法回到纯英文，需要卸载或恢复备份才能还原。若 Claude 来自 Microsoft Store，脚本会在 `%LOCALAPPDATA%\ClaudeDesktopZhCn\appx-fork` 创建可写副本，只修改并启动副本，不接管原 `WindowsApps` 目录。第三方模型需在网关或 CC Switch 中映射为 Claude/Anthropic 风格名称。
    - `2` 恢复原样 / 卸载补丁。
    - `3` 自动更新设置：输入 `y` 禁止自动更新，输入 `n` 允许自动更新。
    - `4` CC Switch skills 同步：输入 `y` 开启同步，输入 `n` 删除之前的同步。
@@ -100,9 +100,15 @@ CC Switch skills 同步会扫描 `~/.cc-switch/skills` 下包含 `SKILL.md` 的�
 6. 选择语言：`1`=简体中文，`2`=繁體中文（台灣），`3`=繁體中文（香港）。
 7. 脚本会备份被修改的文件、写入中文资源并重启 Claude Desktop。Claude `4.29+` 的 `ion-dist.asar` 会先解包到临时目录，完成汉化后再重打包并更新 `Claude.exe` 内的 ASAR 头哈希。如果没有自动切换，打开左下角账号菜单，选择 `Language` -> 对应的中文选项。
 
-支持官网安装包（包括历史 Squirrel 版本与官网 MSIX 包）以及 Scoop（`scoop install extras/claude`）安装。安装器会自动识别当前系统安装的最新版本并跳过历史升级残留的旧版本目录。若安装在非标准自定义路径，可设置环境变量 `CLAUDE_PATH`（或通过参数 `-ClaudePath`）指定目录后运行脚本。
+支持官网安装包（包括历史 Squirrel 版本与官网 MSIX 包）、Microsoft Store 版以及 Scoop（`scoop install extras/claude`）安装。商店版会复制到 `%LOCALAPPDATA%\ClaudeDesktopZhCn\appx-fork` 后处理，卸载时先恢复当前副本备份并删除当前副本；为保证可回退，旧版本副本会保留，原 Store 包始终不变。安装器会自动识别当前系统安装的最新版本并跳过历史升级残留的旧版本目录。若安装在非标准自定义路径，可设置环境变量 `CLAUDE_PATH`（或通过参数 `-ClaudePath`）指定目录后运行脚本。
 
-> **关于 Microsoft Store 商店版**：从微软应用商店（Microsoft Store）安装的包受 Windows 内核防篡改保护（Process Trust Label），系统强制禁止改写程序目录文件（管理员提权与接管所有权均无法绕过），因此**不支持直接对微软商店版打补丁**。请卸载商店版，并前往官网下载安装包（`ClaudeSetup.exe`）进行安装，即可正常使用本补丁。
+> **关于 Microsoft Store 商店版**：微软商店原包位于受保护的 `WindowsApps` 目录，脚本不会修改它，也不会接管其所有权。安装时会复制一份到 `%LOCALAPPDATA%\ClaudeDesktopZhCn\appx-fork`，只对副本打补丁并直接启动副本；选择卸载后会先按备份恢复当前副本，再删除当前副本，旧版本副本会保留，原 Store 包可以继续从开始菜单使用和更新。由于副本不带原 AppX 包身份，自动更新、Cowork/沙箱等 Store 专属能力可能仍需从原 Store 版启动。
+
+### Microsoft Store 适配的维护方式
+
+本版本是在原项目 `javaht/claude-desktop-zh-cn` 主线基础上增加 Windows Store 适配，中文词库、跨平台汉化逻辑和原有安装流程继续沿用原项目。增量改动集中在三个位置：`install-windows.bat` 负责解析真实用户路径并准备管理员安装环境；`scripts/install_windows.ps1` 负责识别 Store 包、创建用户目录可写副本、对副本执行汉化以及在卸载时恢复和清理；本说明文档记录 Store 版的限制和回退路径。原始 `WindowsApps` 包不参与写入。
+
+后续原项目更新时，可以照常获取原项目主线，再重点检查这三个文件的冲突。只要保留 Store 副本的创建、复用、备份恢复和删除逻辑，新的 Claude 版本或新的中文资源就能继续沿用原项目的更新内容。
 
 ### Linux（deb 包安装）
 
@@ -217,7 +223,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-AsarRoundTrip.ps1
 - Claude `4.29+` 的新版前端位于 `ion-dist.asar`，安装器会先备份原包，再解包到临时 `ion-dist` 目录执行汉化；完成后按 ASAR 格式重打包、校验结构并替换原文件。
 - 由于 Claude `4.29+` 的壳层和前端都固定按 `en-US` 加载词库（渲染进程约 1 秒后还会把 locale 写回 `en-US`），安装器会把所选中文词库合并覆盖进 `app.asar` 的 `resources/i18n/en-US.json` 与 `ion-dist.asar` 的 `i18n/en-US.json`，未翻译的键保留英文，从而覆盖只存在于词库、JS 里没有字面量的条目（例如模型档位描述）。副作用是 `English` 界面也会显示中文，且无法通过切换语言还原英文，卸载或恢复备份后才会恢复。
 - 改写 `app.asar` 或重建 `ion-dist.asar` 后，安装器会同步 `Claude.exe` 内嵌的 `app.asar` 与 `ion-dist.asar` 头哈希。此时 `Claude.exe` 的原始 Authenticode 签名会失效；针对该失效导致的 Cowork 管道拦截问题，安装器会自动修补 `cowork-svc.exe`，将签名强制校验降级为告警，解决 Cowork 工作区报 `RPC pipe closed` 的问题；卸载时从备份恢复官方未修改的 `cowork-svc.exe`，签名自动恢复有效。
-- Windows 上 Claude 安装在 `C:\Program Files\WindowsApps\<包名>\app`，该目录默认属于 `TrustedInstaller`，UAC 提权后的 `Administrators` 只有读和执行权限。安装器不再只看 ACL，而是先实测能否写入；不能时依次追加允许规则、清理阻止写入的显式拒绝规则（Windows 中 Deny 优先于 Allow），仍然不行才用 `takeown /a` + `icacls` 接管所有权。**接管会把该目录的所有者从 `TrustedInstaller` 改为 `Administrators`，并授予其完全控制；卸载不会自动恢复**，只有重装或升级 Claude 时由系统重置，部分安全软件或企业策略可能拦截或告警。交互模式下执行前会二次确认，输入 `n` 可跳过；非交互调用（脚本、自动化）**默认不接管**，必须显式加 `-AllowTakeOwnership` 或设置环境变量 `CLAUDE_ZH_ALLOW_TAKE_OWNERSHIP=1`。写入权限最终拿不到时安装会直接中止，而不是继续写 asar 留下「asar 已改、exe 哈希没写回」的半坏状态。
+- Windows Store 版安装在 `C:\Program Files\WindowsApps\<包名>\app`，原目录保持只读。脚本会把它复制到 `%LOCALAPPDATA%\ClaudeDesktopZhCn\appx-fork`，只对副本执行备份和汉化；卸载时恢复当前副本中的原文件并删除当前副本，旧版本副本保留，不修改原 Store 包的 ACL、文件或签名。
 - 写入 Windows 用户配置，将语言设置为所选语言代码（`zh-CN`、`zh-TW` 或 `zh-HK`）。
 - 可选菜单项 `3` 用 `y/n` 控制 Claude Desktop 自动更新：`y` 禁止自动更新，`n` 允许自动更新。若当前存在有效的 Claude-3p `configLibrary`，脚本会写入当前 applied 配置；否则写入 `HKCU\SOFTWARE\Policies\Claude` policy。
 - 可选菜单项 `4` 用 `y/n` 控制 CC Switch skills 同步：`y` 会把 `%USERPROFILE%\.cc-switch\skills` 中缺失的 skill 以软链接加入 Claude Desktop 的本地 skills 目录，并把 `SKILL.md` frontmatter 里的 `name` 和 `description` 写入对应 `manifest.json`；`n` 只删除之前同步产生、且指向 CC Switch skills 目录内的软链接和对应 manifest 记录。脚本会从当前用户的 AppData 动态扫描 Claude-3p skills plugin，不写死 session UUID，不覆盖同名 skill，也不删除 CC Switch 源目录。

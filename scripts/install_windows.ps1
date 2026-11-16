@@ -1454,6 +1454,75 @@ function Read-AsarEntryBytes {
     return $bytes
 }
 
+function Test-FileReplaceable {
+    param(
+        [string]$Path,
+        [int]$TimeoutSeconds = 10
+    )
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        return $true
+    }
+
+    # MoveFileEx(MOVEFILE_REPLACE_EXISTING) 要求目标可以被独占打开；被 Claude
+    # 之类的进程占用时，PowerShell 只会报 “Cannot create a file when that file already
+    # exists”，完全看不出是文件被锁。这里提前探测并等待句柄释放。
+    $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    do {
+        try {
+            $stream = [IO.File]::Open($Path, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
+            $stream.Dispose()
+            return $true
+        }
+        catch [System.IO.IOException] {
+            Start-Sleep -Milliseconds 500
+        }
+        catch [System.UnauthorizedAccessException] {
+            return $false
+        }
+    } while ([DateTime]::UtcNow -lt $deadline)
+
+    return $false
+}
+
+function Assert-AsarReplaceable {
+    param(
+        [string]$Path,
+        [int]$TimeoutSeconds = 10
+    )
+
+    if (Test-FileReplaceable $Path $TimeoutSeconds) {
+        return
+    }
+
+    throw "无法替换 $Path：文件仍被占用或不可写。请彻底退出 Claude Desktop（任务管理器结束所有 Claude.exe / cowork-svc.exe）后重试；若应用在另一个 Windows 账户下运行，请先注销该账户。"
+}
+
+function Move-FileWithRetry {
+    param(
+        [string]$Source,
+        [string]$Destination,
+        [int]$Retries = 5,
+        [int]$DelayMilliseconds = 500
+    )
+
+    $lastError = $null
+    for ($attempt = 1; $attempt -le [Math]::Max(1, $Retries); $attempt++) {
+        try {
+            Move-Item -LiteralPath $Source -Destination $Destination -Force -ErrorAction Stop
+            return
+        }
+        catch {
+            $lastError = $_
+            if ($attempt -lt $Retries) {
+                Start-Sleep -Milliseconds $DelayMilliseconds
+            }
+        }
+    }
+
+    throw "无法替换 $Destination：文件可能仍被 Claude Desktop 占用。请彻底退出 Claude 后重试。原始错误：$($lastError.Exception.Message)"
+}
+
 function Write-AsarArchiveWithHeader {
     param(
         [string]$AsarPath,
@@ -1462,6 +1531,9 @@ function Write-AsarArchiveWithHeader {
         $Header,
         [byte[]]$Append
     )
+
+    # 先确认目标没有被 Claude 占用，避免临时文件写完才发现无法替换。
+    Assert-AsarReplaceable -Path $AsarPath
 
     # app.asar 是主进程包，真实安装里含 unpacked / executable / link 条目，解包重打包会丢
     # 这些元数据甚至让应用起不来。这里只替换头部，原有 payload 原样流式拷贝（头内 offset
@@ -1523,7 +1595,13 @@ function Write-AsarArchiveWithHeader {
         throw
     }
 
-    Move-Item -LiteralPath $temporary -Destination $AsarPath -Force
+    try {
+        Move-FileWithRetry -Source $temporary -Destination $AsarPath
+    }
+    catch {
+        Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue
+        throw
+    }
 }
 
 function Set-AsarEntryContent {
@@ -1795,13 +1873,15 @@ function Complete-FrontendPatchTarget {
 
     $temporaryAsar = $Target.AsarPath + ".zh-cn-new"
     Remove-Item -LiteralPath $temporaryAsar -Force -ErrorAction SilentlyContinue
+    # 重新打包前确认目标没有被 Claude 占用，避免耗时打包完成后才失败。
+    Assert-AsarReplaceable -Path $Target.AsarPath
     Write-Host "  正在重新打包 ion-dist.asar..." -ForegroundColor DarkGray
     New-AsarArchive $Target.WorkspacePath $temporaryAsar
     try {
         if (-not (Test-AsarFrontendArchive $temporaryAsar)) {
             throw "重新打包后的 ion-dist.asar 未通过结构校验。"
         }
-        Move-Item -LiteralPath $temporaryAsar -Destination $Target.AsarPath -Force
+        Move-FileWithRetry -Source $temporaryAsar -Destination $Target.AsarPath
         Write-Host "  ion-dist.asar 已更新" -ForegroundColor Green
         Sync-ClaudeExeAsarIntegrity $Target.ResourcesPath
     }
@@ -4045,17 +4125,50 @@ function Test-ClaudeDesktopProcessPath {
 }
 
 function Get-ClaudeDesktopProcesses {
+    # Win32_Process 可跨用户会话枚举；旧实现用 Get-Process + MainModule 取路径，
+    # 读取另一账户会话里的 MSIX 进程会被拒绝并静默跳过，安装器就会误以为应用已退出，
+    # 随后替换 app.asar 时被锁文件挡住（issue #244）。
     $procs = @()
-    foreach ($proc in Get-Process -Name "claude" -ErrorAction SilentlyContinue) {
-        try {
-            $path = $proc.MainModule.FileName
-            if (Test-ClaudeDesktopProcessPath $path) {
+    $seen = @{}
+    $cimAvailable = $null -ne (Get-Command Get-CimInstance -ErrorAction SilentlyContinue)
+    if ($cimAvailable) {
+        $items = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+            Where-Object {
+                $_.Name -ieq "claude.exe" -and (Test-ClaudeDesktopProcessPath $_.ExecutablePath)
+            })
+
+        foreach ($item in $items) {
+            if ($seen.ContainsKey([int]$item.ProcessId)) { continue }
+            $seen[[int]$item.ProcessId] = $true
+            $proc = Get-Process -Id $item.ProcessId -ErrorAction SilentlyContinue
+            if ($proc) {
                 $procs += $proc
             }
-        } catch {
-            # MainModule inaccessible (permission or 32/64 mismatch) — skip rather than risk killing Claude Code.
+            else {
+                # 进程存在但当前身份读不到；保留 PID/名称，交给 taskkill 兜底。
+                $procs += [pscustomobject]@{
+                    Id = [int]$item.ProcessId
+                    ProcessName = [IO.Path]::GetFileNameWithoutExtension([string]$item.Name)
+                    MainWindowHandle = 0
+                    HasExited = $false
+                }
+            }
         }
     }
+
+    if (-not $cimAvailable) {
+        foreach ($proc in Get-Process -Name "claude" -ErrorAction SilentlyContinue) {
+            try {
+                $path = $proc.MainModule.FileName
+                if (Test-ClaudeDesktopProcessPath $path) {
+                    $procs += $proc
+                }
+            } catch {
+                # MainModule 不可读；CIM 不可用时只能跳过，避免误杀。
+            }
+        }
+    }
+
     return @($procs | Sort-Object Id -Unique)
 }
 
@@ -4130,6 +4243,10 @@ function Stop-ClaudeProcessesGracefully {
                 # 已退出或无法终止
             }
         }
+        # Stop-Process 对跨会话/受保护的 MSIX 进程可能静默失败，再用 taskkill /PID 兜底。
+        foreach ($proc in @(Get-ClaudeDesktopProcesses)) {
+            $null = & taskkill.exe /PID $proc.Id 2>&1
+        }
         Start-Sleep -Seconds 1
     }
 
@@ -4147,6 +4264,11 @@ function Stop-ClaudeProcessesGracefully {
         }
         $remainingCowork = @(Wait-ProcessesExit $coworkProcs 5)
         foreach ($proc in $remainingCowork) {
+            # Stop-Process 可能被跨会话/服务保护挡住，用 taskkill 再试一次。
+            $null = & taskkill.exe /PID $proc.Id 2>&1
+        }
+        Start-Sleep -Milliseconds 500
+        foreach ($proc in @(Get-ClaudeCoworkProcesses)) {
             Write-Host "  [警告] 未能停止 Cowork 进程 PID $($proc.Id)，可能需要管理员权限或手动结束。" -ForegroundColor DarkYellow
         }
     }
@@ -4161,12 +4283,21 @@ function Stop-ClaudeProcessesGracefully {
 }
 
 function Stop-ClaudeProcesses {
-    $killed = Stop-ClaudeProcessesGracefully -TimeoutSeconds 10
-    if ($killed) {
-        Write-Host "  Claude Desktop 已停止" -ForegroundColor Green
-    } else {
-        Write-Host "  已强制停止 Claude Desktop" -ForegroundColor Green
+    param([switch]$RequireStopped)
+
+    $null = Stop-ClaudeProcessesGracefully -TimeoutSeconds 10
+    $remaining = @(@(Get-ClaudeDesktopProcesses) + @(Get-ClaudeCoworkProcesses) | Sort-Object Id -Unique)
+    if ($remaining.Count -gt 0) {
+        $list = ($remaining | ForEach-Object { "$($_.ProcessName) (PID=$($_.Id))" }) -join ", "
+        if ($RequireStopped) {
+            throw "无法停止 Claude Desktop（$list）。请先手动结束这些进程再重试；如果应用在另一个 Windows 账户下运行，请先注销该账户，或改用官网安装包。"
+        }
+        Write-Host "  [警告] 仍有 Claude 进程未退出: $list" -ForegroundColor DarkYellow
+        return $false
     }
+
+    Write-Host "  Claude Desktop 已停止" -ForegroundColor Green
+    return $true
 }
 
 function Restart-Claude {
@@ -4225,7 +4356,7 @@ function Install-WindowsLanguagePack {
         $pack = Get-LanguageResources $LanguageCode
 
         Write-Step "关闭 Claude Desktop"
-        Stop-ClaudeProcesses
+        Stop-ClaudeProcesses -RequireStopped
 
         Write-Step "[2/7] 查找 Claude Desktop"
         $paths = Get-ClaudeResourcesPath
@@ -4257,6 +4388,11 @@ function Install-WindowsLanguagePack {
 
         Write-Step "[3/7] 准备写入权限"
         Assert-WriteAccess $resourcesPath "安装"
+        # 先确认应用确实退出、asar 可替换，再动任何文件；否则可能写到一半才失败。
+        $null = Stop-ClaudeProcesses -RequireStopped
+        foreach ($asarPath in @((Join-Path $resourcesPath "app.asar"), (Join-Path $resourcesPath "ion-dist.asar"))) {
+            Assert-AsarReplaceable -Path $asarPath
+        }
         Remove-LegacyAppxForkArtifacts
         $patchTarget = Initialize-FrontendPatchTarget $resourcesPath
 
@@ -4275,6 +4411,8 @@ function Install-WindowsLanguagePack {
         if ($mergedFrontend -gt 0) {
             Write-Host "  ion-dist.asar 已把 $LanguageCode 词库覆盖进 i18n/en-US.json（$mergedFrontend 条）" -ForegroundColor Green
         }
+        # 前端补丁阶段可能耗时数分钟，MSIX 版可能在期间被重新激活；写 app.asar 前再确认一次。
+        $null = Stop-ClaudeProcesses -RequireStopped
         Patch-DesktopShellLocale $resourcesPath $LanguageCode
         Complete-FrontendPatchTarget $patchTarget
         Close-FrontendPatchTarget $patchTarget
@@ -4333,7 +4471,7 @@ function Uninstall-WindowsLanguagePack {
     Remove-LegacyFridaResident
 
     Write-Step "关闭 Claude Desktop"
-    Stop-ClaudeProcesses
+    Stop-ClaudeProcesses -RequireStopped
     Remove-LegacyAppxForkArtifacts
 
     # 卸载路径同样要写回备份、重同步 exe 哈希，所以也得先把权限拿到。

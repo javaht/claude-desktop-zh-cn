@@ -7,7 +7,7 @@ param(
     [switch]$Interactive,
 
     [Parameter(Position = 0)]
-    [ValidateSet("install", "uninstall", "disable-updates", "enable-updates", "sync-skills", "unsync-skills")]
+    [ValidateSet("install", "uninstall", "disable-updates", "enable-updates", "sync-skills", "unsync-skills", "install-store")]
     [string]$Action = "install",
 
     [Parameter(Position = 1)]
@@ -32,6 +32,7 @@ $Utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 $BaseLanguageList = '["en-US","de-DE","fr-FR","ko-KR","ja-JP","es-419","es-ES","it-IT","hi-IN","pt-BR","id-ID"'
 $LanguageListPattern = [System.Text.RegularExpressions.Regex]::Escape($BaseLanguageList) + '(?:(?:,"zh-CN")|(?:,"zh-TW")|(?:,"zh-HK"))*\]'
 $AsarIntegrityBlockSize = 4 * 1024 * 1024
+$ClaudeStoreProductId = "9P6K58THS811"
 $script:CurrentBackupSetPath = $null
 $script:DetectedUnpackagedClaudePaths = @()
 $script:DetectedMultipleClaudeInstalls = $false
@@ -134,6 +135,26 @@ function Test-GitHubReleaseUpdate {
 
 Test-GitHubReleaseUpdate
 
+function Install-ClaudeMicrosoftStoreVersion {
+    Write-Host "=== 安装 Microsoft Store 版 Claude Desktop ===" -ForegroundColor Cyan
+    $winget = Get-Command winget.exe -ErrorAction SilentlyContinue
+    if ($winget) {
+        Write-Host "正在通过 winget 安装 Claude（Microsoft Store）..." -ForegroundColor Yellow
+        & $winget.Source install --id $ClaudeStoreProductId --exact --source msstore --accept-source-agreements --accept-package-agreements
+        $exitCode = $LASTEXITCODE
+        if ($exitCode -ne 0) {
+            throw "Microsoft Store 版安装失败，winget 退出码：$exitCode"
+        }
+        Write-Host "Microsoft Store 版 Claude Desktop 安装完成。" -ForegroundColor Green
+        Write-Host "提示：商店包受 Windows 保护，当前汉化补丁不能直接改写商店包；需要汉化时请安装 Claude 官网版本。" -ForegroundColor DarkYellow
+        return
+    }
+
+    Write-Host "未找到 winget，正在打开 Microsoft Store 安装页面..." -ForegroundColor Yellow
+    Start-Process "ms-windows-store://pdp/?ProductId=$ClaudeStoreProductId"
+    Write-Host "已打开 Microsoft Store，请点击“获取”完成安装。" -ForegroundColor Green
+}
+
 function Read-InteractiveSelection {
     Write-Host "=== Claude Desktop Windows 中文补丁 ==="
     Write-Host ""
@@ -142,6 +163,7 @@ function Read-InteractiveSelection {
     Write-Host "[2] 恢复原样 / 卸载补丁"
     Write-Host "[3] 自动更新设置（y=禁止自动更新，n=允许自动更新）"
     Write-Host "[4] 同步 CC Switch skills（y=开启同步，n=删除同步）"
+    Write-Host "[5] 安装 Microsoft Store 版 Claude Desktop"
     Write-Host "[Q] 退出"
     Write-Host ""
 
@@ -174,8 +196,9 @@ function Read-InteractiveSelection {
                     }
                 }
             }
+            '^[5]$' { return @{ Action = "install-store"; Language = "zh-CN" } }
             '^[Qq]$' { exit 0 }
-            default { Write-Host "请输入 1、2、3、4 或 Q。" -ForegroundColor Yellow }
+            default { Write-Host "请输入 1、2、3、4、5 或 Q。" -ForegroundColor Yellow }
         }
     }
 
@@ -4583,6 +4606,7 @@ try {
         "enable-updates" { Set-ClaudeAutoUpdates $true }
         "sync-skills" { Sync-CCSwitchSkills }
         "unsync-skills" { Unsync-CCSwitchSkills }
+        "install-store" { Install-ClaudeMicrosoftStoreVersion }
     }
 
     Stop-InstallLog

@@ -1,6 +1,6 @@
-# Claude Desktop 中文汉化版（Windows / Microsoft Store）
+# Claude Desktop 中文汉化版（Windows）
 
-> 本项目基于 [javaht/claude-desktop-zh-cn](https://github.com/javaht/claude-desktop-zh-cn) 开发，面向 Windows 和 Microsoft Store 版 Claude Desktop 提供中文汉化支持。
+> 本项目基于 [javaht/claude-desktop-zh-cn](https://github.com/javaht/claude-desktop-zh-cn) 开发，提供 Windows 版 Claude Desktop 中文汉化，并在安装菜单中提供 Microsoft Store 版安装入口。
 
 一个用于 Claude Desktop 的本地中文界面补丁，支持简体中文、繁體中文（台灣）和繁體中文（香港）。
 
@@ -98,13 +98,14 @@ CC Switch skills 同步会扫描 `~/.cc-switch/skills` 下包含 `SKILL.md` 的�
    - `2` 恢复原样 / 卸载补丁。
    - `3` 自动更新设置：输入 `y` 禁止自动更新，输入 `n` 允许自动更新。
    - `4` CC Switch skills 同步：输入 `y` 开启同步，输入 `n` 删除之前的同步。
+   - `5` 安装 Microsoft Store 版 Claude Desktop：优先通过 `winget` 安装 Claude 的 Microsoft Store 包；未检测到 `winget` 时打开 Microsoft Store 安装页面。
 5. 选择安装中文补丁时，脚本会先尝试从旧备份恢复来清理已有汉化；如果没有旧备份，会提示跳过并继续。
 6. 选择语言：`1`=简体中文，`2`=繁體中文（台灣），`3`=繁體中文（香港）。
 7. 脚本会备份被修改的文件、写入中文资源并重启 Claude Desktop。Claude `4.29+` 的 `ion-dist.asar` 会先解包到临时目录，完成汉化后再重打包并更新 `Claude.exe` 内的 ASAR 头哈希。如果没有自动切换，打开左下角账号菜单，选择 `Language` -> 对应的中文选项。
 
 支持官网安装包（包括历史 Squirrel 版本与官网 MSIX 包）以及 Scoop（`scoop install extras/claude`）安装。安装器会自动识别当前系统安装的最新版本并跳过历史升级残留的旧版本目录。若安装在非标准自定义路径，可设置环境变量 `CLAUDE_PATH`（或通过参数 `-ClaudePath`）指定目录后运行脚本。
 
-> **关于 Microsoft Store 商店版**：从微软应用商店（Microsoft Store）安装的包受 Windows 内核防篡改保护（Process Trust Label），系统强制禁止改写程序目录文件（管理员提权与接管所有权均无法绕过），因此**不支持直接对微软商店版打补丁**。请卸载商店版，并前往官网下载安装包（`ClaudeSetup.exe`）进行安装，即可正常使用本补丁。
+> **关于 Microsoft Store 商店版**：菜单项 `5` 可以安装官方 Microsoft Store 版 Claude Desktop。商店包受 Windows 内核防篡改保护，本汉化补丁不能直接改写商店包；要使用中文汉化，请安装 Claude 官网版本后选择菜单项 `1`。
 
 ### Linux（deb 包安装）
 

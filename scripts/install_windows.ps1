@@ -140,10 +140,28 @@ function Install-ClaudeMicrosoftStoreVersion {
     $winget = Get-Command winget.exe -ErrorAction SilentlyContinue
     if ($winget) {
         Write-Host "正在通过 winget 安装 Claude（Microsoft Store）..." -ForegroundColor Yellow
-        & $winget.Source install --id $ClaudeStoreProductId --exact --source msstore --accept-source-agreements --accept-package-agreements
-        $exitCode = $LASTEXITCODE
-        if ($exitCode -ne 0) {
-            throw "Microsoft Store 版安装失败，winget 退出码：$exitCode"
+        $wingetArgs = @(
+            "install",
+            "--id", $ClaudeStoreProductId,
+            "--exact",
+            "--source", "msstore",
+            "--accept-source-agreements",
+            "--accept-package-agreements",
+            "--disable-interactivity"
+        )
+        $process = Start-Process -FilePath $winget.Source -ArgumentList $wingetArgs -PassThru -NoNewWindow
+        if (-not $process.WaitForExit(45000)) {
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+            Write-Host "winget 未在限定时间内完成，正在打开 Microsoft Store 安装页面..." -ForegroundColor DarkYellow
+            Start-Process "ms-windows-store://pdp/?ProductId=$ClaudeStoreProductId"
+            Write-Host "已打开 Microsoft Store，请点击“获取”完成安装。" -ForegroundColor Green
+            return
+        }
+        if ($process.ExitCode -ne 0) {
+            Write-Host "winget 安装未完成（退出码：$($process.ExitCode)），正在打开 Microsoft Store 安装页面..." -ForegroundColor DarkYellow
+            Start-Process "ms-windows-store://pdp/?ProductId=$ClaudeStoreProductId"
+            Write-Host "已打开 Microsoft Store，请点击“获取”完成安装。" -ForegroundColor Green
+            return
         }
         Write-Host "Microsoft Store 版 Claude Desktop 安装完成。" -ForegroundColor Green
         Write-Host "提示：商店包受 Windows 保护，当前汉化补丁不能直接改写商店包；需要汉化时请安装 Claude 官网版本。" -ForegroundColor DarkYellow

@@ -26,6 +26,9 @@ $ErrorActionPreference = 'Stop'
     'Sync-ClaudeExeAsarIntegrity',
     'Remove-GeneratedFrontendWorkspace',
     'Initialize-FrontendPatchTarget',
+    'Test-FileReplaceable',
+    'Assert-AsarReplaceable',
+    'Move-FileWithRetry',
     'Complete-FrontendPatchTarget',
     'Close-FrontendPatchTarget'
 )

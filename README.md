@@ -59,7 +59,7 @@ macOS 双击 `install-mac.command`；Windows 双击 `install-windows.bat` 后按
 - 已安装 Claude Desktop
 - macOS 需要可用的 Python 3；脚本优先使用 `/usr/bin/python3`，不存在时从 `PATH` 查找 `python3`
 - Windows 需要系统自带的 Windows PowerShell（`powershell.exe`）；批处理入口会自动请求管理员权限
-- Linux 需要 Python 3，Claude Desktop 需为 5.x。脚本会自动识别官方 deb 包（`/usr/lib/claude-desktop/resources`）与第三方脚本 claude-desktop-rpm（Fedora 等 RPM 发行版，将官方 deb 解包安装到 `~/.local/lib/claude-desktop`），也可用环境变量 `CLAUDE_RESOURCES` 直接指定资源目录、用 `CLAUDE_DESKTOP_PREFIX` 指定 claude-desktop-rpm 安装前缀。安装目录可写时不会调用 `sudo`，只有官方 deb 包等只读目录才需要。
+- Linux 需要 Python 3，以 Claude Desktop 5.x 为基准（4.x 仍可安装中文前端，但菜单栏与官方账号页可能回落英文）。脚本会自动识别官方 deb 包（`/usr/lib/claude-desktop/resources`）与第三方脚本 claude-desktop-rpm（Fedora 等 RPM 发行版，将官方 deb 解包安装到 `~/.local/lib/claude-desktop`），也可用环境变量 `CLAUDE_RESOURCES` 直接指定资源目录、用 `CLAUDE_DESKTOP_PREFIX` 指定 claude-desktop-rpm 安装前缀。安装目录可写时不会调用 `sudo`，只有官方 deb 包等只读目录才需要。
 
 ## 使用方式
 

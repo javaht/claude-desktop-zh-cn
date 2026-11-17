@@ -2,7 +2,7 @@
 
 一个用于 Claude Desktop 的本地中文界面补丁，支持简体中文、繁體中文（台灣）和繁體中文（香港）。
 
-macOS 双击 `install-mac.command`；Windows 双击 `install-windows.bat` 后按 UAC 提示授权；Linux（deb 包或 claude-desktop-rpm 安装）在终端运行 `./install-linux.sh`。脚本会给 Claude Desktop 添加中文语言选项并安装中文界面资源。
+macOS 双击 `install-mac.command`；Windows 双击 `install-windows.bat` 后按 UAC 提示授权；Linux（官方 deb 包，或 Fedora 等发行版用社区脚本 [claude-desktop-rpm](https://github.com/ajithakdev/claude-desktop-rpm/) 安装）在终端运行 `./install-linux.sh`。脚本会给 Claude Desktop 添加中文语言选项并安装中文界面资源。
 
 本项目支持官方账号和第三方 API，但不同安装模式覆盖的界面与 Cowork 兼容性不同，请先阅读下方的模式说明。第三方 API 配置可参考 [这篇教程](https://linux.do/t/topic/2032192)。
 
@@ -55,11 +55,11 @@ macOS 双击 `install-mac.command`；Windows 双击 `install-windows.bat` 后按
 
 ## 适用环境
 
-- macOS、Windows 或 Linux（官方 deb 包，或面向 Fedora 等 RPM 发行版的 claude-desktop-rpm）
+- macOS、Windows 或 Linux（官方 deb 包，或面向 Fedora 等 RPM 发行版的第三方脚本 claude-desktop-rpm）
 - 已安装 Claude Desktop
 - macOS 需要可用的 Python 3；脚本优先使用 `/usr/bin/python3`，不存在时从 `PATH` 查找 `python3`
 - Windows 需要系统自带的 Windows PowerShell（`powershell.exe`）；批处理入口会自动请求管理员权限
-- Linux 需要 Python 3，Claude Desktop 需为 5.x。脚本会自动识别官方 deb 包（`/usr/lib/claude-desktop/resources`）与 claude-desktop-rpm（Fedora 等 RPM 发行版，将官方 deb 解包安装到 `~/.local/lib/claude-desktop`），也可用环境变量 `CLAUDE_RESOURCES` 直接指定资源目录、用 `CLAUDE_DESKTOP_PREFIX` 指定 claude-desktop-rpm 安装前缀。安装目录可写时不会调用 `sudo`，只有官方 deb 包等只读目录才需要。
+- Linux 需要 Python 3，Claude Desktop 需为 5.x。脚本会自动识别官方 deb 包（`/usr/lib/claude-desktop/resources`）与第三方脚本 claude-desktop-rpm（Fedora 等 RPM 发行版，将官方 deb 解包安装到 `~/.local/lib/claude-desktop`），也可用环境变量 `CLAUDE_RESOURCES` 直接指定资源目录、用 `CLAUDE_DESKTOP_PREFIX` 指定 claude-desktop-rpm 安装前缀。安装目录可写时不会调用 `sudo`，只有官方 deb 包等只读目录才需要。
 
 ## 使用方式
 
@@ -104,7 +104,9 @@ CC Switch skills 同步会扫描 `~/.cc-switch/skills` 下包含 `SKILL.md` 的�
 
 > **关于 Microsoft Store 商店版**：从微软应用商店（Microsoft Store）安装的包受 Windows 内核防篡改保护（Process Trust Label），系统强制禁止改写程序目录文件（管理员提权与接管所有权均无法绕过），因此**不支持直接对微软商店版打补丁**。请卸载商店版，并前往官网下载安装包（`ClaudeSetup.exe`）进行安装，即可正常使用本补丁。
 
-### Linux（官方 deb 包 / claude-desktop-rpm）
+### Linux（官方 deb 包 / Fedora 等 RPM 发行版）
+
+Fedora 等 RPM 发行版可以用社区脚本 [claude-desktop-rpm](https://github.com/ajithakdev/claude-desktop-rpm/) 安装 Claude Desktop。Fedora Magazine 的《[Installing the official Claude Desktop Linux beta on Fedora Linux](https://fedoramagazine.org/installing-the-official-claude-desktop-linux-beta-on-fedora-linux/)》介绍了这个脚本的校验、更新和卸载方式。
 
 1. 退出 Claude Desktop（脚本检测到正在运行时也会自动关闭）。建议在系统终端中运行，不要用 Claude Desktop 内嵌的终端，否则关闭应用会中断安装。
 2. 下载或克隆本项目。

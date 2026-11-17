@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """为 Linux 版 Claude Desktop 安装中文前端词表。
 
-支持官方 deb 包与 claude-desktop-rpm（Fedora 等 RPM 发行版）共用的两种布局：
+支持官方 deb 包与 claude-desktop-rpm（ajithakdev/claude-desktop-rpm，Fedora 等 RPM 发行版）共用的两种布局：
 
 * Claude 4.29+：前端打包在 ``resources/ion-dist.asar``，脚本先解包到临时目录，
   合并词表、注册语言白名单后重新打包（Linux 的 Electron 不校验 asar 完整性，

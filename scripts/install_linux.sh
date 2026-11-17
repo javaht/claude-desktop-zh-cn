@@ -6,7 +6,7 @@
 #
 # 支持的安装布局：
 #   - 官方 deb 包：/usr/lib/claude-desktop/resources（写入时按需 sudo）
-#   - claude-desktop-rpm（Fedora 等 RPM 发行版）：$CLAUDE_DESKTOP_PREFIX/lib/claude-desktop/resources
+#   - claude-desktop-rpm（https://github.com/ajithakdev/claude-desktop-rpm/，Fedora 等 RPM 发行版）：$CLAUDE_DESKTOP_PREFIX/lib/claude-desktop/resources
 #     （默认 $HOME/.local/lib/claude-desktop/resources，无需 sudo）
 #   - 其他位置：用 CLAUDE_RESOURCES 指定 resources 目录
 # 未显式指定时优先采用正在运行的 Claude Desktop 所在目录，避免同机存在多份安装时改错。
@@ -225,7 +225,7 @@ detect_frontend_mode() {
 # “原始文件”备份，卸载时就永远回不到官方版本了。
 ensure_original_possible() {
   if python3 "$PATCHER" --resources "$APP_RES" --check-patched >/dev/null 2>&1; then
-    die "当前前端已含补丁，但找不到同版本的原始备份。请先用 apt 或 claude-desktop-rpm 重装 Claude Desktop，再运行本脚本。"
+    die "当前前端已含补丁，但找不到同版本的原始备份。请先用 apt 或 claude-desktop-rpm（ajithakdev/claude-desktop-rpm）重装 Claude Desktop，再运行本脚本。"
   fi
 }
 
@@ -422,7 +422,7 @@ uninstall_patch() {
     echo "  已还原: ion-dist 目录"
   elif python3 "$PATCHER" --resources "$APP_RES" --check-patched >/dev/null 2>&1; then
     echo "警告: 当前前端已含补丁，但没有同版本原始备份（应用可能已升级）。" >&2
-    echo "      请用 apt 或 claude-desktop-rpm 重装 Claude Desktop 以恢复官方文件。" >&2
+    echo "      请用 apt 或 claude-desktop-rpm（ajithakdev/claude-desktop-rpm）重装 Claude Desktop 以恢复官方文件。" >&2
   else
     echo "  未找到补丁备份，当前前端已是官方文件。"
   fi

@@ -7,7 +7,7 @@
 #   ./install-linux.sh install [zh-CN|zh-TW|zh-HK]
 #   ./install-linux.sh uninstall
 #
-# 自动识别官方 deb 包与 claude-desktop-rpm（Fedora 等 RPM 发行版）安装；目录不可写时才会调用 sudo。
+# 自动识别官方 deb 包与 claude-desktop-rpm（ajithakdev/claude-desktop-rpm，Fedora 等 RPM 发行版）安装；目录不可写时才会调用 sudo。
 # 环境变量：CLAUDE_ACTION=install|uninstall、CLAUDE_LANG=zh-CN|zh-TW|zh-HK
 # 可跳过对应菜单；CLAUDE_RESOURCES 指定 resources 目录；
 # CLAUDE_DESKTOP_PREFIX 指定 claude-desktop-rpm 安装前缀（默认 $HOME/.local）；

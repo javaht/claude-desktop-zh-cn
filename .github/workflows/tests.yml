@@ -26,6 +26,8 @@ jobs:
         with:
           node-version: '24'
       - name: Python 与菜单交互测试
+        env:
+          PYTHONIOENCODING: utf-8
         run: python -I -m unittest discover -s tests -v
       - name: Windows PowerShell 5.1 与 C# 测试
         if: runner.os == 'Windows'

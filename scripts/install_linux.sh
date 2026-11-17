@@ -1,221 +1,503 @@
 #!/usr/bin/env bash
-# Claude Desktop（Linux，官方 deb 包安装）中文补丁安装/卸载脚本
+# Claude Desktop（Linux）中文补丁安装/卸载脚本
 # 推荐从项目根目录的 install-linux.sh 进入（带菜单）；也可直接调用：
 #   ./scripts/install_linux.sh install [zh-CN|zh-TW|zh-HK]   安装（默认 zh-CN）
 #   ./scripts/install_linux.sh uninstall                      恢复原样
+#
+# 支持的安装布局：
+#   - 官方 deb 包：/usr/lib/claude-desktop/resources（写入时按需 sudo）
+#   - claude-desktop-rpm（https://github.com/ajithakdev/claude-desktop-rpm/，Fedora 等 RPM 发行版）：$CLAUDE_DESKTOP_PREFIX/lib/claude-desktop/resources
+#     （默认 $HOME/.local/lib/claude-desktop/resources，无需 sudo）
+#   - 其他位置：用 CLAUDE_RESOURCES 指定 resources 目录
+# 未显式指定时优先采用正在运行的 Claude Desktop 所在目录，避免同机存在多份安装时改错。
+#
 # 说明:
-#   - 需要 sudo 权限写入 Claude Desktop 安装目录（默认 /usr/lib/claude-desktop）
-#   - 会修改 app.asar（在线 claude.ai 页面 DOM 汉化 + 锁定 locale），并安装语言资源、
-#     注册语言白名单、写入用户 locale 配置；修改前自动备份，卸载时还原
-#   - Claude Desktop 更新后需重新运行本脚本
+#   - Claude 4.29+ 的前端在 ion-dist.asar 内；脚本解包、合并词表、注册语言白名单后重打包。
+#     桌面壳层词库使用官方自带的 zh-Hans / zh-Hant，不再改写 app.asar。
+#   - 以 Claude Desktop 5.x 为基准：4.x 没有 zh-Hans / zh-Hant 壳层词库，前端可汉化，
+#     但菜单栏与官方账号页可能回落英文。
+#   - 原始前端备份保存在 ~/.local/state/claude-desktop-zh-cn/<版本>@<安装路径摘要>/，
+#     不放在应用目录内，因此 claude-desktop-rpm 的目录式升级不会连带删除备份；
+#     同机存在多份安装时，各自的备份与 locale 原值互不覆盖。
+#   - 应用升级后需重新运行本脚本。
 
 set -euo pipefail
 
-APP_RES="${CLAUDE_RESOURCES:-/usr/lib/claude-desktop/resources}"
-APP_DIR="$(dirname "$APP_RES")"
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-RES_DIR="$REPO_DIR/resources"
-BACKUP_DIR="$RES_DIR/.zh-cn-backups-linux"
+PATCHER="$REPO_DIR/scripts/patch_linux_asar.py"
+PREFIX="${CLAUDE_DESKTOP_PREFIX:-$HOME/.local}"
+STATE_ROOT="${XDG_STATE_HOME:-$HOME/.local/state}/claude-desktop-zh-cn"
 ACTION="${1:-install}"
 LANG_CODE="${2:-zh-CN}"
 
 case "$LANG_CODE" in
-  zh-CN) SUFFIX="zh-CN" ;;
-  zh-TW) SUFFIX="zh-TW" ;;
-  zh-HK) SUFFIX="zh-HK" ;;
+  zh-CN|zh-TW|zh-HK) ;;
   *) echo "不支持的语言: $LANG_CODE（可选 zh-CN / zh-TW / zh-HK）"; exit 1 ;;
 esac
 
-FRONTEND_SRC="$RES_DIR/frontend-$SUFFIX.json"
-DESKTOP_SRC="$RES_DIR/desktop-$SUFFIX.json"
-
-BASE_LIST='"en-US","de-DE","fr-FR","ko-KR","ja-JP","es-419","es-ES","it-IT","hi-IN","pt-BR","id-ID"'
-LABEL_PATCH=';(()=>{const e=Intl.DisplayNames&&Intl.DisplayNames.prototype;if(!e||e.__claudeZhLabelPatch)return;const n=e.of;e.of=function(e){const t=String(e);return t==="zh-CN"?"简体中文":t==="zh-HK"?"繁體中文（香港）":t==="zh-TW"?"繁體中文（台灣）":n.call(this,e)},Object.defineProperty(e,"__claudeZhLabelPatch",{value:!0})})();'
+# 运行时语言代码：桌面壳层词库使用官方的 BCP-47 代码。
+case "$LANG_CODE" in
+  zh-CN) TARGET_LANG="zh-Hans" ;;
+  *) TARGET_LANG="zh-Hant" ;;
+esac
 
 die() { echo "错误: $*" >&2; exit 1; }
 
-[ -d "$APP_RES" ] || die "未找到 Claude Desktop 资源目录 $APP_RES（可用 CLAUDE_RESOURCES 环境变量指定）"
-[ "$(id -u)" -eq 0 ] && die "请以普通用户运行本脚本（需要时会自动调用 sudo）"
+# 状态按“版本 + 安装路径摘要”区分：同一台机器可能同时存在官方 deb 与
+# claude-desktop-rpm 两份同版本安装，不能共用同一份备份或 locale 记录。
+install_key() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    printf '%s' "$APP_RES" | sha256sum | cut -c1-12
+  elif command -v cksum >/dev/null 2>&1; then
+    printf '%s' "$APP_RES" | cksum | tr -s ' ' '-' | cut -c1-12
+  else
+    die "需要 sha256sum 或 cksum 生成安装路径摘要"
+  fi
+}
+
+state_dir() {
+  printf '%s/%s@%s\n' "$STATE_ROOT" "$VERSION" "$INSTALL_KEY"
+}
+
+locale_record() {
+  printf '%s/locale-originals@%s.json\n' "$STATE_ROOT" "$INSTALL_KEY"
+}
+
+language_record() {
+  printf '%s/language@%s\n' "$STATE_ROOT" "$INSTALL_KEY"
+}
+
+prepare_state_dir() {
+  local target="$1" legacy="$STATE_ROOT/$VERSION"
+  if [ -d "$legacy" ] && [ ! -e "$target" ]; then
+    echo "迁移旧版备份目录: $legacy -> $target"
+    mv "$legacy" "$target"
+  fi
+  mkdir -p "$target"
+}
+
+# 旧版把原始 locale 记录在版本目录内；版本目录随升级更换，记录会丢失，
+# 因此迁移到与版本无关、按安装区分的文件。
+migrate_locale_record() {
+  local version_dir="$1" record legacy="$1/config-locales.json"
+  record="$(locale_record)"
+  if [ -f "$legacy" ] && [ ! -f "$record" ]; then
+    mkdir -p "$STATE_ROOT"
+    mv "$legacy" "$record"
+  fi
+}
+
+running_resources() {
+  local exe
+  for exe in /proc/[0-9]*/exe; do
+    exe="$(readlink -f "$exe" 2>/dev/null)" || continue
+    case "$exe" in
+      */lib/claude-desktop/claude-desktop)
+        printf '%s\n' "$(dirname "$exe")/resources"
+        return 0
+        ;;
+    esac
+  done
+  return 1
+}
+
+detect_resources() {
+  if [ -n "${CLAUDE_RESOURCES:-}" ]; then
+    APP_RES="$CLAUDE_RESOURCES"
+  else
+    local candidates=()
+    if [ -n "${CLAUDE_DESKTOP_PREFIX:-}" ]; then
+      candidates+=("$CLAUDE_DESKTOP_PREFIX/lib/claude-desktop/resources")
+    fi
+    local running
+    if running="$(running_resources)"; then
+      candidates+=("$running")
+    fi
+    candidates+=("$HOME/.local/lib/claude-desktop/resources" "/usr/lib/claude-desktop/resources")
+    local candidate
+    for candidate in "${candidates[@]}"; do
+      if [ -f "$candidate/app.asar" ]; then
+        APP_RES="$candidate"
+        break
+      fi
+    done
+  fi
+  [ -n "${APP_RES:-}" ] || die "未找到 Claude Desktop 资源目录。已尝试 $HOME/.local/lib/claude-desktop/resources 与 /usr/lib/claude-desktop/resources；可用 CLAUDE_RESOURCES 指定。"
+  [ -f "$APP_RES/app.asar" ] || die "资源目录不完整（缺 app.asar）: $APP_RES"
+  APP_DIR="$(dirname "$APP_RES")"
+}
+
+digest_prefix() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | cut -c1-16
+  elif command -v cksum >/dev/null 2>&1; then
+    cksum "$1" | cut -d' ' -f1
+  else
+    die "需要 sha256sum 或 cksum 生成备份键"
+  fi
+}
+
+app_version() {
+  local version="" digest
+  if [ -s "$APP_DIR/.deb-version" ]; then
+    version="$(tr -d '[:space:]' < "$APP_DIR/.deb-version")"
+  elif command -v dpkg-query >/dev/null 2>&1; then
+    version="$(dpkg-query -W -f='${Version}' claude-desktop 2>/dev/null || true)"
+  fi
+  if [ -n "$version" ]; then
+    printf '%s\n' "$version"
+    return 0
+  fi
+  # 没有版本元数据时（例如 CLAUDE_RESOURCES 指向手工目录）用 app.asar 摘要做备份键。
+  # 本脚本不改写 app.asar，应用升级换包后摘要必变，因此不会复用旧版本的备份。
+  digest="$(digest_prefix "$APP_RES/app.asar")" || exit 1
+  printf 'asar-%s\n' "$digest"
+}
+
+# 4.x 的桌面壳层只有 zh-CN / zh-TW / zh-HK 词库，写入 zh-Hans / zh-Hant 后
+# 前端是中文，但菜单栏与官方账号页会回落英文。这里提前提示，不阻止安装。
+warn_unsupported_version() {
+  local core="${VERSION##*:}" major
+  case "$core" in
+    [0-9]*) ;;
+    *) return 0 ;;
+  esac
+  major="${core%%.*}"
+  major="${major%%[!0-9]*}"
+  [ -n "$major" ] || return 0
+  if [ "$major" -lt 5 ]; then
+    echo "警告: Claude Desktop $VERSION 低于 5.x。4.x 没有 zh-Hans / zh-Hant 壳层词库，" >&2
+    echo "      前端会是中文，但菜单栏与官方账号页可能回落英文；建议升级到 5.x。" >&2
+  fi
+}
 
 # 关闭正在运行的 Claude Desktop：只匹配安装目录下的进程（主程序、各子进程、
 # crashpad、cowork helper）。不能用 pkill -f "claude-desktop"：-f 匹配完整命令行，
 # 本项目目录名 claude-desktop-zh-cn 也会被命中，从绝对路径运行时会误杀本脚本自身
 # 或打开该目录的编辑器。
-APP_PROC_PATTERN="^$(printf '%s' "$APP_DIR" | sed 's/[][\.*^$()+?{}|]/\\&/g')/"
-if pgrep -f "$APP_PROC_PATTERN" >/dev/null 2>&1; then
-  echo "Claude Desktop 正在运行，尝试关闭…"
-  pkill -f "$APP_PROC_PATTERN" || true
-  sleep 2
-fi
-
-find_bundle_files() {
-  grep -rlF "$BASE_LIST" "$APP_RES/ion-dist" 2>/dev/null | grep -v '\.zh-orig' || true
-}
-
-app_version() {
-  cat "$APP_DIR/version" 2>/dev/null \
-    || dpkg-query -W -f='${Version}' claude-desktop 2>/dev/null \
-    || echo "unknown"
-}
-
-# 应用升级后，deb 会替换 app.asar 和前端 bundle，但 *.zh-orig 备份会残留为
-# 旧版本文件。若拿旧备份重打补丁，会把旧版程序装回去。因此备份时记录版本号，
-# 版本不一致就丢弃全部旧备份，从当前（升级后全新的）文件重新备份。
-discard_stale_backups() {
-  local cur_ver stored_ver
-  cur_ver="$(app_version)"
-  stored_ver="$(cat "$APP_RES/.zh-orig-version" 2>/dev/null || echo "")"
-  if [ "$stored_ver" != "$cur_ver" ]; then
-    if find "$APP_RES" -name "*.zh-orig*" -print -quit 2>/dev/null | grep -q .; then
-      echo "检测到应用版本变化（$stored_ver -> $cur_ver），丢弃旧版本备份"
-      sudo find "$APP_RES" -name "*.zh-orig*" -delete
-    fi
-    # 防呆：版本变化后当前 app.asar 应是未打补丁的原版
-    if grep -q "__claudeZhOnlineLocaleMain" "$APP_RES/app.asar" 2>/dev/null; then
-      die "当前 app.asar 已含补丁但没有对应版本的原始备份，请先重装 claude-desktop deb 包再运行本脚本"
-    fi
+stop_claude() {
+  local pattern
+  pattern="^$(printf '%s' "$APP_DIR" | sed 's/[][\.*^$()+?{}|]/\\&/g')/"
+  if pgrep -f "$pattern" >/dev/null 2>&1; then
+    echo "Claude Desktop 正在运行，尝试关闭…"
+    pkill -f "$pattern" || true
+    sleep 2
   fi
-  echo "$cur_ver" | sudo tee "$APP_RES/.zh-orig-version" >/dev/null
 }
 
-merge_json() {
-  # merge_json <base.json> <overlay.json> <out.json>  — base 为当前版本英文文件，overlay 覆盖同名 key
-  python3 - "$1" "$2" "$3" <<'PY'
-import json, sys
-base_p, overlay_p, out_p = sys.argv[1:4]
-base = json.load(open(base_p))
-overlay = json.load(open(overlay_p))
-merged = dict(base)
-for k, v in overlay.items():
-    if k in merged:
-        merged[k] = v
-json.dump(merged, open(out_p, "w"), ensure_ascii=False, indent=2)
-PY
-}
-
-install() {
-  command -v python3 >/dev/null || die "需要 python3"
-  [ -f "$FRONTEND_SRC" ] || die "缺少 $FRONTEND_SRC"
-  [ -f "$DESKTOP_SRC" ] || die "缺少 $DESKTOP_SRC"
-
-  local ts stamp_dir
-  ts="$(date +%Y%m%d-%H%M%S)"
-  stamp_dir="$BACKUP_DIR/$ts"
-  mkdir -p "$stamp_dir"
-  local tmp; tmp="$(mktemp -d)"
-
-  discard_stale_backups
-
-  echo "[1/5] 生成语言文件（与当前版本英文合并，新增 key 保留英文）"
-  merge_json "$APP_RES/ion-dist/i18n/en-US.json" "$FRONTEND_SRC" "$tmp/frontend.json"
-  merge_json "$APP_RES/en-US.json" "$DESKTOP_SRC" "$tmp/desktop.json"
-  # overrides：en-US 无此文件时，用任一现有语言的 overrides 作为 key 模板，
-  # 值取合并后的翻译（有中文用中文，没有保留英文原文）
-  local ov_template=""
-  for cand in "$APP_RES/ion-dist/i18n/en-US.overrides.json" "$APP_RES"/ion-dist/i18n/*.overrides.json; do
-    [ -f "$cand" ] && { ov_template="$cand"; break; }
-  done
-  if [ -n "$ov_template" ]; then
-    python3 - "$ov_template" "$tmp/frontend.json" "$tmp/overrides.json" <<'PY'
-import json, sys
-tpl_p, merged_p, out_p = sys.argv[1:4]
-tpl = json.load(open(tpl_p))
-merged = json.load(open(merged_p))
-out = {k: merged[k] for k in tpl if k in merged}
-json.dump(out, open(out_p, "w"), ensure_ascii=False, indent=2)
-PY
+check_staged_update() {
+  if [ -d "$PREFIX/lib/claude-desktop.staged" ]; then
+    echo "警告: 检测到待应用的新版本（$PREFIX/lib/claude-desktop.staged）。" >&2
+    echo "      Claude 下次启动时会替换整个安装目录，从而覆盖本补丁。" >&2
+    echo "      建议先启动一次 Claude 完成升级，再重新运行本脚本。" >&2
   fi
-
-  echo "[2/5] 安装语言文件到 $APP_RES（需要 sudo）"
-  sudo install -m 644 "$tmp/frontend.json" "$APP_RES/ion-dist/i18n/$SUFFIX.json"
-  sudo install -m 644 "$tmp/desktop.json" "$APP_RES/$SUFFIX.json"
-  [ -f "$tmp/overrides.json" ] && sudo install -m 644 "$tmp/overrides.json" "$APP_RES/ion-dist/i18n/$SUFFIX.overrides.json"
-
-  echo "[3/5] 注册语言白名单并注入语言名称补丁"
-  local patched=0
-  while IFS= read -r f; do
-    [ -n "$f" ] || continue
-    if [ ! -f "$f.zh-orig" ]; then
-      sudo cp -a "$f" "$f.zh-orig"
-      cp -a "$f" "$stamp_dir/$(basename "$f")"
-    fi
-    sudo python3 - "$f" "$SUFFIX" "$BASE_LIST" "$LABEL_PATCH" <<'PY'
-import sys
-path, lang, base_list, label_patch = sys.argv[1:5]
-s = open(path, encoding="utf-8").read()
-needle = "[" + base_list
-if needle + ',"' + lang + '"' not in s:
-    s = s.replace(needle, needle + ',"' + lang + '"')
-if "__claudeZhLabelPatch" not in s:
-    s += "\n" + label_patch
-open(path, "w", encoding="utf-8").write(s)
-PY
-    patched=$((patched+1))
-    echo "  已修补: $(basename "$f")"
-  done < <(find_bundle_files)
-  [ "$patched" -gt 0 ] || die "未找到语言白名单，Claude Desktop 版本可能已变化，请更新本项目"
-
-  echo "[4/5] 修补 app.asar（在线 claude.ai 页面 DOM 中文化 + locale 锁定）"
-  if [ ! -f "$APP_RES/app.asar.zh-orig" ]; then
-    sudo cp -a "$APP_RES/app.asar" "$APP_RES/app.asar.zh-orig"
-  fi
-  # 始终基于原始 asar 重打补丁，保证脚本可重复运行
-  cp "$APP_RES/app.asar.zh-orig" "$tmp/app.asar"
-  python3 "$REPO_DIR/scripts/patch_linux_asar.py" "$tmp/app.asar" "$SUFFIX" "$APP_RES"
-  sudo install -m 644 "$tmp/app.asar" "$APP_RES/app.asar"
-
-  echo "[5/5] 写入用户配置 locale=$SUFFIX"
-  python3 - "$HOME/.config/Claude/config.json" "$SUFFIX" <<'PY'
-import json, sys, os
-path, lang = sys.argv[1:3]
-cfg = {}
-if os.path.exists(path):
-    cfg = json.load(open(path))
-cfg["locale"] = lang
-json.dump(cfg, open(path, "w"), ensure_ascii=False, indent="\t")
-PY
-  rm -rf "$tmp"
-  echo
-  echo "完成！请重新打开 Claude Desktop。如未生效，在左下角账号菜单选择 Language -> 中文。"
-  echo "备份位于: $stamp_dir 及各 bundle 旁的 *.zh-orig 文件"
 }
 
-uninstall() {
-  echo "[1/4] 移除语言文件"
-  for lang in zh-CN zh-TW zh-HK; do
-    sudo rm -f "$APP_RES/ion-dist/i18n/$lang.json" "$APP_RES/ion-dist/i18n/$lang.overrides.json" "$APP_RES/$lang.json"
-  done
-  echo "[2/4] 还原前端 bundle"
-  local restored=0
-  while IFS= read -r orig; do
-    [ -n "$orig" ] || continue
-    sudo mv "$orig" "${orig%.zh-orig}"
-    restored=$((restored+1))
-    echo "  已还原: $(basename "${orig%.zh-orig}")"
-  done < <(find "$APP_RES/ion-dist" -name "*.zh-orig" 2>/dev/null)
-  [ "$restored" -eq 0 ] && echo "  未找到 *.zh-orig 备份（可能已还原或从未安装）"
-  echo "[3/4] 还原 app.asar"
-  if [ -f "$APP_RES/app.asar.zh-orig" ]; then
-    sudo mv "$APP_RES/app.asar.zh-orig" "$APP_RES/app.asar"
-    echo "  已还原: app.asar"
+setup_privileges() {
+  if [ -w "$APP_RES" ]; then
+    NEED_SUDO=0
   else
-    echo "  未找到 app.asar.zh-orig（可能已还原或从未安装）"
+    NEED_SUDO=1
+    command -v sudo >/dev/null 2>&1 || die "没有写入权限，且系统未安装 sudo: $APP_RES"
+    echo "目标目录不可写，将在需要时调用 sudo: $APP_RES"
   fi
-  sudo rm -f "$APP_RES/.zh-orig-version"
-  echo "[4/4] 重置用户 locale 为 en-US"
-  python3 - "$HOME/.config/Claude/config.json" <<'PY'
-import json, sys, os
-path = sys.argv[1]
-if os.path.exists(path):
-    cfg = json.load(open(path))
-    cfg["locale"] = "en-US"
-    json.dump(cfg, open(path, "w"), ensure_ascii=False, indent="\t")
+}
+
+privileged() {
+  if [ "$NEED_SUDO" -eq 1 ]; then
+    sudo "$@"
+  else
+    "$@"
+  fi
+}
+
+detect_frontend_mode() {
+  if [ -f "$APP_RES/ion-dist.asar" ]; then
+    FRONTEND_MODE="asar"
+  elif [ -d "$APP_RES/ion-dist" ] && find "$APP_RES/ion-dist" -name '*.js' -print -quit 2>/dev/null | grep -q .; then
+    FRONTEND_MODE="directory"
+  else
+    die "未找到前端资源（ion-dist.asar 或 ion-dist 目录）: $APP_RES"
+  fi
+}
+
+# 当前前端已被补丁修改、又没有同版本备份时不能继续：把补丁后的文件当成
+# “原始文件”备份，卸载时就永远回不到官方版本了。
+ensure_original_possible() {
+  if python3 "$PATCHER" --resources "$APP_RES" --check-patched >/dev/null 2>&1; then
+    die "当前前端已含补丁，但找不到同版本的原始备份。请先用 apt 或 claude-desktop-rpm（ajithakdev/claude-desktop-rpm）重装 Claude Desktop，再运行本脚本。"
+  fi
+}
+
+backup_frontend() {
+  local version_dir="$1"
+  mkdir -p "$version_dir"
+
+  if [ "$FRONTEND_MODE" = "asar" ]; then
+    if [ ! -f "$version_dir/ion-dist.asar" ]; then
+      ensure_original_possible
+      echo "备份原始 ion-dist.asar（$(du -h "$APP_RES/ion-dist.asar" | cut -f1)）…"
+      cp -a "$APP_RES/ion-dist.asar" "$version_dir/ion-dist.asar"
+    else
+      echo "复用已有原始备份: $version_dir/ion-dist.asar"
+    fi
+  else
+    if [ ! -f "$version_dir/ion-dist.tar" ]; then
+      ensure_original_possible
+      echo "备份原始 ion-dist 目录…"
+      tar -C "$APP_RES" -cf "$version_dir/ion-dist.tar" ion-dist
+    else
+      echo "复用已有原始备份: $version_dir/ion-dist.tar"
+    fi
+  fi
+
+  printf '%s\n' "$VERSION" > "$version_dir/version"
+  printf '%s\n' "$LANG_CODE" > "$version_dir/language"
+}
+
+discard_stale_state() {
+  local current="$1" entry name
+  for entry in "$STATE_ROOT"/*/; do
+    [ -d "$entry" ] || continue
+    name="$(basename "$entry")"
+    # 只清理同一安装（安装路径摘要相同）的旧版本，其他安装的备份必须保留。
+    case "$name" in
+      *@"$INSTALL_KEY") ;;
+      *) continue ;;
+    esac
+    [ "$(cd "$entry" && pwd)" = "$(cd "$current" && pwd)" ] && continue
+    echo "检测到应用版本变化，删除旧版本备份: $name"
+    rm -rf "$entry"
+  done
+}
+
+save_config_locales() {
+  local record
+  record="$(locale_record)"
+  # 只在第一次安装时记录：重复运行安装时配置里已经是 zh-Hans / zh-Hant，
+  # 再“记录”一次会把补丁写入的值当成原值，卸载就无法恢复。
+  if [ -f "$record" ]; then
+    echo "复用已有 locale 记录: $record"
+    return 0
+  fi
+  mkdir -p "$STATE_ROOT"
+  python3 - "$record" "$HOME/.config/Claude/config.json" "$HOME/.config/Claude-3p/config.json" <<'PY'
+import json
+import os
+import sys
+
+out_path, *configs = sys.argv[1:]
+saved = {}
+for path in configs:
+    if not os.path.isfile(path):
+        continue
+    try:
+        with open(path, encoding="utf-8") as handle:
+            saved[path] = json.load(handle).get("locale")
+    except (OSError, json.JSONDecodeError):
+        continue
+with open(out_path, "w", encoding="utf-8") as handle:
+    json.dump(saved, handle, ensure_ascii=False, indent=2)
 PY
+}
+
+write_locale() {
+  local locale="$1"
+  python3 - "$locale" "$HOME/.config/Claude/config.json" "$HOME/.config/Claude-3p/config.json" <<'PY'
+import json
+import os
+import sys
+
+locale, *configs = sys.argv[1:]
+for path in configs:
+    if not os.path.isfile(path):
+        continue
+    try:
+        with open(path, encoding="utf-8") as handle:
+            data = json.load(handle)
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"警告: 无法更新 locale，配置无效 {path}: {exc}", file=sys.stderr)
+        continue
+    data["locale"] = locale
+    try:
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump(data, handle, ensure_ascii=False, indent="\t")
+    except OSError as exc:
+        print(f"警告: 无法写入配置 {path}: {exc}", file=sys.stderr)
+        continue
+    print(f"已更新 locale: {path} -> {data['locale']}")
+PY
+}
+
+# 注意：函数名不要用 install / uninstall。它们是系统命令名，而 privileged 会执行
+# `install -m 644 ...`，同名函数会被优先解析，导致无限递归。
+install_patch() {
+  command -v python3 >/dev/null 2>&1 || die "需要 python3"
+  [ -f "$PATCHER" ] || die "缺少 $PATCHER"
+
+  detect_resources
+  detect_frontend_mode
+  setup_privileges
+  VERSION="$(app_version)"
+  INSTALL_KEY="$(install_key)"
+  echo "安装目录: $APP_DIR"
+  echo "Claude 版本: $VERSION"
+  echo "前端布局: $FRONTEND_MODE"
+  warn_unsupported_version
+
+  [ "$(id -u)" -eq 0 ] && die "请以普通用户运行本脚本（需要时脚本会自动调用 sudo）"
+  stop_claude
+  check_staged_update
+
+  local version_dir
+  version_dir="$(state_dir)"
+
+  echo "[1/4] 检查并备份原始前端"
+  prepare_state_dir "$version_dir"
+  migrate_locale_record "$version_dir"
+  backup_frontend "$version_dir"
+  save_config_locales
+  printf '%s\n' "$LANG_CODE" > "$(language_record)"
+  # 确认本版本已有备份之后才能清理旧版本：若当前前端仍是补丁版又缺备份，
+  # 先清理会删掉唯一可还原的文件，再报错就晚了。
+  discard_stale_state "$version_dir"
+
+  echo "[2/4] 生成中文前端（$LANG_CODE -> ${TARGET_LANG}）"
+  local tmp
+  tmp="$(mktemp -d)"
+  trap "rm -rf '$tmp'" EXIT
+  mkdir -p "$tmp/resources"
+  if [ "$FRONTEND_MODE" = "asar" ]; then
+    cp -a "$version_dir/ion-dist.asar" "$tmp/resources/ion-dist.asar"
+    python3 "$PATCHER" --resources "$tmp/resources" --lang "$LANG_CODE" --output "$tmp/ion-dist.asar"
+    echo "[3/4] 安装 ion-dist.asar"
+    privileged install -m 644 "$tmp/ion-dist.asar" "$APP_RES/.ion-dist.asar.zh-new"
+    privileged mv -f "$APP_RES/.ion-dist.asar.zh-new" "$APP_RES/ion-dist.asar"
+  else
+    tar -C "$tmp" -xf "$version_dir/ion-dist.tar"
+    python3 "$PATCHER" --resources "$tmp" --lang "$LANG_CODE" --output "$tmp/ion-dist-patched"
+    echo "[3/4] 安装 ion-dist 目录"
+    privileged rm -rf "$tmp/ion-dist.zh-new"
+    privileged cp -a "$tmp/ion-dist-patched" "$APP_RES/ion-dist.zh-new"
+    privileged rm -rf "$APP_RES/ion-dist"
+    privileged mv "$APP_RES/ion-dist.zh-new" "$APP_RES/ion-dist"
+  fi
+
+  echo "[4/4] 写入用户配置 locale=$TARGET_LANG"
+  write_locale "$TARGET_LANG"
+
+  echo
+  echo "完成！请重新打开 Claude Desktop。"
+  echo "原始前端备份: $version_dir"
+}
+
+uninstall_patch() {
+  detect_resources
+  detect_frontend_mode
+  setup_privileges
+  VERSION="$(app_version)"
+  INSTALL_KEY="$(install_key)"
+  stop_claude
+
+  local version_dir
+  version_dir="$(state_dir)"
+  prepare_state_dir "$version_dir"
+  migrate_locale_record "$version_dir"
+
+  echo "[1/3] 还原前端"
+  if [ "$FRONTEND_MODE" = "asar" ] && [ -f "$version_dir/ion-dist.asar" ]; then
+    privileged install -m 644 "$version_dir/ion-dist.asar" "$APP_RES/.ion-dist.asar.zh-restore"
+    privileged mv -f "$APP_RES/.ion-dist.asar.zh-restore" "$APP_RES/ion-dist.asar"
+    echo "  已还原: ion-dist.asar"
+  elif [ "$FRONTEND_MODE" = "directory" ] && [ -f "$version_dir/ion-dist.tar" ]; then
+    # 先解到临时目录再整体替换：只读的 deb 安装需要提权；解包失败时也不会
+    # 先删掉现有的 ion-dist。
+    local restore_dir="$APP_RES/.ion-dist.zh-restore"
+    privileged rm -rf "$restore_dir"
+    privileged mkdir -p "$restore_dir"
+    privileged tar -C "$restore_dir" -xf "$version_dir/ion-dist.tar"
+    privileged rm -rf "$APP_RES/ion-dist"
+    privileged mv "$restore_dir/ion-dist" "$APP_RES/ion-dist"
+    privileged rm -rf "$restore_dir"
+    echo "  已还原: ion-dist 目录"
+  elif python3 "$PATCHER" --resources "$APP_RES" --check-patched >/dev/null 2>&1; then
+    echo "警告: 当前前端已含补丁，但没有同版本原始备份（应用可能已升级）。" >&2
+    echo "      请用 apt 或 claude-desktop-rpm（ajithakdev/claude-desktop-rpm）重装 Claude Desktop 以恢复官方文件。" >&2
+  else
+    echo "  未找到补丁备份，当前前端已是官方文件。"
+  fi
+
+  echo "[2/3] 恢复用户 locale"
+  # 用安装时记录的语言，而不是卸载时的默认参数：zh-TW / zh-HK 写成 zh-Hant，
+  # 若按默认 zh-CN 推导成 zh-Hans 会比对不上，locale 就不会复位。
+  local installed_lang="$LANG_CODE" locale_target lang_record
+  lang_record="$(language_record)"
+  if [ -s "$lang_record" ]; then
+    installed_lang="$(tr -d '[:space:]' < "$lang_record")"
+  elif [ -s "$version_dir/language" ]; then
+    installed_lang="$(tr -d '[:space:]' < "$version_dir/language")"
+  fi
+  case "$installed_lang" in
+    zh-CN) locale_target="zh-Hans" ;;
+    *) locale_target="zh-Hant" ;;
+  esac
+  local record
+  record="$(locale_record)"
+  if python3 - "$record" "$locale_target" \
+      "$HOME/.config/Claude/config.json" "$HOME/.config/Claude-3p/config.json" <<'PY'
+import json
+import os
+import sys
+
+record_path, target, *configs = sys.argv[1:]
+saved = {}
+if os.path.isfile(record_path):
+    try:
+        with open(record_path, encoding="utf-8") as handle:
+            saved = json.load(handle)
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"警告: 无法读取 locale 记录 {record_path}: {exc}", file=sys.stderr)
+        saved = {}
+# 安装时已存在的配置恢复原值；安装后才创建的配置也要一并检查，避免补丁
+# 写入的 locale 残留在另一份配置里。
+failed = False
+for config in dict.fromkeys([*saved, *configs]):
+    try:
+        with open(config, encoding="utf-8") as handle:
+            data = json.load(handle)
+    except FileNotFoundError:
+        continue
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"警告: 无法读取配置 {config}: {exc}", file=sys.stderr)
+        failed = True
+        continue
+    if data.get("locale") != target:
+        continue
+    data["locale"] = saved.get(config) or "en-US"
+    try:
+        with open(config, "w", encoding="utf-8") as handle:
+            json.dump(data, handle, ensure_ascii=False, indent="\t")
+    except OSError as exc:
+        print(f"警告: 无法写入配置 {config}: {exc}", file=sys.stderr)
+        failed = True
+        continue
+    print(f"已恢复 locale: {config} -> {data['locale']}")
+raise SystemExit(1 if failed else 0)
+PY
+  then
+    rm -f "$record"
+  else
+    echo "警告: locale 未能完全恢复，保留记录: $record" >&2
+  fi
+
+  echo "[3/3] 清理备份"
+  # 只清理本安装（按安装路径区分）的状态；同机其他安装的备份必须保留。
+  rm -rf "$STATE_ROOT"/*@"$INSTALL_KEY"
   echo "完成！请重新打开 Claude Desktop。"
 }
 
 case "$ACTION" in
-  install) install ;;
-  uninstall) uninstall ;;
+  install) install_patch ;;
+  uninstall) uninstall_patch ;;
   *) echo "用法: $0 install [zh-CN|zh-TW|zh-HK] | uninstall"; exit 1 ;;
 esac

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Claude Desktop 中文补丁 · Linux（官方 deb 包安装）入口
+# Claude Desktop 中文补丁 · Linux 入口
 #
 # 直接运行会显示菜单：
 #   ./install-linux.sh
@@ -7,8 +7,11 @@
 #   ./install-linux.sh install [zh-CN|zh-TW|zh-HK]
 #   ./install-linux.sh uninstall
 #
+# 自动识别官方 deb 包与 claude-desktop-rpm（ajithakdev/claude-desktop-rpm，Fedora 等 RPM 发行版）安装；目录不可写时才会调用 sudo。
 # 环境变量：CLAUDE_ACTION=install|uninstall、CLAUDE_LANG=zh-CN|zh-TW|zh-HK
-# 可跳过对应菜单；CLAUDE_ZH_SKIP_UPDATE_CHECK=1 跳过新版本检查。
+# 可跳过对应菜单；CLAUDE_RESOURCES 指定 resources 目录；
+# CLAUDE_DESKTOP_PREFIX 指定 claude-desktop-rpm 安装前缀（默认 $HOME/.local）；
+# CLAUDE_ZH_SKIP_UPDATE_CHECK=1 跳过新版本检查。
 set -euo pipefail
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -74,7 +77,7 @@ echo
 ACTION="${CLAUDE_ACTION:-}"
 if [ -z "$ACTION" ]; then
   echo "请选择操作："
-  echo "  [1] 安装中文补丁（在线页面 DOM 汉化 + 锁定中文，需要 sudo 密码）"
+  echo "  [1] 安装中文补丁（自动识别 deb / claude-desktop-rpm）"
   echo "  [2] 恢复原样 / 卸载补丁"
   echo
   read -rp "请输入选项 [1/2，默认 1]: " action_choice || action_choice=""
@@ -113,6 +116,6 @@ if [ -z "$LANG_CODE" ]; then
 fi
 
 echo "选择的语言: $LANG_CODE"
-echo "运行时会关闭正在运行的 Claude Desktop，并按提示请求 sudo 密码。"
+echo "运行时会关闭正在运行的 Claude Desktop；仅在安装目录不可写时才请求 sudo 密码。"
 echo
 exec bash "$INSTALLER" install "$LANG_CODE"

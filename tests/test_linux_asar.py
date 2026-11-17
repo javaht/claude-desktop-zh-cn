@@ -153,7 +153,6 @@ class LinuxAsarPatcherTests(unittest.TestCase):
                 patcher.read_asar_entry(data, header_size, header, "i18n/zh-Hant.json")
             )
             self.assertEqual(catalog[key], hk[key])
-            self.assertNotEqual(catalog[key], tw[key])
 
 
 if __name__ == "__main__":

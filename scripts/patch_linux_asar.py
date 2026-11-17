@@ -94,7 +94,7 @@ def install_overrides(work: Path, target_code: str, merged_frontend: dict) -> No
     keys = patcher.load_json(template)
     out = {key: merged_frontend[key] for key in keys if key in merged_frontend}
     patcher.save_json(i18n / f"{target_code}.overrides.json", out)
-    log(f"Installed frontend overrides {target_code}: {len(out)} entries")
+    log(f"已写入前端 overrides {target_code}: {len(out)} 条")
 
 
 def verify_work_dir(work: Path, target_code: str) -> int:

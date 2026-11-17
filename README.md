@@ -131,7 +131,7 @@ git pull
 ./install-linux.sh install zh-CN
 ```
 
-原始前端备份保存在 `~/.local/state/claude-desktop-zh-cn/<版本>/`（遵循 `XDG_STATE_HOME`），不在应用目录内，因此 claude-desktop-rpm 的目录式升级不会连带删除。脚本会识别 Claude Desktop 的版本变化，自动丢弃旧版本备份并重新备份，不会把旧版前端装回去；没有版本元数据时（例如 `CLAUDE_RESOURCES` 指向手工目录）用 `app.asar` 的摘要作为备份键，升级后同样会重新备份。若新版本改动了代码结构导致补丁没有生效，脚本会直接报错，请带上 Claude Desktop 版本号反馈。
+原始前端备份保存在 `~/.local/state/claude-desktop-zh-cn/<版本>@<安装路径摘要>/`（遵循 `XDG_STATE_HOME`），不在应用目录内，因此 claude-desktop-rpm 的目录式升级不会连带删除；同机多份安装各自保留备份与 locale 原值。脚本会识别 Claude Desktop 的版本变化，自动丢弃同一安装的旧版本备份并重新备份，不会把旧版前端装回去；没有版本元数据时（例如 `CLAUDE_RESOURCES` 指向手工目录）用 `app.asar` 的摘要作为备份键，升级后同样会重新备份。若新版本改动了代码结构导致补丁没有生效，脚本会直接报错，请带上 Claude Desktop 版本号反馈。
 
 ## 文件说明
 
@@ -237,7 +237,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-AsarRoundTrip.ps1
 
 - 自动查找安装位置：优先 `CLAUDE_RESOURCES`，其次是正在运行的 Claude Desktop 所在目录、`CLAUDE_DESKTOP_PREFIX/lib/claude-desktop/resources`（默认 `$HOME/.local`）、`~/.local/lib/claude-desktop/resources`、`/usr/lib/claude-desktop/resources`，并关闭该安装目录下正在运行的 Claude Desktop 进程。安装目录可写时不需要 `sudo`，只有只读目录（例如官方 deb 包）才会在写入时调用 `sudo`。
 - 读取 Claude Desktop 版本号：优先使用 claude-desktop-rpm 写入的 `.deb-version`，其次查询 `dpkg-query`。
-- 把原始前端备份到 `$XDG_STATE_HOME/claude-desktop-zh-cn/<版本>/`（默认 `~/.local/state/claude-desktop-zh-cn/`），不放在应用目录内。应用升级后会丢弃旧版本备份并从新文件重新备份；每次安装都基于原始备份重新生成，可重复运行。
+- 把原始前端备份到 `$XDG_STATE_HOME/claude-desktop-zh-cn/<版本>@<安装路径摘要>/`（默认 `~/.local/state/claude-desktop-zh-cn/`），不放在应用目录内；locale 原值按安装单独记录，重复安装不会覆盖，升级后仍能还原。应用升级后会丢弃同一安装的旧版本备份并从新文件重新备份；每次安装都基于原始备份重新生成，可重复运行。
 - 合并当前 Claude 版本的英文语言文件与随包中文翻译（当前版本已有中文翻译的 key 会变中文，新版本新增但本包没有的 key 保留英文），写入前端包：
   - `resources/frontend-zh-CN.json` / `frontend-zh-TW.json` / `frontend-zh-HK.json` -> `i18n/zh-Hans.json` 或 `i18n/zh-Hant.json`（以及 `.overrides.json`）
   - `resources/dynamic-*.json` -> `i18n/dynamic/zh-Hans.json` / `zh-Hant.json`

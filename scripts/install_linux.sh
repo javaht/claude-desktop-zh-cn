@@ -362,7 +362,7 @@ install_patch() {
   # 先清理会删掉唯一可还原的文件，再报错就晚了。
   discard_stale_state "$version_dir"
 
-  echo "[2/4] 生成中文前端（$LANG_CODE -> $TARGET_LANG）"
+  echo "[2/4] 生成中文前端（$LANG_CODE -> ${TARGET_LANG}）"
   local tmp
   tmp="$(mktemp -d)"
   trap "rm -rf '$tmp'" EXIT

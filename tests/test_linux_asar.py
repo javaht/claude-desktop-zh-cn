@@ -1,5 +1,7 @@
 """Linux frontend patcher (scripts/patch_linux_asar.py) behaviour."""
+import contextlib
 import importlib.util
+import io
 import json
 import tempfile
 import unittest
@@ -12,6 +14,16 @@ spec.loader.exec_module(linux_patcher)
 patcher = linux_patcher.patcher
 
 WHITELIST_JS = f"const a=[{patcher.BASE_LANGUAGE_LIST}];"
+
+
+def run_patch(*args, **kwargs):
+    """Patch with the log output captured.
+
+    The patcher logs in Chinese; printing it would fail on consoles using a
+    legacy code page (for example the cp1252 stdout of a Windows CI runner).
+    """
+    with contextlib.redirect_stdout(io.StringIO()):
+        linux_patcher.patch(*args, **kwargs)
 
 
 def make_frontend(root: Path) -> None:
@@ -50,7 +62,7 @@ class LinuxAsarPatcherTests(unittest.TestCase):
 
             self.assertFalse(linux_patcher.is_patched(resources))
             output = tmp / "patched.asar"
-            linux_patcher.patch(resources, "zh-CN", output)
+            run_patch(resources, "zh-CN", output)
             self.assertTrue(output.is_file())
 
             # Install the patched archive back into the resources layout.
@@ -86,7 +98,7 @@ class LinuxAsarPatcherTests(unittest.TestCase):
             make_frontend(tmp / "source")
             patcher.build_asar(tmp / "source", resources / "ion-dist.asar")
 
-            linux_patcher.patch(resources, "zh-TW")
+            run_patch(resources, "zh-TW")
             self.assertTrue(linux_patcher.is_patched(resources))
             self.assertFalse((resources / "ion-dist.asar.zh-cn-new").exists())
 
@@ -105,7 +117,7 @@ class LinuxAsarPatcherTests(unittest.TestCase):
             make_frontend(work)
 
             self.assertFalse(linux_patcher.is_patched(resources))
-            linux_patcher.patch(resources, "zh-CN")
+            run_patch(resources, "zh-CN")
             self.assertTrue(linux_patcher.is_patched(resources))
             self.assertTrue((work / "i18n" / "zh-Hans.json").is_file())
             self.assertIn('"zh-Hans"', (work / "assets" / "index-abc.js").read_text(encoding="utf-8"))
@@ -122,7 +134,7 @@ class LinuxAsarPatcherTests(unittest.TestCase):
             patcher.build_asar(source, resources / "ion-dist.asar")
 
             with self.assertRaises(SystemExit):
-                linux_patcher.patch(resources, "zh-CN", tmp / "out.asar")
+                run_patch(resources, "zh-CN", tmp / "out.asar")
 
     def test_language_mapping(self):
         self.assertEqual(linux_patcher.TARGET_CODES["zh-CN"], "zh-Hans")
@@ -146,7 +158,7 @@ class LinuxAsarPatcherTests(unittest.TestCase):
             )
             patcher.build_asar(source, resources / "ion-dist.asar")
 
-            linux_patcher.patch(resources, "zh-HK")
+            run_patch(resources, "zh-HK")
             data = (resources / "ion-dist.asar").read_bytes()
             header_size, _string, header = patcher.read_asar_header(data, resources / "ion-dist.asar")
             catalog = json.loads(

@@ -129,6 +129,32 @@ class LinuxAsarPatcherTests(unittest.TestCase):
         self.assertEqual(linux_patcher.TARGET_CODES["zh-TW"], "zh-Hant")
         self.assertEqual(linux_patcher.TARGET_CODES["zh-HK"], "zh-Hant")
 
+    def test_zh_hk_uses_hong_kong_catalog(self):
+        """zh-TW 与 zh-HK 都输出 zh-Hant，但写入的必须是各自词表。"""
+        tw = json.loads((patcher.RESOURCES / "frontend-zh-TW.json").read_text(encoding="utf-8"))
+        hk = json.loads((patcher.RESOURCES / "frontend-zh-HK.json").read_text(encoding="utf-8"))
+        key = next(k for k in tw if k in hk and tw[k] != hk[k])
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            resources = tmp / "resources"
+            resources.mkdir()
+            source = tmp / "source"
+            make_frontend(source)
+            (source / "i18n" / "en-US.json").write_text(
+                json.dumps({key: "Source"}), encoding="utf-8"
+            )
+            patcher.build_asar(source, resources / "ion-dist.asar")
+
+            linux_patcher.patch(resources, "zh-HK")
+            data = (resources / "ion-dist.asar").read_bytes()
+            header_size, _string, header = patcher.read_asar_header(data, resources / "ion-dist.asar")
+            catalog = json.loads(
+                patcher.read_asar_entry(data, header_size, header, "i18n/zh-Hant.json")
+            )
+            self.assertEqual(catalog[key], hk[key])
+            self.assertNotEqual(catalog[key], tw[key])
+
 
 if __name__ == "__main__":
     unittest.main()

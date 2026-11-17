@@ -121,7 +121,9 @@ def verify_work_dir(work: Path, target_code: str) -> int:
 
 def patch(resources: Path, lang: str, output: Path | None = None) -> None:
     target_code = TARGET_CODES[lang]
-    source_code = patcher.resource_language_code(target_code)
+    # 词表来源必须是用户选择的变体：zh-TW 与 zh-HK 都输出 zh-Hant，但两者词表
+    # 差异很大（繁体/香港用语），不能用 target_code 反查资源。
+    source_code = lang
     mode, bundle = find_frontend_bundle(resources)
     log(f"前端布局: {mode} ({bundle})")
     log(f"语言: {lang} -> {target_code}（词表来源 frontend-{source_code}.json）")

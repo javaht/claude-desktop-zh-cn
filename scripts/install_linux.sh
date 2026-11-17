@@ -14,6 +14,8 @@
 # 说明:
 #   - Claude 4.29+ 的前端在 ion-dist.asar 内；脚本解包、合并词表、注册语言白名单后重打包。
 #     桌面壳层词库使用官方自带的 zh-Hans / zh-Hant，不再改写 app.asar。
+#   - 以 Claude Desktop 5.x 为基准：4.x 没有 zh-Hans / zh-Hant 壳层词库，前端可汉化，
+#     但菜单栏与官方账号页可能回落英文。
 #   - 原始前端备份保存在 ~/.local/state/claude-desktop-zh-cn/<版本>/，不放在应用目录内，
 #     因此 claude-desktop-rpm 的目录式升级不会连带删除备份。
 #   - 应用升级后需重新运行本脚本。
@@ -81,12 +83,37 @@ detect_resources() {
 }
 
 app_version() {
+  local version=""
   if [ -s "$APP_DIR/.deb-version" ]; then
-    tr -d '[:space:]' < "$APP_DIR/.deb-version"
-  elif command -v dpkg-query >/dev/null 2>&1 && dpkg-query -W -f='${Version}' claude-desktop 2>/dev/null; then
-    :
+    version="$(tr -d '[:space:]' < "$APP_DIR/.deb-version")"
+  elif command -v dpkg-query >/dev/null 2>&1; then
+    version="$(dpkg-query -W -f='${Version}' claude-desktop 2>/dev/null || true)"
+  fi
+  if [ -n "$version" ]; then
+    printf '%s\n' "$version"
+  elif [ -f "$APP_RES/app.asar" ] && command -v sha256sum >/dev/null 2>&1; then
+    # 没有版本元数据时（例如 CLAUDE_RESOURCES 指向手工目录）用 app.asar 摘要做备份键。
+    # 本脚本不改写 app.asar，应用升级换包后摘要必变，因此不会复用旧版本的备份。
+    printf 'asar-%s\n' "$(sha256sum "$APP_RES/app.asar" | cut -c1-16)"
   else
     echo "unknown"
+  fi
+}
+
+# 4.x 的桌面壳层只有 zh-CN / zh-TW / zh-HK 词库，写入 zh-Hans / zh-Hant 后
+# 前端是中文，但菜单栏与官方账号页会回落英文。这里提前提示，不阻止安装。
+warn_unsupported_version() {
+  local core="${VERSION##*:}" major
+  case "$core" in
+    [0-9]*) ;;
+    *) return 0 ;;
+  esac
+  major="${core%%.*}"
+  major="${major%%[!0-9]*}"
+  [ -n "$major" ] || return 0
+  if [ "$major" -lt 5 ]; then
+    echo "警告: Claude Desktop $VERSION 低于 5.x。4.x 没有 zh-Hans / zh-Hant 壳层词库，" >&2
+    echo "      前端会是中文，但菜单栏与官方账号页可能回落英文；建议升级到 5.x。" >&2
   fi
 }
 
@@ -233,6 +260,7 @@ install_patch() {
   echo "安装目录: $APP_DIR"
   echo "Claude 版本: $VERSION"
   echo "前端布局: $FRONTEND_MODE"
+  warn_unsupported_version
 
   [ "$(id -u)" -eq 0 ] && die "请以普通用户运行本脚本（需要时脚本会自动调用 sudo）"
   stop_claude
@@ -302,15 +330,29 @@ uninstall_patch() {
   fi
 
   echo "[2/3] 恢复用户 locale"
+  # 用安装时记录的语言，而不是卸载时的默认参数：zh-TW / zh-HK 写成 zh-Hant，
+  # 若按默认 zh-CN 推导成 zh-Hans 会比对不上，locale 就不会复位。
+  local installed_lang="$LANG_CODE" locale_target
+  if [ -s "$version_dir/language" ]; then
+    installed_lang="$(tr -d '[:space:]' < "$version_dir/language")"
+  fi
+  case "$installed_lang" in
+    zh-CN) locale_target="zh-Hans" ;;
+    *) locale_target="zh-Hant" ;;
+  esac
   if [ -f "$version_dir/config-locales.json" ]; then
-    python3 - "$version_dir/config-locales.json" "$TARGET_LANG" <<'PY'
+    python3 - "$version_dir/config-locales.json" "$locale_target" \
+      "$HOME/.config/Claude/config.json" "$HOME/.config/Claude-3p/config.json" <<'PY'
 import json
 import sys
 
-path, target = sys.argv[1:3]
-with open(path, encoding="utf-8") as handle:
+saved_path, target, *configs = sys.argv[1:]
+with open(saved_path, encoding="utf-8") as handle:
     saved = json.load(handle)
-for config, original in saved.items():
+# 安装时两个 config 都不存在会得到空对象；此后再生成的 config 仍可能被本补丁
+# 写入过 locale，所以没有记录时对有该 locale 的现存 config 统一回退。
+targets = list(saved.items()) or [(path, None) for path in configs]
+for config, original in targets:
     try:
         with open(config, encoding="utf-8") as handle:
             data = json.load(handle)

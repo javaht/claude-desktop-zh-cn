@@ -59,7 +59,7 @@ macOS 双击 `install-mac.command`；Windows 双击 `install-windows.bat` 后按
 - 已安装 Claude Desktop
 - macOS 需要可用的 Python 3；脚本优先使用 `/usr/bin/python3`，不存在时从 `PATH` 查找 `python3`
 - Windows 需要系统自带的 Windows PowerShell（`powershell.exe`）；批处理入口会自动请求管理员权限
-- Linux 需要 Python 3。脚本会自动识别官方 deb 包（`/usr/lib/claude-desktop/resources`）与 claude-desktop-rpm（Fedora 等 RPM 发行版，将官方 deb 解包安装到 `~/.local/lib/claude-desktop`），也可用环境变量 `CLAUDE_RESOURCES` 直接指定资源目录、用 `CLAUDE_DESKTOP_PREFIX` 指定 claude-desktop-rpm 安装前缀。安装目录可写时不会调用 `sudo`，只有官方 deb 包等只读目录才需要。
+- Linux 需要 Python 3，Claude Desktop 需为 5.x。脚本会自动识别官方 deb 包（`/usr/lib/claude-desktop/resources`）与 claude-desktop-rpm（Fedora 等 RPM 发行版，将官方 deb 解包安装到 `~/.local/lib/claude-desktop`），也可用环境变量 `CLAUDE_RESOURCES` 直接指定资源目录、用 `CLAUDE_DESKTOP_PREFIX` 指定 claude-desktop-rpm 安装前缀。安装目录可写时不会调用 `sudo`，只有官方 deb 包等只读目录才需要。
 
 ## 使用方式
 
@@ -118,6 +118,8 @@ CC Switch skills 同步会扫描 `~/.cc-switch/skills` 下包含 `SKILL.md` 的�
 
 官方账号登录界面由 Claude 原生提供中文，脚本会把 `locale` 设为 `zh-Hans` / `zh-Hant`；本地打包前端的汉化主要作用于第三方 API（3p）模式。
 
+> Linux 以 Claude Desktop 5.x 为基准：5.x 的桌面壳层自带 `zh-Hans` / `zh-Hant` 词库。4.x 没有这两种壳层词库，脚本仍会安装中文前端，但菜单栏和官方账号页可能回落英文。
+
 也可以跳过菜单直接调用：`./install-linux.sh install zh-CN`（可选 `zh-TW` / `zh-HK`）或 `./install-linux.sh uninstall`。
 
 ### Linux 升级后恢复
@@ -129,7 +131,7 @@ git pull
 ./install-linux.sh install zh-CN
 ```
 
-原始前端备份保存在 `~/.local/state/claude-desktop-zh-cn/<版本>/`（遵循 `XDG_STATE_HOME`），不在应用目录内，因此 claude-desktop-rpm 的目录式升级不会连带删除。脚本会识别 Claude Desktop 的版本变化，自动丢弃旧版本备份并重新备份，不会把旧版前端装回去。若新版本改动了代码结构导致补丁没有生效，脚本会直接报错，请带上 Claude Desktop 版本号反馈。
+原始前端备份保存在 `~/.local/state/claude-desktop-zh-cn/<版本>/`（遵循 `XDG_STATE_HOME`），不在应用目录内，因此 claude-desktop-rpm 的目录式升级不会连带删除。脚本会识别 Claude Desktop 的版本变化，自动丢弃旧版本备份并重新备份，不会把旧版前端装回去；没有版本元数据时（例如 `CLAUDE_RESOURCES` 指向手工目录）用 `app.asar` 的摘要作为备份键，升级后同样会重新备份。若新版本改动了代码结构导致补丁没有生效，脚本会直接报错，请带上 Claude Desktop 版本号反馈。
 
 ## 文件说明
 
@@ -252,7 +254,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-AsarRoundTrip.ps1
 ## 注意事项
 
 - Claude Desktop 更新可能覆盖补丁。建议先恢复补丁，再更新 Claude Desktop，最后使用本项目最新版本重新安装。
-- Linux 支持官方 deb 包与 claude-desktop-rpm（Fedora 等 RPM 发行版）；AppImage、Flatpak、Snap 等安装方式的目录结构不同，暂不支持。Linux 脚本不做重签名，暂不包含前端 bundle 硬编码文本汉化和主进程菜单汉化。
+- Linux 支持官方 deb 包与 claude-desktop-rpm（Fedora 等 RPM 发行版），并以 Claude Desktop 5.x 为基准；4.x 可安装中文前端，但菜单栏与官方账号页可能回落英文。AppImage、Flatpak、Snap 等安装方式的目录结构不同，暂不支持。Linux 脚本不做重签名，暂不包含前端 bundle 硬编码文本汉化和主进程菜单汉化。
 - macOS 和 Windows 不再改写在线账号页面的 DOM 翻译；这部分已由 Claude 官方原生提供中文。Windows `4.29+` 只重建第三方模式所用前端所在的 `ion-dist.asar`，并就地改写 `app.asar` 补入桌面词库以汉化主进程菜单。Linux 脚本只重建 `ion-dist.asar`，不改写 `app.asar`；官方账号界面由 Claude 原生提供中文。
 
 ## Star History

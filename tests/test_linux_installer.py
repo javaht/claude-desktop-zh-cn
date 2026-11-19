@@ -46,6 +46,22 @@ def make_frontend(root: Path) -> None:
     (root / "index.html").write_text("<html></html>", encoding="utf-8")
 
 
+def make_desktop(resources: Path, native: str = "官方简体") -> bytes:
+    with tempfile.TemporaryDirectory() as tmp:
+        source = Path(tmp)
+        locale_dir = source / "resources" / "i18n"
+        locale_dir.mkdir(parents=True)
+        for locale, messages in {
+            "en-US": {"2bmlYpf1g0": "Device tools access", "2f4ipR1XJ3": "Allow once"},
+            "zh-Hans": {"2bmlYpf1g0": native},
+            "zh-Hant": {"2bmlYpf1g0": "官方繁體"},
+        }.items():
+            (locale_dir / f"{locale}.json").write_text(json.dumps(messages), encoding="utf-8")
+        archive = resources / "app.asar"
+        patcher.build_asar(source, archive)
+        return archive.read_bytes()
+
+
 @unittest.skipUnless(RUN_INSTALLER, "requires bash on Linux, run as a non-root user")
 class LinuxInstallerTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -62,7 +78,7 @@ class LinuxInstallerTests(unittest.TestCase):
         self.app = self.root / "app"
         self.resources = self.app / "resources"
         self.resources.mkdir(parents=True)
-        (self.resources / "app.asar").write_bytes(b"fake-app-asar")
+        self.original_desktop = make_desktop(self.resources)
         source = self.root / "source"
         make_frontend(source)
         patcher.build_asar(source, self.resources / "ion-dist.asar")
@@ -118,19 +134,47 @@ class LinuxInstallerTests(unittest.TestCase):
 
     # tests -----------------------------------------------------------------
 
+    def shell_catalog(self, lang: str) -> dict:
+        archive = self.resources / "app.asar"
+        data = archive.read_bytes()
+        size, _, header = patcher.read_asar_header(data, archive)
+        return json.loads(patcher.read_asar_entry(data, size, header, f"resources/i18n/{lang}.json"))
+
     def test_repeat_install_keeps_original_locale(self):
         """同一版本重复安装后卸载，locale 必须回到安装前的值。"""
         self.install("zh-CN")
         self.assertEqual(self.read_locale(), "zh-Hans")
+        self.assertEqual(self.shell_catalog("zh-Hans"), {"2bmlYpf1g0": "官方简体", "2f4ipR1XJ3": "仅允许一次"})
+        self.assertEqual(self.shell_catalog("en-US")["2f4ipR1XJ3"], "Allow once")
+        archive = self.resources / "app.asar"
+        first_install = archive.read_bytes()
+        self.install("zh-CN")
+        self.assertEqual(archive.read_bytes(), first_install)
 
         self.install("zh-TW")
         self.assertEqual(self.read_locale(), "zh-Hant")
+        self.assertEqual(self.shell_catalog("zh-Hant")["2f4ipR1XJ3"], "僅允許一次")
+        self.assertNotIn("2f4ipR1XJ3", self.shell_catalog("zh-Hans"))
 
         self.uninstall()
         self.assertEqual(self.read_locale(), "en-US")
+        self.assertEqual(archive.read_bytes(), self.original_desktop)
         self.assertEqual(
             (self.resources / "ion-dist.asar").read_bytes(), self.original_frontend
         )
+
+    def test_missing_desktop_backup_refuses_install_and_uninstall(self):
+        self.install()
+        archive = self.resources / "app.asar"
+        patched = archive.read_bytes()
+        (self.state_dirs()[0] / "app.asar").unlink()
+        for action in ("install", "uninstall"):
+            with self.subTest(action=action):
+                result = self.run_installer(action)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("找不到原始 app.asar 备份", result.stderr)
+                self.assertEqual(archive.read_bytes(), patched)
+                self.assertEqual(self.read_locale(), "zh-Hans")
 
     def test_uninstall_resets_config_created_after_install(self):
         """安装后才生成的 Claude-3p 配置也要恢复，不能残留 zh-Hans。"""
@@ -160,16 +204,18 @@ class LinuxInstallerTests(unittest.TestCase):
         self.install("zh-CN")
         self.assertEqual(len(self.state_dirs()), 1)
 
-        # 模拟应用升级：前端换回官方文件，版本元数据变化。
+        # 模拟应用升级：前端和壳层一起换包，版本元数据变化。
         (self.resources / "ion-dist.asar").write_bytes(self.original_frontend)
+        upgraded_desktop = make_desktop(self.resources, "升级后的官方简体")
         (self.app / ".deb-version").write_text("9.9.9\n", encoding="utf-8")
         self.install("zh-CN")
-
+        self.assertEqual(self.shell_catalog("zh-Hans")["2bmlYpf1g0"], "升级后的官方简体")
         self.assertEqual(len(self.state_dirs()), 1)
         self.assertEqual(self.read_locale(), "zh-Hans")
 
         self.uninstall()
         self.assertEqual(self.read_locale(), "en-US")
+        self.assertEqual((self.resources / "app.asar").read_bytes(), upgraded_desktop)
         self.assertEqual(
             (self.resources / "ion-dist.asar").read_bytes(), self.original_frontend
         )
@@ -179,7 +225,7 @@ class LinuxInstallerTests(unittest.TestCase):
         second = self.root / "app2"
         second_resources = second / "resources"
         second_resources.mkdir(parents=True)
-        (second_resources / "app.asar").write_bytes(b"fake-app-asar")
+        make_desktop(second_resources)
         (second_resources / "ion-dist.asar").write_bytes(self.original_frontend)
 
         self.install("zh-CN")
@@ -227,7 +273,7 @@ class LinuxInstallerTests(unittest.TestCase):
         ion_dist.mkdir(parents=True)
         make_frontend(ion_dist)
         (ion_dist / "i18n" / "zh-Hans.json").write_text("{}", encoding="utf-8")
-        (resources / "app.asar").write_bytes(b"fake-app-asar")
+        make_desktop(resources)
         self.use_resources(resources)
 
         result = self.run_installer("install", "zh-CN")

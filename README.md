@@ -49,7 +49,7 @@ macOS 双击 `install-mac.command`；Windows 双击 `install-windows.bat` 后按
 - macOS 和 Windows 的本地斜杠菜单支持“英文命令名 + 中文说明”，兼容三种中文变体；命令 ID、搜索与点击行为保持不变。
 - macOS 和 Linux 会合并当前 Claude 版本的英文语言文件与随包中文翻译；新版本新增但暂未翻译的字段保留英文，避免界面缺失文本。
 - Windows 安装脚本会备份并修改当前 Claude Desktop 的资源文件，卸载时从备份恢复。Claude `4.29+` 的前端改为 `ion-dist.asar` 后，脚本会解包、重打包并同步 `Claude.exe` 中对应的 ASAR 头哈希；同时会就地改写 `app.asar`（保留 `unpacked`/`executable` 等元数据，不解包重打包），把桌面词库补进并合并进 `resources/i18n`，让主进程菜单栏也显示中文。两者都会使原有 Authenticode 签名失效。
-- Linux 安装脚本会备份并重建安装目录下的 `ion-dist.asar`（Claude `4.29+`）或 `ion-dist` 目录，把中文词表合并进当前版本的英文词表并注册语言白名单；卸载时用备份按字节还原。备份存放在 XDG 状态目录，claude-desktop-rpm 的目录式升级不会连带删除；Claude Desktop 升级后会识别版本变化并重新备份。Linux 版 Electron 不校验 asar 完整性，因此不改写 `app.asar`，也不需要重签名。
+- Linux 安装脚本会备份并重建安装目录下的 `ion-dist.asar`（Claude `4.29+`）或 `ion-dist` 目录，把中文词表合并进当前版本的英文词表并注册语言白名单；卸载时用备份按字节还原。备份存放在 XDG 状态目录，claude-desktop-rpm 的目录式升级不会连带删除；Claude Desktop 升级后会识别版本变化并重新备份。有官方中文壳层词表时，还会备份 `app.asar` 并为所选词表补齐仓库已有的缺失译文，无需重签名。
 - macOS 安装前自动备份原始 `/Applications/Claude.app`。
 - 自动写入 Claude 用户配置，将语言设置为所选中文变体。
 
@@ -59,7 +59,7 @@ macOS 双击 `install-mac.command`；Windows 双击 `install-windows.bat` 后按
 - 已安装 Claude Desktop
 - macOS 需要可用的 Python 3；脚本优先使用 `/usr/bin/python3`，不存在时从 `PATH` 查找 `python3`
 - Windows 需要系统自带的 Windows PowerShell（`powershell.exe`）；批处理入口会自动请求管理员权限
-- Linux 需要 Python 3，以 Claude Desktop 5.x 为基准（4.x 仍可安装中文前端，但菜单栏与官方账号页可能回落英文）。脚本会自动识别官方 deb 包（`/usr/lib/claude-desktop/resources`）与第三方脚本 claude-desktop-rpm（Fedora 等 RPM 发行版，将官方 deb 解包安装到 `~/.local/lib/claude-desktop`），也可用环境变量 `CLAUDE_RESOURCES` 直接指定资源目录、用 `CLAUDE_DESKTOP_PREFIX` 指定 claude-desktop-rpm 安装前缀。安装目录可写时不会调用 `sudo`，只有官方 deb 包等只读目录才需要。
+- Linux 需要 Python 3 和 `flock`（util-linux），以 Claude Desktop 5.x 为基准（4.x 仍可安装中文前端，但菜单栏与官方账号页可能回落英文）。脚本会自动识别官方 deb 包（`/usr/lib/claude-desktop/resources`）与第三方脚本 claude-desktop-rpm（Fedora 等 RPM 发行版，将官方 deb 解包安装到 `~/.local/lib/claude-desktop`），也可用环境变量 `CLAUDE_RESOURCES` 直接指定资源目录、用 `CLAUDE_DESKTOP_PREFIX` 指定 claude-desktop-rpm 安装前缀。安装目录可写时不会调用 `sudo`，只有官方 deb 包等只读目录才需要。
 
 ## 使用方式
 
@@ -244,10 +244,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-AsarRoundTrip.ps1
   - `resources/frontend-zh-CN.json` / `frontend-zh-TW.json` / `frontend-zh-HK.json` -> `i18n/zh-Hans.json` 或 `i18n/zh-Hant.json`（以及 `.overrides.json`）
   - `resources/dynamic-*.json` -> `i18n/dynamic/zh-Hans.json` / `zh-Hant.json`
   - `resources/statsig-*.json` -> `i18n/statsig/zh-Hans.json` / `zh-Hant.json`
-- 解包 `ion-dist.asar`，给语言白名单加入 `zh-Hans` / `zh-Hant` 并重打包；更早版本的 `ion-dist` 目录布局则在副本上直接修改。打完补丁后会校验词表和语言白名单确实写入，结构不符时报错退出，而不是静默跳过。
-- 不改写 `app.asar`：Claude 5.x 的桌面壳层本身已自带官方 `zh-Hans` / `zh-Hant` 词库。Linux 版 Electron 不校验 asar 完整性，因此也不需要重签名。
+- 解包 `ion-dist.asar`，给语言白名单加入 `zh-Hans` / `zh-Hant`，用 `frontend-hardcoded-*.json` 汉化前端 bundle 中未走词表的界面文本，再重新打包。更早版本的 `ion-dist` 目录布局则在副本上修改。打完补丁后会校验词表和语言白名单确实写入，结构不符时报错退出。
+- Claude 5.x 的桌面壳层从 `app.asar` 读取官方 `zh-Hans` / `zh-Hant`。Linux 会备份原始归档，用 `desktop-*.json` 补齐所选中文词表缺失且在当前英文词表中存在的条目。已有官方译文、英文词表及其他归档条目均保留。旧版本没有对应的官方中文词表时，只安装前端补丁。
 - 写入 `~/.config/Claude/config.json` 与 `~/.config/Claude-3p/config.json`（文件存在时）的 `"locale"`，值为 `zh-Hans` 或 `zh-Hant`，并记录修改前的值。
-- 恢复 / 卸载时用同版本原始备份按字节还原 `ion-dist.asar`（或 `ion-dist` 目录），恢复用户 locale 原值并清理备份。若当前前端已含补丁但找不到同版本备份（通常是应用升级过），会提示先用 apt 或 claude-desktop-rpm 重装 Claude Desktop，避免把旧版前端装回去。
+- 恢复 / 卸载时从同版本原始备份按字节还原 `ion-dist.asar`（或 `ion-dist` 目录）和已补丁的 `app.asar`，恢复用户 locale 原值并清理备份。若检测到补丁却缺少匹配的原始备份，会提示用 apt 或 claude-desktop-rpm 重装 Claude Desktop。
 
 ## 卸载 / 恢复
 
@@ -256,8 +256,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-AsarRoundTrip.ps1
 ## 注意事项
 
 - Claude Desktop 更新可能覆盖补丁。建议先恢复补丁，再更新 Claude Desktop，最后使用本项目最新版本重新安装。
-- Linux 支持官方 deb 包与 claude-desktop-rpm（Fedora 等 RPM 发行版），并以 Claude Desktop 5.x 为基准；4.x 可安装中文前端，但菜单栏与官方账号页可能回落英文。AppImage、Flatpak、Snap 等安装方式的目录结构不同，暂不支持。Linux 脚本不做重签名，暂不包含前端 bundle 硬编码文本汉化和主进程菜单汉化。
-- macOS 和 Windows 不再改写在线账号页面的 DOM 翻译；这部分已由 Claude 官方原生提供中文。Windows `4.29+` 只重建第三方模式所用前端所在的 `ion-dist.asar`，并就地改写 `app.asar` 补入桌面词库以汉化主进程菜单。Linux 脚本只重建 `ion-dist.asar`，不改写 `app.asar`；官方账号界面由 Claude 原生提供中文。
+- Linux 支持官方 deb 包与 claude-desktop-rpm（Fedora 等 RPM 发行版），并以 Claude Desktop 5.x 为基准；4.x 可安装中文前端，但菜单栏与官方账号页可能回落英文。AppImage、Flatpak、Snap 等安装方式的目录结构不同，暂不支持。
+- macOS 和 Windows 不再改写在线账号页面的 DOM 翻译；这部分已由 Claude 官方原生提供中文。Windows `4.29+` 只重建第三方模式所用前端所在的 `ion-dist.asar`，并就地改写 `app.asar` 补入桌面词库以汉化主进程菜单。Linux 重建第三方前端 `ion-dist.asar`，并在可用时补全 `app.asar` 内的官方中文壳层词表。官方账号的在线界面由 Claude 原生提供中文。
 
 ## Star History
 

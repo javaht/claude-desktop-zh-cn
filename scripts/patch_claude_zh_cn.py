@@ -687,8 +687,7 @@ def asar_header_hash(header_string: str) -> str:
     return hashlib.sha256(header_string.encode("utf-8")).hexdigest()
 
 
-def _asar_integrity(path: Path) -> dict[str, Any]:
-    data = path.read_bytes()
+def asar_content_integrity(data: bytes) -> dict[str, Any]:
     blocks = [
         hashlib.sha256(data[offset : offset + ASAR_INTEGRITY_BLOCK_SIZE]).hexdigest()
         for offset in range(0, len(data), ASAR_INTEGRITY_BLOCK_SIZE)
@@ -743,6 +742,16 @@ def extract_asar(asar_path: Path, destination: Path, unpacked: set[str] | None =
         target.write_bytes(data[data_start + offset : data_start + offset + size])
 
 
+def encode_asar_header(header: dict[str, Any]) -> bytes:
+    header_bytes = json.dumps(header, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    payload_size = align4(4 + len(header_bytes))
+    return (
+        struct.pack("<IIII", 4, 4 + payload_size, payload_size, len(header_bytes))
+        + header_bytes
+        + b"\x00" * (payload_size - 4 - len(header_bytes))
+    )
+
+
 def build_asar(source_dir: Path, destination: Path, unpacked: set[str] | None = None) -> None:
     """Pack *source_dir* into an Electron-compatible ASAR archive."""
     unpacked = unpacked or set()
@@ -770,31 +779,19 @@ def build_asar(source_dir: Path, destination: Path, unpacked: set[str] | None = 
     offset = 0
     for path, relative, entry in file_entries:
         entry["offset"] = str(offset)
-        entry["integrity"] = _asar_integrity(path)
+        entry["integrity"] = asar_content_integrity(path.read_bytes())
         if relative in unpacked:
             # unpacked 文件不写入归档数据区，Electron 从同名 .unpacked 目录读取。
             entry["unpacked"] = True
             continue
         offset += int(entry["size"])
 
-    header_string = json.dumps(header, separators=(",", ":"), ensure_ascii=False)
-    header_bytes = header_string.encode("utf-8")
-    payload_size = align4(4 + len(header_bytes))
-    header_size = 4 + payload_size
-    prefix = struct.pack("<II", 4, header_size)
-    payload = (
-        struct.pack("<II", payload_size, len(header_bytes))
-        + header_bytes
-        + b"\x00" * (payload_size - 4 - len(header_bytes))
-    )
-
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = destination.with_name(destination.name + ".tmp")
     unpacked_root = Path(str(destination) + ".unpacked")
     try:
         with temporary.open("wb") as output:
-            output.write(prefix)
-            output.write(payload)
+            output.write(encode_asar_header(header))
             for path, relative, _entry in file_entries:
                 if relative in unpacked:
                     continue

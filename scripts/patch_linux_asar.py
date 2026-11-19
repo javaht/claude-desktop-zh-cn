@@ -4,7 +4,7 @@
 支持官方 deb 包与 claude-desktop-rpm（ajithakdev/claude-desktop-rpm，Fedora 等 RPM 发行版）共用的两种布局：
 
 * Claude 4.29+：前端打包在 ``resources/ion-dist.asar``，脚本先解包到临时目录，
-  合并词表、注册语言白名单后重新打包（Linux 的 Electron 不校验 asar 完整性，
+  合并词表、注册语言白名单并汉化硬编码文案后重新打包（Linux 的 Electron 不校验 asar 完整性，
   也没有 Info.plist，因此不需要重签名）。
 * 更早版本：``resources/ion-dist/`` 是普通目录，直接在临时副本上修改后输出。
 
@@ -182,6 +182,7 @@ def patch(resources: Path, lang: str, output: Path | None = None) -> None:
 
         merged_frontend = patcher.load_json(work / "i18n" / f"{target_code}.json")
         install_overrides(work, target_code, merged_frontend)
+        patcher.patch_hardcoded_frontend_strings(fake_app, source_code)
 
         hits = verify_work_dir(work, target_code)
         log(f"语言白名单已注册 {target_code}（{hits} 处）")

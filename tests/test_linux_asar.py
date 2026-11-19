@@ -56,7 +56,12 @@ class LinuxAsarPatcherTests(unittest.TestCase):
             make_frontend(source)
             key, value = first_overlay_entry("frontend-zh-CN.json")
             (source / "i18n" / "en-US.json").write_text(
-                json.dumps({key: "Source", "extra": "Extra"}), encoding="utf-8"
+                json.dumps({key: "Source", "extra": "Extra", "7m+xur1GM0": "File manager"}),
+                encoding="utf-8",
+            )
+            (source / "assets" / "shared-1.js").write_text(
+                WHITELIST_JS + 'const labels={gateway:"Gateway"};const provider="gateway";',
+                encoding="utf-8",
             )
             patcher.build_asar(source, resources / "ion-dist.asar")
 
@@ -89,6 +94,9 @@ class LinuxAsarPatcherTests(unittest.TestCase):
             script = patcher.read_asar_entry(data, header_size, header, "assets/index-abc.js").decode()
             self.assertIn('"zh-Hans"', script)
             self.assertEqual(script.count('"zh-Hans"'), 1)
+            self.assertEqual(catalog["7m+xur1GM0"], "文件管理器")
+            provider_script = patcher.read_asar_entry(data, header_size, header, "assets/shared-1.js").decode()
+            self.assertIn('const labels={gateway:"网关"};const provider="gateway";', provider_script)
 
     def test_patch_in_place_uses_staging_file(self):
         with tempfile.TemporaryDirectory() as tmp:

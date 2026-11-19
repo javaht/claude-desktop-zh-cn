@@ -5,6 +5,7 @@ They only run on Linux, with bash, as a non-root user.
 """
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import os
@@ -46,16 +47,18 @@ def make_frontend(root: Path) -> None:
     (root / "index.html").write_text("<html></html>", encoding="utf-8")
 
 
-def make_desktop(resources: Path, native: str = "官方简体") -> bytes:
+def make_desktop(resources: Path, native: str = "官方简体", *, include_traditional: bool = True) -> bytes:
     with tempfile.TemporaryDirectory() as tmp:
         source = Path(tmp)
         locale_dir = source / "resources" / "i18n"
         locale_dir.mkdir(parents=True)
-        for locale, messages in {
+        catalogs = {
             "en-US": {"2bmlYpf1g0": "Device tools access", "2f4ipR1XJ3": "Allow once"},
             "zh-Hans": {"2bmlYpf1g0": native},
-            "zh-Hant": {"2bmlYpf1g0": "官方繁體"},
-        }.items():
+        }
+        if include_traditional:
+            catalogs["zh-Hant"] = {"2bmlYpf1g0": "官方繁體"}
+        for locale, messages in catalogs.items():
             (locale_dir / f"{locale}.json").write_text(json.dumps(messages), encoding="utf-8")
         archive = resources / "app.asar"
         patcher.build_asar(source, archive)
@@ -132,6 +135,17 @@ class LinuxInstallerTests(unittest.TestCase):
     def use_resources(self, resources: Path) -> None:
         self.env["CLAUDE_RESOURCES"] = str(resources)
 
+    def desktop_state(self) -> Path:
+        return next(self.state_root.glob("desktop@*.json"))
+
+    def simulate_legacy_desktop(self) -> None:
+        archive = self.resources / "app.asar"
+        data = archive.read_bytes()
+        header_size, _, header = patcher.read_asar_header(data, archive)
+        header["claudeDesktopZhOriginalSha256"] = hashlib.sha256(self.original_desktop).hexdigest()
+        archive.write_bytes(patcher.encode_asar_header(header) + data[8 + header_size:])
+        self.desktop_state().unlink()
+
     # tests -----------------------------------------------------------------
 
     def shell_catalog(self, lang: str) -> dict:
@@ -148,6 +162,13 @@ class LinuxInstallerTests(unittest.TestCase):
         self.assertEqual(self.shell_catalog("en-US")["2f4ipR1XJ3"], "Allow once")
         archive = self.resources / "app.asar"
         first_install = archive.read_bytes()
+        _, _, original_header = patcher.read_asar_header(self.original_desktop, archive)
+        _, _, patched_header = patcher.read_asar_header(first_install, archive)
+        self.assertEqual(patched_header.keys(), original_header.keys())
+        self.assertEqual(json.loads(self.desktop_state().read_bytes()), {
+            "original": hashlib.sha256(self.original_desktop).hexdigest(),
+            "patched": [hashlib.sha256(first_install).hexdigest()],
+        })
         self.install("zh-CN")
         self.assertEqual(archive.read_bytes(), first_install)
 
@@ -156,12 +177,99 @@ class LinuxInstallerTests(unittest.TestCase):
         self.assertEqual(self.shell_catalog("zh-Hant")["2f4ipR1XJ3"], "僅允許一次")
         self.assertNotIn("2f4ipR1XJ3", self.shell_catalog("zh-Hans"))
 
+        state = self.desktop_state()
         self.uninstall()
         self.assertEqual(self.read_locale(), "en-US")
         self.assertEqual(archive.read_bytes(), self.original_desktop)
+        self.assertFalse(state.exists())
         self.assertEqual(
             (self.resources / "ion-dist.asar").read_bytes(), self.original_frontend
         )
+
+    def test_switch_to_language_without_desktop_catalog_clears_state(self):
+        original = make_desktop(self.resources, include_traditional=False)
+        archive = self.resources / "app.asar"
+        self.install()
+        state = self.desktop_state()
+        version_dir = self.state_dirs()[0]
+
+        self.install("zh-TW")
+        self.assertEqual(self.read_locale(), "zh-Hant")
+        self.assertEqual(archive.read_bytes(), original)
+        self.assertFalse(state.exists())
+        self.assertEqual(self.state_dirs(), [version_dir])
+
+        self.install()
+        self.assertEqual(self.desktop_state(), state)
+        self.uninstall()
+        self.assertEqual(archive.read_bytes(), original)
+
+    def test_legacy_header_patch_migrates_or_uninstalls(self):
+        archive = self.resources / "app.asar"
+        for action in ("install", "uninstall"):
+            with self.subTest(action=action):
+                self.install()
+                version_dir = self.state_dirs()[0]
+                self.simulate_legacy_desktop()
+                if action == "install":
+                    self.install("zh-TW")
+                    self.assertEqual(self.state_dirs(), [version_dir])
+                    self.assertEqual(self.shell_catalog("zh-Hant")["2f4ipR1XJ3"], "僅允許一次")
+                    data = archive.read_bytes()
+                    _, _, header = patcher.read_asar_header(data, archive)
+                    self.assertNotIn("claudeDesktopZhOriginalSha256", header)
+                    self.assertIn(hashlib.sha256(data).hexdigest(), json.loads(self.desktop_state().read_bytes())["patched"])
+                self.uninstall()
+                self.assertEqual(archive.read_bytes(), self.original_desktop)
+                self.assertFalse(list(self.state_root.glob("desktop@*.json")))
+
+    def test_interrupted_shell_replacement_keeps_current_patch_recognizable(self):
+        self.install()
+        archive = self.resources / "app.asar"
+        first_install = archive.read_bytes()
+        staging_path = self.resources / ".app.asar.zh-new"
+        staging_path.mkdir()
+        result = self.run_installer("install", "zh-TW")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(archive.read_bytes(), first_install)
+        transition = json.loads(self.desktop_state().read_bytes())
+        self.assertEqual(len(transition["patched"]), 2)
+        self.assertIn(hashlib.sha256(first_install).hexdigest(), transition["patched"])
+        shutil.rmtree(staging_path)
+
+        self.install("zh-TW")
+        self.assertIn(hashlib.sha256(archive.read_bytes()).hexdigest(), transition["patched"])
+        self.uninstall()
+        self.assertEqual(archive.read_bytes(), self.original_desktop)
+
+    def test_unrecognized_desktop_state_preserves_original_backup(self):
+        self.install()
+        archive = self.resources / "app.asar"
+        frontend = self.resources / "ion-dist.asar"
+        patched_desktop, patched_frontend = archive.read_bytes(), frontend.read_bytes()
+        backup = self.state_dirs()[0] / "app.asar"
+        state = self.desktop_state()
+        record = state.read_bytes()
+        mismatched = json.loads(record)
+        mismatched["patched"] = ["0" * 64]
+        for contents, error in (
+            (None, "无法确认当前 app.asar"),
+            (b"{}", "壳层补丁状态中的摘要无效"),
+            (json.dumps(mismatched).encode(), "无法确认当前 app.asar"),
+        ):
+            if contents is None:
+                state.unlink()
+            else:
+                state.write_bytes(contents)
+            for action in ("install", "uninstall"):
+                with self.subTest(contents=contents, action=action):
+                    result = self.run_installer(action)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn(error, result.stderr)
+                    self.assertEqual(archive.read_bytes(), patched_desktop)
+                    self.assertEqual(frontend.read_bytes(), patched_frontend)
+                    self.assertEqual(backup.read_bytes(), self.original_desktop)
+            state.write_bytes(record)
 
     def test_missing_desktop_backup_refuses_install_and_uninstall(self):
         self.install()

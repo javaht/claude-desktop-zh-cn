@@ -37,7 +37,8 @@ TARGET_CODES = {
     "zh-HK": "zh-Hant",
 }
 PATCHED_CODES = ("zh-Hans", "zh-Hant")
-DESKTOP_ORIGINAL_HASH = "claudeDesktopZhOriginalSha256"
+LEGACY_DESKTOP_HASH_KEY = "claudeDesktopZhOriginalSha256"
+SHA256_RE = re.compile(r"[0-9a-f]{64}")
 
 
 def log(message: str) -> None:
@@ -86,21 +87,61 @@ def merge_catalog(base_path: Path, overlay_path: Path, target_path: Path) -> tup
     return translated, len(base) - translated
 
 
-def desktop_status(archive: Path) -> tuple[str, str]:
+def desktop_status(archive: Path, state: Path | None = None) -> tuple[str, str, str]:
+    """Return the status, original SHA-256, and SHA-256 of the current archive."""
     data = archive.read_bytes()
     _, _, header = patcher.read_asar_header(data, archive)
-    if DESKTOP_ORIGINAL_HASH not in header:
-        return "clean", hashlib.sha256(data).hexdigest()
-    original = header[DESKTOP_ORIGINAL_HASH]
-    if not isinstance(original, str) or not re.fullmatch(r"[0-9a-f]{64}", original):
-        raise SystemExit(f"壳层补丁的原始文件摘要无效: {archive}")
-    return "patched", original
+    current = hashlib.sha256(data).hexdigest()
+    if LEGACY_DESKTOP_HASH_KEY in header:
+        original = header[LEGACY_DESKTOP_HASH_KEY]
+        if not isinstance(original, str) or not SHA256_RE.fullmatch(original):
+            raise SystemExit(f"旧版壳层补丁的原始文件摘要无效: {archive}")
+        return "patched", original, current
+
+    if state is not None:
+        try:
+            record = json.loads(state.read_bytes())
+        except FileNotFoundError:
+            return "clean", current, current
+        except (OSError, ValueError) as exc:
+            raise SystemExit(f"无法读取壳层补丁状态: {state}: {exc}") from exc
+        original = record.get("original") if isinstance(record, dict) else None
+        patched = record.get("patched") if isinstance(record, dict) else None
+        if (not isinstance(original, str) or not SHA256_RE.fullmatch(original)
+                or not isinstance(patched, list) or not 1 <= len(patched) <= 2
+                or any(not isinstance(digest, str) or not SHA256_RE.fullmatch(digest)
+                       or digest == original for digest in patched)):
+            raise SystemExit(f"壳层补丁状态中的摘要无效: {state}")
+        if current in patched:
+            return "patched", original, current
+
+    return "clean", current, current
+
+
+def record_desktop_patch(archive: Path, output: Path, state: Path, expected: str) -> None:
+    _, original, current = desktop_status(archive, state)
+    if current != expected:
+        raise SystemExit("安装期间 app.asar 已变化，请重新运行补丁。")
+    new_hash = hashlib.sha256(output.read_bytes()).hexdigest()
+    if new_hash == original:
+        raise SystemExit("壳层补丁输出与原始 app.asar 相同。")
+    # 替换归档之前同时识别当前补丁和新补丁，中断后可从任一侧继续。
+    record = {"original": original, "patched": sorted({current, new_hash} - {original})}
+    handle = tempfile.NamedTemporaryFile(mode="w", dir=state.parent, encoding="utf-8", delete=False)
+    staged = Path(handle.name)
+    try:
+        with handle:
+            json.dump(record, handle)
+            handle.write("\n")
+        os.replace(staged, state)
+    finally:
+        staged.unlink(missing_ok=True)
 
 
 def patch_desktop(archive: Path, lang: str, output: Path) -> None:
     data = archive.read_bytes()
     header_size, _, header = patcher.read_asar_header(data, archive)
-    if DESKTOP_ORIGINAL_HASH in header:
+    if LEGACY_DESKTOP_HASH_KEY in header:
         raise SystemExit("生成壳层补丁需要原始 app.asar")
 
     locale = TARGET_CODES[lang]
@@ -134,7 +175,6 @@ def patch_desktop(archive: Path, lang: str, output: Path) -> None:
     # 追加新词表并重指向该条目，其他文件的载荷、偏移和外置/可执行标记原样保留。
     entry.update(size=len(content), offset=str(len(data) - payload_start),
                  integrity=patcher.asar_content_integrity(content))
-    header[DESKTOP_ORIGINAL_HASH] = hashlib.sha256(data).hexdigest()
     with output.open("wb") as destination:
         destination.write(patcher.encode_asar_header(header))
         destination.write(memoryview(data)[payload_start:])
@@ -288,8 +328,11 @@ def main() -> int:
         action="store_true",
         help="仅检查当前前端是否已被本补丁修改，已修改时退出码为 0",
     )
-    action.add_argument("--desktop-status", action="store_true", help="输出 app.asar 状态和原始摘要")
+    action.add_argument("--desktop-status", action="store_true", help="输出 app.asar 状态、原始摘要和当前摘要")
     action.add_argument("--patch-desktop", action="store_true", help="从原始 app.asar 生成壳层补丁")
+    action.add_argument("--record-desktop-patch", type=Path, metavar="PATCHED_ASAR", help="记录即将安装的壳层补丁")
+    parser.add_argument("--desktop-state", type=Path, help="壳层补丁状态文件")
+    parser.add_argument("--expected-desktop-sha256", help="记录补丁前需要匹配的当前 app.asar 摘要")
     args = parser.parse_args()
 
     resources = args.resources.resolve()
@@ -297,7 +340,14 @@ def main() -> int:
         raise SystemExit(f"资源目录不存在: {resources}")
 
     if args.desktop_status:
-        print(*desktop_status(resources / "app.asar"))
+        print(*desktop_status(resources / "app.asar", args.desktop_state))
+        return 0
+
+    if args.record_desktop_patch is not None:
+        if args.desktop_state is None or not args.expected_desktop_sha256:
+            parser.error("--record-desktop-patch requires --desktop-state and --expected-desktop-sha256")
+        record_desktop_patch(resources / "app.asar", args.record_desktop_patch,
+                             args.desktop_state, args.expected_desktop_sha256)
         return 0
 
     if args.patch_desktop:

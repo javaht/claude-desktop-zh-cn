@@ -13,7 +13,7 @@
 #
 # 说明:
 #   - Claude 4.29+ 的前端在 ion-dist.asar 内；脚本解包、合并词表、注册语言白名单后重打包。
-#     桌面壳层词库使用官方自带的 zh-Hans / zh-Hant，不再改写 app.asar。
+#     桌面壳层词库以官方 zh-Hans / zh-Hant 为基础，补全 app.asar 中的缺失译文。
 #   - 以 Claude Desktop 5.x 为基准：4.x 没有 zh-Hans / zh-Hant 壳层词库，前端可汉化，
 #     但菜单栏与官方账号页可能回落英文。
 #   - 原始前端备份保存在 ~/.local/state/claude-desktop-zh-cn/<版本>@<安装路径摘要>/，
@@ -127,18 +127,20 @@ detect_resources() {
   APP_DIR="$(dirname "$APP_RES")"
 }
 
-digest_prefix() {
-  if command -v sha256sum >/dev/null 2>&1; then
-    sha256sum "$1" | cut -c1-16
-  elif command -v cksum >/dev/null 2>&1; then
-    cksum "$1" | cut -d' ' -f1
-  else
-    die "需要 sha256sum 或 cksum 生成备份键"
-  fi
+inspect_desktop() {
+  local status
+  status="$(python3 "$PATCHER" --resources "$APP_RES" --desktop-status)"
+  read -r DESKTOP_STATUS DESKTOP_HASH <<< "$status"
+}
+
+lock_installation() {
+  mkdir -p "$STATE_ROOT"
+  exec {install_lock_fd}>"$STATE_ROOT/install@$INSTALL_KEY.lock"
+  flock -n "$install_lock_fd" || die "该安装正在执行补丁安装或卸载: $APP_RES"
 }
 
 app_version() {
-  local version="" digest
+  local version=""
   if [ -s "$APP_DIR/.deb-version" ]; then
     version="$(tr -d '[:space:]' < "$APP_DIR/.deb-version")"
   elif command -v dpkg-query >/dev/null 2>&1; then
@@ -148,10 +150,8 @@ app_version() {
     printf '%s\n' "$version"
     return 0
   fi
-  # 没有版本元数据时（例如 CLAUDE_RESOURCES 指向手工目录）用 app.asar 摘要做备份键。
-  # 本脚本不改写 app.asar，应用升级换包后摘要必变，因此不会复用旧版本的备份。
-  digest="$(digest_prefix "$APP_RES/app.asar")" || exit 1
-  printf 'asar-%s\n' "$digest"
+  # 已汉化的 app.asar 记录原始摘要，使手工安装在补丁前后都找到同一份备份。
+  printf 'asar-%s\n' "${DESKTOP_HASH:0:16}"
 }
 
 # 4.x 的桌面壳层只有 zh-CN / zh-TW / zh-HK 词库，写入 zh-Hans / zh-Hant 后
@@ -182,6 +182,9 @@ stop_claude() {
     echo "Claude Desktop 正在运行，尝试关闭…"
     pkill -f "$pattern" || true
     sleep 2
+    if pgrep -f "$pattern" >/dev/null 2>&1; then
+      die "Claude Desktop 仍在运行，请完全退出后重试。"
+    fi
   fi
 }
 
@@ -253,6 +256,37 @@ backup_frontend() {
 
   printf '%s\n' "$VERSION" > "$version_dir/version"
   printf '%s\n' "$LANG_CODE" > "$version_dir/language"
+}
+
+require_desktop_backup() {
+  local version_dir="$1" status
+  [ -f "$version_dir/app.asar" ] || die "当前壳层已含补丁，但找不到原始 app.asar 备份。请重装 Claude Desktop。"
+  status="$(python3 "$PATCHER" --resources "$version_dir" --desktop-status)"
+  [ "$status" = "clean $DESKTOP_HASH" ] || die "app.asar 备份与当前壳层不匹配。请重装 Claude Desktop。"
+}
+
+prepare_desktop_patch() {
+  local version_dir="$1" output="$2" source="$APP_RES" current
+  if [ "$DESKTOP_STATUS" = patched ]; then
+    require_desktop_backup "$version_dir"
+    source="$version_dir"
+  fi
+  python3 "$PATCHER" --resources "$source" --patch-desktop --lang "$LANG_CODE" --output "$output"
+  if [ -f "$output" ] && [ "$DESKTOP_STATUS" = clean ]; then
+    cp -p "$APP_RES/app.asar" "$version_dir/app.asar.tmp"
+    current="$(python3 "$PATCHER" --resources "$APP_RES" --desktop-status)"
+    [ "$current" = "clean $DESKTOP_HASH" ] || die "安装期间 app.asar 已变化，请重新运行补丁。"
+    mv -f "$version_dir/app.asar.tmp" "$version_dir/app.asar"
+  elif [ ! -f "$output" ] && [ "$DESKTOP_STATUS" = patched ]; then
+    # 切换到没有官方词表的语言时，移除上一次安装的壳层补丁。
+    cp -p "$version_dir/app.asar" "$output"
+  fi
+}
+
+replace_desktop_archive() {
+  local source="$1"
+  privileged install -m 644 "$source" "$APP_RES/.app.asar.zh-new"
+  privileged mv -f "$APP_RES/.app.asar.zh-new" "$APP_RES/app.asar"
 }
 
 discard_stale_state() {
@@ -338,73 +372,91 @@ install_patch() {
   detect_resources
   detect_frontend_mode
   setup_privileges
-  VERSION="$(app_version)"
+  [ "$(id -u)" -eq 0 ] && die "请以普通用户运行本脚本（需要时脚本会自动调用 sudo）"
   INSTALL_KEY="$(install_key)"
+  lock_installation
+  inspect_desktop
+  VERSION="$(app_version)"
   echo "安装目录: $APP_DIR"
   echo "Claude 版本: $VERSION"
   echo "前端布局: $FRONTEND_MODE"
   warn_unsupported_version
 
-  [ "$(id -u)" -eq 0 ] && die "请以普通用户运行本脚本（需要时脚本会自动调用 sudo）"
   stop_claude
   check_staged_update
 
   local version_dir
   version_dir="$(state_dir)"
 
-  echo "[1/4] 检查并备份原始前端"
+  echo "[1/4] 检查备份并准备壳层词表"
   prepare_state_dir "$version_dir"
   migrate_locale_record "$version_dir"
   backup_frontend "$version_dir"
   save_config_locales
-  printf '%s\n' "$LANG_CODE" > "$(language_record)"
-  # 确认本版本已有备份之后才能清理旧版本：若当前前端仍是补丁版又缺备份，
-  # 先清理会删掉唯一可还原的文件，再报错就晚了。
-  discard_stale_state "$version_dir"
 
-  echo "[2/4] 生成中文前端（$LANG_CODE -> ${TARGET_LANG}）"
   local tmp
   tmp="$(mktemp -d)"
   trap "rm -rf '$tmp'" EXIT
+  prepare_desktop_patch "$version_dir" "$tmp/app.asar"
+
+  echo "[2/4] 生成中文前端（$LANG_CODE -> ${TARGET_LANG}）"
   mkdir -p "$tmp/resources"
   if [ "$FRONTEND_MODE" = "asar" ]; then
     cp -a "$version_dir/ion-dist.asar" "$tmp/resources/ion-dist.asar"
     python3 "$PATCHER" --resources "$tmp/resources" --lang "$LANG_CODE" --output "$tmp/ion-dist.asar"
-    echo "[3/4] 安装 ion-dist.asar"
-    privileged install -m 644 "$tmp/ion-dist.asar" "$APP_RES/.ion-dist.asar.zh-new"
-    privileged mv -f "$APP_RES/.ion-dist.asar.zh-new" "$APP_RES/ion-dist.asar"
   else
     tar -C "$tmp" -xf "$version_dir/ion-dist.tar"
     python3 "$PATCHER" --resources "$tmp" --lang "$LANG_CODE" --output "$tmp/ion-dist-patched"
-    echo "[3/4] 安装 ion-dist 目录"
-    privileged rm -rf "$tmp/ion-dist.zh-new"
+  fi
+
+  stop_claude
+  local status
+  status="$(python3 "$PATCHER" --resources "$APP_RES" --desktop-status)"
+  [ "$status" = "$DESKTOP_STATUS $DESKTOP_HASH" ] || die "安装期间 app.asar 已变化，请重新运行补丁。"
+  echo "[3/4] 安装前端和壳层词表"
+  if [ "$FRONTEND_MODE" = asar ]; then
+    privileged install -m 644 "$tmp/ion-dist.asar" "$APP_RES/.ion-dist.asar.zh-new"
+    privileged mv -f "$APP_RES/.ion-dist.asar.zh-new" "$APP_RES/ion-dist.asar"
+  else
+    privileged rm -rf "$APP_RES/ion-dist.zh-new"
     privileged cp -a "$tmp/ion-dist-patched" "$APP_RES/ion-dist.zh-new"
     privileged rm -rf "$APP_RES/ion-dist"
     privileged mv "$APP_RES/ion-dist.zh-new" "$APP_RES/ion-dist"
   fi
 
+  if [ -f "$tmp/app.asar" ]; then
+    replace_desktop_archive "$tmp/app.asar"
+  fi
+
   echo "[4/4] 写入用户配置 locale=$TARGET_LANG"
   write_locale "$TARGET_LANG"
+  printf '%s\n' "$LANG_CODE" > "$(language_record)"
+  discard_stale_state "$version_dir"
 
   echo
   echo "完成！请重新打开 Claude Desktop。"
-  echo "原始前端备份: $version_dir"
+  echo "原始资源备份: $version_dir"
 }
 
 uninstall_patch() {
   detect_resources
   detect_frontend_mode
   setup_privileges
-  VERSION="$(app_version)"
   INSTALL_KEY="$(install_key)"
+  lock_installation
+  inspect_desktop
+  VERSION="$(app_version)"
   stop_claude
 
   local version_dir
   version_dir="$(state_dir)"
   prepare_state_dir "$version_dir"
   migrate_locale_record "$version_dir"
+  if [ "$DESKTOP_STATUS" = patched ]; then
+    require_desktop_backup "$version_dir"
+  fi
 
-  echo "[1/3] 还原前端"
+  echo "[1/3] 还原前端和壳层词表"
   if [ "$FRONTEND_MODE" = "asar" ] && [ -f "$version_dir/ion-dist.asar" ]; then
     privileged install -m 644 "$version_dir/ion-dist.asar" "$APP_RES/.ion-dist.asar.zh-restore"
     privileged mv -f "$APP_RES/.ion-dist.asar.zh-restore" "$APP_RES/ion-dist.asar"
@@ -425,6 +477,10 @@ uninstall_patch() {
     echo "      请用 apt 或 claude-desktop-rpm（ajithakdev/claude-desktop-rpm）重装 Claude Desktop 以恢复官方文件。" >&2
   else
     echo "  未找到补丁备份，当前前端已是官方文件。"
+  fi
+  if [ "$DESKTOP_STATUS" = patched ]; then
+    replace_desktop_archive "$version_dir/app.asar"
+    echo "  已还原: app.asar"
   fi
 
   echo "[2/3] 恢复用户 locale"

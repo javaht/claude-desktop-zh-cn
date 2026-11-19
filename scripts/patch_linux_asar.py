@@ -8,8 +8,8 @@
   也没有 Info.plist，因此不需要重签名）。
 * 更早版本：``resources/ion-dist/`` 是普通目录，直接在临时副本上修改后输出。
 
-桌面壳层词库不改写：Claude 5.x 的 ``app.asar`` 已自带官方的 zh-Hans / zh-Hant
-词库，前端只需补上自己的词表并使用同一个语言代码。
+Claude 5.x 桌面壳层从 ``app.asar`` 加载官方 zh-Hans / zh-Hant 词表。
+壳层补丁保留官方译文，以仓库词表补齐缺失项。
 
 用法:
     python3 patch_linux_asar.py --resources <resources 目录> --lang zh-CN \
@@ -19,8 +19,10 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -35,6 +37,7 @@ TARGET_CODES = {
     "zh-HK": "zh-Hant",
 }
 PATCHED_CODES = ("zh-Hans", "zh-Hant")
+DESKTOP_ORIGINAL_HASH = "claudeDesktopZhOriginalSha256"
 
 
 def log(message: str) -> None:
@@ -81,6 +84,62 @@ def merge_catalog(base_path: Path, overlay_path: Path, target_path: Path) -> tup
             merged[key] = value
     patcher.save_json(target_path, merged)
     return translated, len(base) - translated
+
+
+def desktop_status(archive: Path) -> tuple[str, str]:
+    data = archive.read_bytes()
+    _, _, header = patcher.read_asar_header(data, archive)
+    if DESKTOP_ORIGINAL_HASH not in header:
+        return "clean", hashlib.sha256(data).hexdigest()
+    original = header[DESKTOP_ORIGINAL_HASH]
+    if not isinstance(original, str) or not re.fullmatch(r"[0-9a-f]{64}", original):
+        raise SystemExit(f"壳层补丁的原始文件摘要无效: {archive}")
+    return "patched", original
+
+
+def patch_desktop(archive: Path, lang: str, output: Path) -> None:
+    data = archive.read_bytes()
+    header_size, _, header = patcher.read_asar_header(data, archive)
+    if DESKTOP_ORIGINAL_HASH in header:
+        raise SystemExit("生成壳层补丁需要原始 app.asar")
+
+    locale = TARGET_CODES[lang]
+    base_entry = "resources/i18n/en-US.json"
+    locale_entry = f"resources/i18n/{locale}.json"
+    base_content = patcher.read_asar_entry(data, header_size, header, base_entry)
+    locale_content = patcher.read_asar_entry(data, header_size, header, locale_entry)
+    if base_content is None or locale_content is None:
+        log(f"当前版本没有可补全的官方 {locale} 壳层词表，跳过壳层补丁。")
+        return
+
+    base = json.loads(base_content)
+    native = json.loads(locale_content)
+    overlay = patcher.load_json(patcher.RESOURCES / f"desktop-{lang}.json")
+    if not all(isinstance(catalog, dict) for catalog in (base, native, overlay)):
+        raise SystemExit(f"壳层词表格式不受支持: {archive}")
+    additions = {
+        key: value
+        for key, value in overlay.items()
+        if key in base and not native.get(key)
+        and isinstance(value, str) and value.strip() and value != base[key]
+    }
+    if not additions:
+        log(f"官方 {locale} 壳层词表没有可补全的条目。")
+        return
+
+    content = json.dumps(native | additions, ensure_ascii=False, indent=2).encode("utf-8")
+    payload_start = 8 + header_size
+    entry = patcher.asar_entry(header, locale_entry)
+    assert entry is not None
+    # 追加新词表并重指向该条目，其他文件的载荷、偏移和外置/可执行标记原样保留。
+    entry.update(size=len(content), offset=str(len(data) - payload_start),
+                 integrity=patcher.asar_content_integrity(content))
+    header[DESKTOP_ORIGINAL_HASH] = hashlib.sha256(data).hexdigest()
+    with output.open("wb") as destination:
+        destination.write(patcher.encode_asar_header(header))
+        destination.write(memoryview(data)[payload_start:])
+        destination.write(content)
+    log(f"已补全 {locale} 桌面壳层词表: {len(additions)} 条")
 
 
 def install_overrides(work: Path, target_code: str, merged_frontend: dict) -> None:
@@ -223,16 +282,30 @@ def main() -> int:
     parser.add_argument("--resources", type=Path, required=True, help="Claude Desktop 的 resources 目录")
     parser.add_argument("--lang", choices=sorted(TARGET_CODES), help="要安装的仓库语言代码")
     parser.add_argument("--output", type=Path, help="输出路径（asar 文件；目录布局时为目录）")
-    parser.add_argument(
+    action = parser.add_mutually_exclusive_group()
+    action.add_argument(
         "--check-patched",
         action="store_true",
         help="仅检查当前前端是否已被本补丁修改，已修改时退出码为 0",
     )
+    action.add_argument("--desktop-status", action="store_true", help="输出 app.asar 状态和原始摘要")
+    action.add_argument("--patch-desktop", action="store_true", help="从原始 app.asar 生成壳层补丁")
     args = parser.parse_args()
 
     resources = args.resources.resolve()
     if not resources.is_dir():
         raise SystemExit(f"资源目录不存在: {resources}")
+
+    if args.desktop_status:
+        print(*desktop_status(resources / "app.asar"))
+        return 0
+
+    if args.patch_desktop:
+        source = resources / "app.asar"
+        if not args.lang or args.output is None or args.output.resolve() == source.resolve():
+            parser.error("--patch-desktop requires --lang and a separate --output path")
+        patch_desktop(source, args.lang, args.output)
+        return 0
 
     if args.check_patched:
         patched = is_patched(resources)

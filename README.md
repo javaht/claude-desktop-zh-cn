@@ -142,7 +142,7 @@ git pull
 - `install-linux.sh`：Linux 安装 / 恢复菜单入口（自动识别 deb 包与 claude-desktop-rpm）。
 - `scripts/install_windows.ps1`：Windows 汉化安装和卸载脚本。
 - `scripts/install_linux.sh`：Linux 汉化安装和卸载脚本；识别安装位置、按需提权，备份保存在 XDG 状态目录。`install-linux.sh` 的菜单会调用它，也可直接带参数调用。
-- `scripts/patch_linux_asar.py`：解包 `ion-dist.asar`（或复制 `ion-dist` 目录），把当前版本的英文词表与随包中文词表合并为 `zh-Hans` / `zh-Hant`，注册语言白名单后重新打包，并校验结构防止静默失败；不改写 `app.asar`。
+- `scripts/patch_linux_asar.py`：解包 `ion-dist.asar`（或复制 `ion-dist` 目录），把当前版本的英文词表与随包中文词表合并为 `zh-Hans` / `zh-Hant`，注册语言白名单后重新打包并校验结构。有官方中文壳层词表时，也会从原始 `app.asar` 生成壳层补丁。
 - `scripts/patch_claude_zh_cn.py`：真正执行补丁的 Python 脚本。
 - `resources/manifest.json` / `manifest-zh-TW.json` / `manifest-zh-HK.json`：语言包信息。
 - `resources/frontend-zh-CN.json` / `frontend-zh-TW.json` / `frontend-zh-HK.json`：Claude 前端界面中文翻译。
@@ -246,6 +246,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-AsarRoundTrip.ps1
   - `resources/statsig-*.json` -> `i18n/statsig/zh-Hans.json` / `zh-Hant.json`
 - 解包 `ion-dist.asar`，给语言白名单加入 `zh-Hans` / `zh-Hant`，用 `frontend-hardcoded-*.json` 汉化前端 bundle 中未走词表的界面文本，再重新打包。更早版本的 `ion-dist` 目录布局则在副本上修改。打完补丁后会校验词表和语言白名单确实写入，结构不符时报错退出。
 - Claude 5.x 的桌面壳层从 `app.asar` 读取官方 `zh-Hans` / `zh-Hant`。Linux 会备份原始归档，用 `desktop-*.json` 补齐所选中文词表缺失且在当前英文词表中存在的条目。已有官方译文、英文词表及其他归档条目均保留。旧版本没有对应的官方中文词表时，只安装前端补丁。
+- 壳层原包和补丁包的 SHA-256 保存在同一 XDG 状态根目录的 `desktop@<安装路径摘要>.json`。新补丁只更新目标 ASAR 条目，归档头无需额外的状态字段。旧补丁的内嵌摘要仍可用于匹配原始备份，重装补丁时会迁移到外部记录。安装和卸载请使用同一个 `XDG_STATE_HOME`，并保留其中的状态文件与备份。
 - 写入 `~/.config/Claude/config.json` 与 `~/.config/Claude-3p/config.json`（文件存在时）的 `"locale"`，值为 `zh-Hans` 或 `zh-Hant`，并记录修改前的值。
 - 恢复 / 卸载时从同版本原始备份按字节还原 `ion-dist.asar`（或 `ion-dist` 目录）和已补丁的 `app.asar`，恢复用户 locale 原值并清理备份。若检测到补丁却缺少匹配的原始备份，会提示用 apt 或 claude-desktop-rpm 重装 Claude Desktop。
 

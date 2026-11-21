@@ -15,7 +15,7 @@ description: 为 claude-desktop-zh-cn 项目补全 Claude Desktop 未汉化界�
 | 2. 硬编码词表 | `resources/frontend-hardcoded-zh-*.json`（`[源文, 译文]` 二元组列表） | 未走 i18n 的前端 bundle 文本（安装时静态替换 JS），同时并入在线 DOM 翻译映射 |
 | 3. DOM 动态正则 | `scripts/patch_claude_zh_cn.py` 的 `build_online_dom_translation_script()` 中 `G=[...]` 数组；Windows 同款模板在 `scripts/install_windows.ps1` | 动态文本：计数、日期、时间区间、带变量的句子。**两个引擎必须同步修改** |
 
-桌面壳层文本（极少）放 `resources/desktop-zh-*.json`。
+桌面壳层文本（极少）放 `resources/desktop-zh-*.json`。壳层托管的前端窗口（如 `/setup-desktop-3p` 第三方推理配置）从前端 chunk 渲染、文案却取壳层词表，这类窗口用到的前端消息放 `resources/desktop-extra-zh-*.json`，由 `scripts/extract_window_catalog.py` 从原版 `ion-dist.asar` 按路由入口的 import 闭包重新生成。
 
 ## 工作流
 
@@ -89,6 +89,8 @@ python3 -m py_compile scripts/patch_claude_zh_cn.py scripts/patch_linux_asar.py
 
 1. **源文 == 译文的条目会被静默丢弃**。`is_online_dom_translation_entry()` 要求 `source != target`，所以 "Pull requests" 这类想保留英文的词必须给出真译文（如"拉取请求"）。
 2. **含 `{` 或换行的文本进不了 DOM 映射**（长度上限 1000）。ICU 复数串如 `{count, plural, ...} will be permanently deleted` 只能写进硬编码词表（对本地 bundle 生效），在线 DOM 侧必须配正则：`[/^(\d+) items? will be permanently deleted\./, ...]`。
+   - 设置页“详细信息”里的长段 Markdown 由 `M("...")`/`y(...)` 这类**非 i18n 的文档辅助函数**包装（等同于 `{{text: "..."}}`），消息 id 词表对它无效，只能写进 `frontend-hardcoded-zh-*.json`。这类源文含反斜杠，会走进“直接替换”分支：**源文保留 JS 转义形式**（`\n`、`\``、`\"`、`\\u2026`），译文也必须用字面 `\n` 并转义原引号类型对应的定界符，不能写成真实换行。
+   - **中文译文里 `**粗体：**正文` 会让加粗失效**。设置页长文由 react-markdown（CommonMark）渲染，英文源文写成 `**Unset:** text`（收尾 `**` 后跟空格）才是合法的右界；译文若把全角标点放进粗体内、又紧跟汉字（`**未设置：**Chat`），收尾 `**` 既不右界、也不左界，星号会原样显示。**与英文/日文/韩文官方词表一致的做法是保留粗体内的标点，并在收尾 `**` 后补一个空格**：`**未设置：** Chat`（日文 `**機密情報は不要です。** 基本的な…`、韩文同理）。不要改成把冒号移出粗体（`**未设置**：Chat`），否则同一列表里会出现部分冒号加粗、部分不加粗。`verify_mapping.py` 的 `[bold]` 审计会按行配对 `**` 并套用 CommonMark 左右界规则，三地词表一起扫。
 3. **DOM 文本节点会在链接处被拆开**，整句静态映射匹配不上。处理方式见第 3 步的前导节点变体。
 4. **macOS 与 Windows 引擎必须同步**。只改 Python 不改 ps1，Windows 在线页面会漏翻；反之亦然。
 5. **不要往 `frontend-zh-*.json` 写 en-US.json 里不存在的 key**——合并时会被忽略并计入 `extra old keys`，验证要求该值恒为 0。

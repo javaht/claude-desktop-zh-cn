@@ -1084,6 +1084,22 @@ def install_desktop_locale(app: Path, lang_code: str) -> None:
     require_file(config["localizable_strings"])
 
     shutil.copy2(config["desktop_translation"], resources_dir / f"{lang_code}.json")
+    # 独立窗口（如第三方推理配置）由前端 chunk 渲染，但文案取自壳层词表；
+    # 这些条目沿用前端消息 id，壳层 en-US 词表里没有对应键，这里直接并入桌面词库。
+    extra_path = RESOURCES / f"desktop-extra-{resource_language_code(lang_code)}.json"
+    if extra_path.exists():
+        desktop_target = resources_dir / f"{lang_code}.json"
+        merged = load_json(desktop_target)
+        extra = load_json(extra_path)
+        additions = {
+            key: value
+            for key, value in extra.items()
+            if not merged.get(key) and isinstance(value, str) and value.strip()
+        }
+        if additions:
+            merged.update(additions)
+            save_json(desktop_target, merged)
+            print(f"Injected {len(additions)} window strings into desktop shell {lang_code}")
     for folder in [f"{lang_code}.lproj", f"{lang_code.replace('-', '_')}.lproj"]:
         out_dir = resources_dir / folder
         out_dir.mkdir(parents=True, exist_ok=True)

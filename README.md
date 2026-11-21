@@ -144,10 +144,12 @@ git pull
 - `scripts/install_linux.sh`：Linux 汉化安装和卸载脚本；识别安装位置、按需提权，备份保存在 XDG 状态目录。`install-linux.sh` 的菜单会调用它，也可直接带参数调用。
 - `scripts/patch_linux_asar.py`：解包 `ion-dist.asar`（或复制 `ion-dist` 目录），把当前版本的英文词表与随包中文词表合并为 `zh-Hans` / `zh-Hant`，注册语言白名单后重新打包并校验结构。有官方中文壳层词表时，也会从原始 `app.asar` 生成壳层补丁。
 - `scripts/patch_claude_zh_cn.py`：真正执行补丁的 Python 脚本。
+- `scripts/extract_window_catalog.py`：从原版 `ion-dist.asar` 定位 `/setup-desktop-3p` 页面 chunk，按静态 import 闭包收集消息 id，重新生成 `desktop-extra-zh-*.json`（Claude 升级后按需运行）。
 - `resources/manifest.json` / `manifest-zh-TW.json` / `manifest-zh-HK.json`：语言包信息。
 - `resources/frontend-zh-CN.json` / `frontend-zh-TW.json` / `frontend-zh-HK.json`：Claude 前端界面中文翻译。
 - `resources/frontend-hardcoded-zh-CN.json` / `frontend-hardcoded-zh-TW.json` / `frontend-hardcoded-zh-HK.json`：未走 i18n key 的前端硬编码文本映射，也用于在线账号页面的 DOM 翻译表。
 - `resources/desktop-zh-CN.json` / `desktop-zh-TW.json` / `desktop-zh-HK.json`：Claude 桌面壳层中文翻译。
+- `resources/desktop-extra-zh-CN.json` / `desktop-extra-zh-TW.json` / `desktop-extra-zh-HK.json`：桌面独立窗口（如第三方推理配置）的词表补充。这些窗口由前端 chunk 渲染，但文案取自壳层词表，条目沿用前端消息 id，安装时并入壳层词库。
 - `resources/Localizable.strings` / `Localizable-zh-TW.strings` / `Localizable-zh-HK.strings`：macOS 原生菜单中文资源。
 - `resources/statsig-zh-CN.json` / `statsig-zh-TW.json` / `statsig-zh-HK.json`：statsig i18n 兜底资源。
 - `resources/release.json`：安装入口用于检查 GitHub Releases 是否有新版的版本信息。
@@ -221,6 +223,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-AsarRoundTrip.ps1
 - 复制本仓库现有中文资源，不使用其他语言包项目里的 JSON：
   - `resources/frontend-zh-CN.json` / `frontend-zh-TW.json` / `frontend-zh-HK.json` -> `ion-dist\i18n\` 对应语言代码 `.json`
   - `resources/desktop-zh-CN.json` / `desktop-zh-TW.json` / `desktop-zh-HK.json` -> `resources\` 对应语言代码 `.json`，同时补进 `app.asar` 的 `resources/i18n\` 供主进程菜单读取
+  - `resources/desktop-extra-zh-CN.json` / `desktop-extra-zh-TW.json` / `desktop-extra-zh-HK.json` -> 合并进同一份桌面词库，供第三方推理配置等独立窗口读取
   - `resources/statsig-zh-CN.json` / `statsig-zh-TW.json` / `statsig-zh-HK.json` -> `ion-dist\i18n\statsig\` 对应语言代码 `.json`
 - 给前端语言白名单加入当前选择的中文变体。
 - 汉化前端 bundle 中未走 i18n JSON 的硬编码界面文本，例如侧边栏入口、配置页标签和模型选择项。

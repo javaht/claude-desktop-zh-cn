@@ -1037,6 +1037,24 @@ function Install-LanguageFiles {
     Copy-Item $Pack["Desktop"] (Join-Path $ResourcesPath "$Lang.json") -Force
     Write-Host "  installed resources/$Lang.json" -ForegroundColor Green
 
+    # 独立窗口（如第三方推理配置）由前端 chunk 渲染，但文案取自壳层词表；
+    # 这些条目沿用前端消息 id，壳层 en-US 词表里没有对应键，这里直接并入桌面词库。
+    $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
+    $desktopExtra = Join-Path (Split-Path -Parent $scriptDir) "resources\desktop-extra-$Lang.json"
+    if (Test-Path -LiteralPath $desktopExtra -PathType Leaf) {
+        $desktopTarget = Join-Path $ResourcesPath "$Lang.json"
+        try {
+            $extraMerged = Merge-LocaleJson ([IO.File]::ReadAllText($desktopTarget, [Text.Encoding]::UTF8)) ([IO.File]::ReadAllText($desktopExtra, [Text.Encoding]::UTF8))
+            if ($extraMerged.Changed -gt 0) {
+                [IO.File]::WriteAllText($desktopTarget, $extraMerged.Json, (New-Object System.Text.UTF8Encoding($false)))
+                Write-Host "  merged desktop-extra-$Lang.json into resources/$Lang.json ($($extraMerged.Changed) entries)" -ForegroundColor Green
+            }
+        }
+        catch {
+            Write-Host "  [提示] 独立窗口词库不是有效 JSON，跳过合并: $($_.Exception.Message)" -ForegroundColor DarkYellow
+        }
+    }
+
     Copy-Item $Pack["Statsig"] (Join-Path $statsigDir "$Lang.json") -Force
     Write-Host "  installed ion-dist/i18n/statsig/$Lang.json" -ForegroundColor Green
 

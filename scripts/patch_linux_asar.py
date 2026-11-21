@@ -156,7 +156,9 @@ def patch_desktop(archive: Path, lang: str, output: Path) -> None:
     base = json.loads(base_content)
     native = json.loads(locale_content)
     overlay = patcher.load_json(patcher.RESOURCES / f"desktop-{lang}.json")
-    if not all(isinstance(catalog, dict) for catalog in (base, native, overlay)):
+    extra_path = patcher.RESOURCES / f"desktop-extra-{lang}.json"
+    extra = patcher.load_json(extra_path) if extra_path.exists() else {}
+    if not all(isinstance(catalog, dict) for catalog in (base, native, overlay, extra)):
         raise SystemExit(f"壳层词表格式不受支持: {archive}")
     additions = {
         key: value
@@ -164,11 +166,19 @@ def patch_desktop(archive: Path, lang: str, output: Path) -> None:
         if key in base and not native.get(key)
         and isinstance(value, str) and value.strip() and value != base[key]
     }
-    if not additions:
+    # 独立窗口（如第三方推理配置）从前端 chunk 渲染，但文案取自壳层词表。
+    # 这些条目在壳层 en-US 词表里没有对应键，直接按消息 id 注入当前语言词表。
+    extras = {
+        key: value
+        for key, value in extra.items()
+        if not native.get(key)
+        and isinstance(value, str) and value.strip() and value != base.get(key)
+    }
+    if not additions and not extras:
         log(f"官方 {locale} 壳层词表没有可补全的条目。")
         return
 
-    content = json.dumps(native | additions, ensure_ascii=False, indent=2).encode("utf-8")
+    content = json.dumps(native | additions | extras, ensure_ascii=False, indent=2).encode("utf-8")
     payload_start = 8 + header_size
     entry = patcher.asar_entry(header, locale_entry)
     assert entry is not None
@@ -179,7 +189,7 @@ def patch_desktop(archive: Path, lang: str, output: Path) -> None:
         destination.write(patcher.encode_asar_header(header))
         destination.write(memoryview(data)[payload_start:])
         destination.write(content)
-    log(f"已补全 {locale} 桌面壳层词表: {len(additions)} 条")
+    log(f"已补全 {locale} 桌面壳层词表: {len(additions)} 条，注入独立窗口词条 {len(extras)} 条")
 
 
 def install_overrides(work: Path, target_code: str, merged_frontend: dict) -> None:

@@ -175,5 +175,29 @@ class LinuxAsarPatcherTests(unittest.TestCase):
             self.assertEqual(catalog[key], hk[key])
 
 
+class DesktopExtraCatalogTests(unittest.TestCase):
+    """独立窗口词库（desktop-extra-*）必须与前端词表逐条一致。"""
+
+    def test_extra_catalogs_match_frontend_and_each_other(self):
+        key_sets = {}
+        for lang in ("CN", "TW", "HK"):
+            extra = json.loads(
+                (patcher.RESOURCES / f"desktop-extra-zh-{lang}.json").read_text(encoding="utf-8")
+            )
+            frontend = json.loads(
+                (patcher.RESOURCES / f"frontend-zh-{lang}.json").read_text(encoding="utf-8")
+            )
+            desktop = json.loads(
+                (patcher.RESOURCES / f"desktop-zh-{lang}.json").read_text(encoding="utf-8")
+            )
+            self.assertTrue(extra, lang)
+            self.assertFalse(set(extra) & set(desktop), f"{lang} desktop-extra 与 desktop 重复")
+            for key, value in extra.items():
+                self.assertEqual(value, frontend.get(key), f"{lang} {key} 与前端词表不一致")
+            key_sets[lang] = set(extra)
+        self.assertEqual(key_sets["CN"], key_sets["TW"])
+        self.assertEqual(key_sets["CN"], key_sets["HK"])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -8,6 +8,9 @@
 检查内容（zh-CN / zh-TW / zh-HK 各跑一遍）:
   1. 每个短语都能在 build_online_translation_map() 中命中（即会被在线 DOM 翻译）。
   2. frontend-zh-*.json 中不存在 en-US.json 里没有的历史废弃键（应为 0）。
+  3. 三地 frontend-zh-*.json 与 frontend-hardcoded-zh-*.json 中的 `**粗体**`
+     都满足 CommonMark 左右界规则（设置页长文由 react-markdown 渲染，
+     `**未设置：**Chat` 这类写法不会加粗）。
 
 环境变量 CLAUDE_APP 可覆盖应用路径（默认 /Applications/Claude.app）。
 有未命中的短语时退出码为 1。
@@ -34,14 +37,77 @@ def collect_phrases() -> list[str]:
     raise SystemExit(2)
 
 
+_CJK_PUNCT = "：:。，、；！？…）】》」』”’"
+
+
+def _is_punct(ch: str) -> bool:
+    import re
+
+    return bool(re.match(r"[!-/:-@\[-`{-~　-〿＀-￯]", ch)) or ch in _CJK_PUNCT
+
+
+def _bad_bold_pairs(text: str) -> list[str]:
+    """Return fragments whose ** pair fails CommonMark flanking rules."""
+    import re
+
+    bad = []
+    for line in re.split(r"\\n|\n", text):
+        pos = [m.start() for m in re.finditer(r"\*\*", line)]
+        for k in range(0, len(pos) - 1, 2):
+            op, cl = pos[k], pos[k + 1]
+            ob = line[op - 1] if op > 0 else " "
+            oa = line[op + 2] if op + 2 < len(line) else " "
+            cb, ca = line[cl - 1], line[cl + 2] if cl + 2 < len(line) else " "
+
+            def left(b: str, a: str) -> bool:
+                if a in " \t":
+                    return False
+                return (b in " \t" or _is_punct(b)) if _is_punct(a) else True
+
+            def right(b: str, a: str) -> bool:
+                if b in " \t":
+                    return False
+                return (a in " \t" or _is_punct(a)) if _is_punct(b) else True
+
+            if not (left(ob, oa) and right(cb, ca)):
+                bad.append(line[max(0, op - 10) : cl + 12])
+    return bad
+
+
+def check_bold_flanking() -> bool:
+    """Audit ** bold markers in all three frontend/hardcoded catalogs."""
+    import json
+
+    ok = True
+    for name in ("frontend-zh", "frontend-hardcoded-zh"):
+        for lang in ("CN", "TW", "HK"):
+            path = ROOT / "resources" / f"{name}-{lang}.json"
+            data = json.loads(path.read_text(encoding="utf-8"))
+            values = (
+                [(k, v) for k, v in data.items() if isinstance(v, str)]
+                if isinstance(data, dict)
+                else [(f"#{i}", t) for i, pair in enumerate(data) for t in pair if isinstance(t, str)]
+            )
+            bad = [(k, frags) for k, v in values if "**" in v and (frags := _bad_bold_pairs(v))]
+            if bad:
+                ok = False
+                print(f"[bold] {path.name}: {len(bad)} value(s) with broken **bold**")
+                for k, frags in bad[:5]:
+                    print(f"  - {k}: {frags[0]!r}")
+    if ok:
+        print("[bold] all **bold** markers flank correctly")
+    return ok
+
+
 def main() -> int:
+    failed = not check_bold_flanking()
+
     app = Path(os.environ.get("CLAUDE_APP", "/Applications/Claude.app"))
     if not app.exists():
         print(f"Claude.app not found: {app}")
-        return 2
+        return 1 if failed else 2
 
     phrases = collect_phrases()
-    failed = False
     for lang in ["zh-CN", "zh-TW", "zh-HK"]:
         mapping = patcher.build_online_translation_map(app, lang)
         missing = [p for p in phrases if not mapping.get(p)]

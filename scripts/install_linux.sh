@@ -240,7 +240,7 @@ detect_frontend_mode() {
 # “原始文件”备份，卸载时就永远回不到官方版本了。
 ensure_original_possible() {
   if python3 "$PATCHER" --resources "$APP_RES" --check-patched >/dev/null 2>&1; then
-    die "当前前端已含补丁，但找不到同版本的原始备份。请先用 apt 或 claude-desktop-rpm（ajithakdev/claude-desktop-rpm）重装 Claude Desktop，再运行本脚本。"
+    die "当前前端已含补丁，但找不到同版本的原始备份。若刚换了用户或改过 XDG_STATE_HOME，请改用原用户、原环境重跑；否则请先用 apt 或 claude-desktop-rpm（ajithakdev/claude-desktop-rpm）重装 Claude Desktop，再运行本脚本。"
   fi
 }
 
@@ -289,14 +289,14 @@ check_desktop_origin() {
       return 0
     fi
   done
-  die "无法确认当前 app.asar 是原始文件还是壳层补丁。请恢复匹配的状态记录，或重装 Claude Desktop。"
+  die "无法确认当前 app.asar 是原始文件还是壳层补丁。安装与卸载请使用同一用户和同一个 XDG_STATE_HOME（默认 ~/.local/state）；若刚换了用户或改过该变量，请改用原用户、原环境重跑；状态记录已丢失时请重装 Claude Desktop。"
 }
 
 require_desktop_backup() {
   local version_dir="$1" status
-  [ -f "$version_dir/app.asar" ] || die "当前壳层已含补丁，但找不到原始 app.asar 备份。请重装 Claude Desktop。"
+  [ -f "$version_dir/app.asar" ] || die "当前壳层已含补丁，但找不到原始 app.asar 备份。若刚换了用户或改过 XDG_STATE_HOME，请改用原用户、原环境重跑；否则请重装 Claude Desktop。"
   status="$(python3 "$PATCHER" --resources "$version_dir" --desktop-status)"
-  [ "$status" = "clean $DESKTOP_HASH $DESKTOP_HASH" ] || die "app.asar 备份与当前壳层不匹配。请重装 Claude Desktop。"
+  [ "$status" = "clean $DESKTOP_HASH $DESKTOP_HASH" ] || die "app.asar 备份与当前壳层不匹配。请用原用户、原 XDG_STATE_HOME 重跑；无法恢复时请重装 Claude Desktop。"
 }
 
 prepare_desktop_patch() {

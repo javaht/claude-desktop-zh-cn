@@ -270,6 +270,9 @@ class LinuxInstallerTests(unittest.TestCase):
                     result = self.run_installer(action)
                     self.assertNotEqual(result.returncode, 0)
                     self.assertIn(error, result.stderr)
+                    if error.startswith("无法确认"):
+                        # 状态缺失时给出“用原用户/原 XDG_STATE_HOME 重跑”的指引
+                        self.assertIn("XDG_STATE_HOME", result.stderr)
                     self.assertEqual(archive.read_bytes(), patched_desktop)
                     self.assertEqual(frontend.read_bytes(), patched_frontend)
                     self.assertEqual(backup.read_bytes(), self.original_desktop)
@@ -285,6 +288,7 @@ class LinuxInstallerTests(unittest.TestCase):
                 result = self.run_installer(action)
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("找不到原始 app.asar 备份", result.stderr)
+                self.assertIn("XDG_STATE_HOME", result.stderr)
                 self.assertEqual(archive.read_bytes(), patched)
                 self.assertEqual(self.read_locale(), "zh-Hans")
 

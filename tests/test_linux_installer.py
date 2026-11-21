@@ -158,7 +158,11 @@ class LinuxInstallerTests(unittest.TestCase):
         """同一版本重复安装后卸载，locale 必须回到安装前的值。"""
         self.install("zh-CN")
         self.assertEqual(self.read_locale(), "zh-Hans")
-        self.assertEqual(self.shell_catalog("zh-Hans"), {"2bmlYpf1g0": "官方简体", "2f4ipR1XJ3": "仅允许一次"})
+        catalog = self.shell_catalog("zh-Hans")
+        self.assertEqual(catalog["2bmlYpf1g0"], "官方简体")
+        self.assertEqual(catalog["2f4ipR1XJ3"], "仅允许一次")
+        # 独立窗口词条（前端消息 id）也应注入壳层词表，供第三方推理配置窗口使用。
+        self.assertEqual(catalog["ySAk9qhogV"], "在资源管理器中显示")
         self.assertEqual(self.shell_catalog("en-US")["2f4ipR1XJ3"], "Allow once")
         archive = self.resources / "app.asar"
         first_install = archive.read_bytes()
@@ -266,6 +270,9 @@ class LinuxInstallerTests(unittest.TestCase):
                     result = self.run_installer(action)
                     self.assertNotEqual(result.returncode, 0)
                     self.assertIn(error, result.stderr)
+                    if error.startswith("无法确认"):
+                        # 状态缺失时给出“用原用户/原 XDG_STATE_HOME 重跑”的指引
+                        self.assertIn("XDG_STATE_HOME", result.stderr)
                     self.assertEqual(archive.read_bytes(), patched_desktop)
                     self.assertEqual(frontend.read_bytes(), patched_frontend)
                     self.assertEqual(backup.read_bytes(), self.original_desktop)
@@ -281,6 +288,7 @@ class LinuxInstallerTests(unittest.TestCase):
                 result = self.run_installer(action)
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("找不到原始 app.asar 备份", result.stderr)
+                self.assertIn("XDG_STATE_HOME", result.stderr)
                 self.assertEqual(archive.read_bytes(), patched)
                 self.assertEqual(self.read_locale(), "zh-Hans")
 

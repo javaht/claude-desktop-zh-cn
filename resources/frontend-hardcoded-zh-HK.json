@@ -16274,5 +16274,369 @@
   [
     "The app opens in third-party mode unless the user chose to sign in to Claude.ai at the login screen. `deploymentMode` at `3p`, or `disableDeploymentModeChooser`, removes that choice.\\n\\nWhen this key is unset, the app opens in standard mode unless another key, such as `bootstrapUrl`, asks for third-party mode.\\n\\nA misspelt value from a machine-wide MDM profile still asks for third-party mode, which then shows a configuration error. From the local configuration file or Windows policy under `HKCU`, it reads as unset.",
     "應用以第三方模式啟動，除非用户在登入界面選擇登入到 Claude.ai。將 `deploymentMode` 設為 `3p` 或開啟 `disableDeploymentModeChooser` 會移除該選項。\\n\\n未設定此鍵時，應用以標準模式啟動，除非其他配置項（如 `bootstrapUrl`）要求第三方模式。\\n\\n全機 MDM 配置檔案中拼寫錯誤的值仍會要求第三方模式，隨後會顯示配置錯誤。在本地配置檔案或 `HKCU` 下的 Windows 策略中，拼寫錯誤的值將被解讀為未設定。"
+  ],
+  [
+    "It is not an access control, because anyone can edit a zip.",
+    "這不是存取控制，因為任何人都可以編輯 zip 檔案。"
+  ],
+  [
+    "Only a self-hosted session host acts on this setting. For sessions on the device it has no effect.",
+    "只有自託管會話主機才會應用此設定。對於設備上的會話，它不起作用。"
+  ],
+  [
+    "Only a self-hosted session host that reads this setting acts on it. On a device it has no effect. Deleted items cannot be brought back.",
+    "只有讀取此設定的自託管會話主機才會應用它。在設備上，它不起作用。已刪除的項目無法恢復。"
+  ],
+  [
+    "Not covered: user-started recordings, Claude in Chrome, the built-in browser, Claude Code in a terminal, local MCP servers and desktop extensions.\n\nMDM profile only. Changes apply at restart. An unreadable profile also turns computer use off.",
+    "不涵蓋：用户發起的錄製、Claude in Chrome、內置瀏覽器、終端中的 Claude Code、本地 MCP 伺服器和桌面擴展。\\n\\n僅限 MDM 配置檔案。更改在重啟後生效。配置檔案無法讀取時也會關閉計算機使用。"
+  ],
+  [
+    "The zip can contain sessions, projects and their files, memory, scheduled tasks, saved skills, uploaded plugins, some app preferences, and local MCP server commands. Passwords or API keys in them are included. Treat it as sensitive data.\\n\\nThis setting does not cover the `/export` command.",
+    "zip 可包含會話、項目及其檔案、記憶、計劃任務、已儲存的技能、已上傳的插件、部分應用偏好設定以及本地 MCP 伺服器命令。其中的密碼或 API 密鑰也會包含在內。請將其視為敏感數據。\\n\\n此設定不涵蓋 `/export` 命令。"
+  ],
+  [
+    "A Git marketplace needs a full commit SHA as its `ref`. A `url` marketplace needs `manifestSha256`, and the archive\\u2019s `sha256` in its `marketplace.json`, unless your gateway\\u2019s or bootstrap server\\u2019s origin serves it. Without them a plugin is not offered. One kept in another repository never is.",
+    "Git 市場需要完整的提交 SHA 作為其 `ref`。`url` 市場需要 `manifestSha256`，以及存檔在其 `marketplace.json` 中的 `sha256`，除非該存檔由你的網關或 bootstrap 伺服器的源站提供。缺少這些信息時，不會提供插件。儲存在其他倉庫中的插件則永遠不會被提供。"
+  ],
+  [
+    "Off unless set to `true`. Set it in the session host's policy document: a value in an MDM profile has no effect. It does nothing until the session host is set up to accept the add-in's sign-in.\\n\\nThe add-in keeps its own copy of the conversation on the user's device. The session host's retention and tool rules do not cover that copy.",
+    "除非設為 `true`，否則為關閉狀態。請在會話主機的策略文檔中設定：MDM 配置檔案中的值不起作用。在會話主機設定為接受該加載項的登入之前，它不會產生任何效果。\\n\\n該加載項會在用户設備上保留一份自己的對話副本。會話主機的保留策略和工具規則不涵蓋該副本。"
+  ],
+  [
+    "If the profile uses Claude Console sign-in with the Anthropic (Claude API) provider, this list can limit that sign-in too. It does so only where Enforce Required organization for Claude Console sign-in is on in the same profile. Otherwise an unlisted organization\\u2019s sign-in still works, with a configuration warning that names it. A blank value counts as unset.",
+    "如果配置檔案使用 Anthropic（Claude API）提供方的 Claude Console 登入，此列表也可以限制該登入。僅當同一配置檔案中的“對 Claude Console 登入強制要求指定組織”已開啟時，才會如此。否則，未列出的組織仍可登入，同時會出現一條指明該組織的配置警告。空值視為未設定。"
+  ],
+  [
+    "**Session host:** set it in the host's policy document, and update the host first. Hooks in the hook files of your organization's marketplace plugins keep running. Hooks declared in a skill stop.\n\n**Device:** it covers Cowork, Chat and Code sessions, and the worktree hooks that the app runs. Every plugin's hooks stop. Where the device's Claude Code managed settings apply, sessions follow those instead.",
+    "**會話主機：** 請在主機的策略文檔中設定，並先更新主機。你組織的市場插件的鈎子檔案中的鈎子會繼續運行。技能中聲明的鈎子會停止。\\n\\n**設備：** 它涵蓋 Cowork、Chat 和 Code 會話，以及應用運行的工作樹鈎子。所有插件的鈎子都會停止。在設備的 Claude Code 託管設定適用的地方，會話改為遵循這些設定。"
+  ],
+  [
+    "- **Unset:** Chat and Cowork use 180 seconds, and the app sets no timeout in Code. Calls to user-added local servers are also limited to 60 seconds.\\n- **Set:** the value applies in Code too.\\n- **One server:** `toolTimeoutSec` on its `managedMcpServers` entry replaces this value for that server.\\n- **Shell tool in Chat and Cowork:** a command can run for up to 600 seconds, or this value if it is set and lower.",
+    "- **未設定：** Chat 和 Cowork 使用 180 秒，應用在 Code 中不設定超時。對用户新增的本地伺服器的調用也限制為 60 秒。\\n- **已設定：** 該值也適用於 Code。\\n- **單個伺服器：** 其 `managedMcpServers` 條目中的 `toolTimeoutSec` 會為該伺服器替換此值。\\n- **Chat 和 Cowork 中的 Shell 工具：** 命令最長可運行 600 秒；如果已設定此值且該值更低，則以該值為限。"
+  ],
+  [
+    "- **Entries:** `{\"serverUrl\": \"https://*.example.com/*\"}`. No other entry form is read.\\n- **Once set:** no entry allows a plugin\\'s local (`stdio`) server, and servers that a user or a project configures for Claude Code are not connected.\\n- **`policy-only`:** a `managedMcpServers` entry with that `transport` does not allow its server. List the server\\'s own URL here too.\\n\\nClaude Code\\'s own managed settings win by default.",
+    "- **條目：** `{\"serverUrl\": \"https://*.example.com/*\"}`。不會讀取其他形式的條目。\\n- **一旦設定：** 任何條目都不會允許插件的本地（`stdio`）伺服器，用户或項目為 Claude Code 配置的伺服器也不會連接。\\n- **`policy-only`：** `transport` 為該值的 `managedMcpServers` 條目不會允許其伺服器。請在此處也列出伺服器自身的 URL。\\n\\n預設情況下，Claude Code 自身的託管設定優先。"
+  ],
+  [
+    "Set it in the session host's policy document, not in MDM. An older host ignores it.\\n\\nOff also blocks copies from a connected folder into a session. Not covered: memory and instructions that users write or upload, skills (`skillCreationEnabled`), and files already in a session. To stop Claude from listing or writing to connected folders and calling local MCP servers, use the `remote-devices` entry of `managedMcpServers`.",
+    "請在會話主機的策略文檔中設定，而不要在 MDM 中設定。較舊的主機會忽略它。\\n\\n關閉後還會阻止從連接的檔案夾複製內容到會話中。不涵蓋：用户編寫或上傳的記憶和指令、技能（`skillCreationEnabled`）以及會話中已有的檔案。要阻止 Claude 列出或寫入連接的檔案夾以及調用本地 MCP 伺服器，請使用 `managedMcpServers` 的 `remote-devices` 條目。"
+  ],
+  [
+    "Sessions run here, not on the device, where local MCP servers can still start. The host's policy, not the device, sets most other keys.\\n\\n`inferenceCredentialKind` and its keys sign the device in here. The answer from `bootstrapUrl` replaces this address.\\n\\nFor macOS and Windows to get updates from here (`/api/desktop/`), set this address or `bootstrapUrl` in machine-wide device management. None arrives until the host offers one.",
+    "會話在此處運行，而不是在設備上運行；在設備上，本地 MCP 伺服器仍可啟動。大多數其他鍵由主機的策略設定，而不是由設備設定。\\n\\n`inferenceCredentialKind` 及其鍵會在此處為設備完成登入。來自 `bootstrapUrl` 的應答會替換此地址。\\n\\n要讓 macOS 和 Windows 從此處（`/api/desktop/`）獲取更新，請在整機設備管理中設定此地址或 `bootstrapUrl`。在主機提供更新之前，不會收到任何更新。"
+  ],
+  [
+    "- **Form:** `data:image/png;base64,` and then the file's base64 text. Line breaks are ignored. A web address is not read.\\n- **Size:** up to 32,768 characters, a file of about 24 KB, and 1,024 pixels a side.\\n- **Shape:** a picture that is not square is cropped.\\n- **MDM:** alone in a profile, or with app-behavior keys only, it keeps other settings. Such a profile has the costs listed under `organizationAnnouncement`: read them first.",
+    "- **形式：** `data:image/png;base64,`，然後是檔案的 base64 文本。換行符會被忽略。不會讀取網址。\\n- **大小：** 最多 32,768 個字符，約 24 KB 的檔案，以及每邊 1,024 像素。\\n- **形狀：** 非正方形的圖片會被裁剪。\\n- **MDM：** 若單獨位於配置檔案中，或僅與應用行為鍵一起使用，它會保留其他設定。此類配置檔案會承擔 `organizationAnnouncement` 下所列的代價：請先閲讀這些內容。"
+  ],
+  [
+    "MDM profile only. Only a machine-wide `false` (`HKLM`) allows WSL sessions on a device with any managed configuration.\\n\\nUnder `allowedWorkspaceFolders`, a WSL session needs bubblewrap and socat in the distro, and its shell commands can read the Windows drives under `/mnt`. Claude Code's server-managed settings, among others, can remove its sandbox and `blockReadsOutsideWorkingDirectories`: see the Path help of `allowedWorkspaceFolders`.",
+    "僅限 MDM 配置檔案。只有在整機範圍內設為 `false`（`HKLM`）時，才允許在帶有任何託管配置的設備上使用 WSL 會話。\\n\\n在 `allowedWorkspaceFolders` 下，WSL 會話需要在發行版中安裝 bubblewrap 和 socat，並且其 shell 命令可以讀取 `/mnt` 下的 Windows 驅動器。除其他設定外，Claude Code 中由伺服器管理的設定可以移除其沙盒和 `blockReadsOutsideWorkingDirectories`：請參閲 `allowedWorkspaceFolders` 的“路徑”幫助。"
+  ],
+  [
+    "Turns on the full export, and the import of another device\\u2019s export, even with `enabled` off. It turns on no other import. The zip is not encrypted, and it includes any passwords or API keys in the data. No effect while `allowedOrganizationUuids` is set, or where sessions do not run on this computer.\\n\\nWith `otlpEndpoint` set and `otlpDesktopLogLevel` not `off`, your collector gets one record for each saved export and each finished import of one.",
+    "開啟完整導出，以及導入其他設備的導出內容，即使 `enabled` 處於關閉狀態。它不會開啟其他導入功能。zip 未加密，並且包含數據中的任何密碼或 API 密鑰。設定 `allowedOrganizationUuids` 期間，或會話不在此計算機上運行時，此設定無效。\\n\\n在設定了 `otlpEndpoint` 且 `otlpDesktopLogLevel` 不為 `off` 時，你的收集器會為每次儲存的導出以及每次完成導入的導出各收到一條記錄。"
+  ],
+  [
+    "Before fetching a page, Claude Code's WebFetch tool asks `api.anthropic.com` whether the domain is on Anthropic's content blocklist.\\n\\n- **Off:** where the host is reachable, every fetched hostname is sent to Anthropic. Where it is blocked, every WebFetch in Code sessions fails.\\n- **On:** Code sessions fetch without the lookup and never contact that host for it.\\n\\nWhere `disabledBuiltinTools` lists the tool name `WebFetch`, no lookup is made, whatever this key says.",
+    "在獲取頁面之前，Claude Code 的 WebFetch 工具會向 `api.anthropic.com` 查詢該域名是否在 Anthropic 的內容阻止列表中。\\n\\n- **關閉：** 在主機可存取的情況下，每個獲取的主機名都會發送給 Anthropic。在主機被阻止的情況下，Code 會話中的每次 WebFetch 都會失敗。\\n- **開啟：** Code 會話獲取時無需查詢，也絕不會為此聯繫該主機。\\n\\n如果 `disabledBuiltinTools` 中列出了工具名稱 `WebFetch`，則無論此鍵如何設定，都不會進行查詢。"
+  ],
+  [
+    "When off, persistent approvals that users saved earlier in Chat and Cowork stop applying. Scheduled tasks also stop offering and reusing them, unless `mcpScheduledTaskApprovalLifetimeDays` is 1 or more. In the built-in browser, Claude asks again to read or act on a saved private-network site, but still opens it unasked.\\n\\nIn Code, any allow rule in a user's or a project's Claude Code settings keeps allowing a tool until it is removed. So do hooks in its settings or plugins.",
+    "關閉後，用户在 Chat 和 Cowork 中先前儲存的持久批准將不再適用。計劃任務也不再提供和複用這些批准，除非 `mcpScheduledTaskApprovalLifetimeDays` 為 1 或更大。在內置瀏覽器中，Claude 會重新請求讀取或操作已儲存的私有網絡站點，但仍會在未詢問的情況下打開該站點。\\n\\n在 Code 中，用户或項目的 Claude Code 設定中的任何允許規則會持續允許某個工具，直到該規則被移除。其設定或插件中的鈎子也是如此。"
+  ],
+  [
+    "On third-party deployments, `false` covers `.mcpb` bundles and plugins from every marketplace, your organization's included. In Code there, it also stops a user's or a project's own local MCP servers. Plugins in the org-plugins directory on the device are not affected.\\n\\nOther plugin code, such as hooks and language servers, is not covered.\\n\\nA `false` from an MDM profile limits local `managedMcpServers` entries to those in that same profile, exactly as written there.\\n\\nClaude Code's own managed settings win by default.",
+    "在第三方部署中，`false` 會涵蓋 `.mcpb` 捆綁包以及來自每個市場的插件，包括你組織的市場。在 Code 中，它還會阻止用户或項目自己的本地 MCP 伺服器。設備上 org-plugins 目錄中的插件不受影響。\\n\\n其他插件代碼（例如鈎子和語言伺服器）不在涵蓋範圍內。\\n\\n來自 MDM 配置檔案的 `false` 會將本地 `managedMcpServers` 條目限制為同一配置檔案中的條目，並完全按照該檔案中的書寫內容執行。\\n\\n預設情況下，Claude Code 自身的託管設定優先。"
+  ],
+  [
+    "Actions your provider reviews itself don't use this model. `env.CLAUDE_CODE_AUTO_MODE_MODEL` in a computer's machine-wide Claude Code managed settings replaces it there.\\n\\nUse your provider's ID for an Anthropic model. If you set `inferenceModels`, also list the ID there and in any group's model list. If your provider refuses the ID, the built-in safety check blocks every action it reviews.\\n\\nDon't use Claude Opus 5, Sonnet 5.5 or Opus 5.5: they can't do this review. Weaker models may allow what the default would block.",
+    "你的提供方自行審查的操作不會使用此模型。計算機整機級 Claude Code 託管設定中的 `env.CLAUDE_CODE_AUTO_MODE_MODEL` 會在此處替換它。\\n\\n對於 Anthropic 模型，請使用你的提供方的 ID。如果你設定了 `inferenceModels`，也請在該處以及任何組的模型列表中列出該 ID。如果你的提供方拒絕該 ID，內置安全檢查會阻止它審查的每一項操作。\\n\\n不要使用 Claude Opus 5、Sonnet 5.5 或 Opus 5.5：它們無法執行此審查。較弱的模型可能會放行預設設定本應阻止的操作。"
+  ],
+  [
+    "With this on:\n\n- Artifacts still render locally.\n- Excel files in the Code tab preview only through Claude\\u2019s workspace (the local VM).\n- Spellcheck underlines are off on Linux.\n- The Code tab\\u2019s pull request bar stops updating or adding GitLab merge requests and Gerrit changes. GitHub pull requests still show. Claude Code may still check GitLab or Gerrit with your command-line sign-ins unless Block nonessential telemetry is on.\n\nWindows still downloads a dictionary for a language it cannot check natively. This key does not stop that download.",
+    "開啟此項後：\\n\\n- Artifacts 仍會在本地渲染。\\n- Code 選項卡中的 Excel 檔案僅通過 Claude 的工作區（本地 VM）預覽。\\n- Linux 上的拼寫檢查下劃線會關閉。\\n- Code 選項卡的拉取請求欄會停止更新或新增 GitLab 合併請求和 Gerrit 更改。GitHub 拉取請求仍會顯示。除非“阻止非必要診斷數據”已開啟，否則 Claude Code 仍可能使用你的命令行登入信息檢查 GitLab 或 Gerrit。\\n\\nWindows 仍會下載其無法原生檢查的語言的詞典。此鍵不會阻止該下載。"
+  ],
+  [
+    "- **Settings stop from:** the device, a gateway (its Code tab rules too) and Anthropic's servers.\\n- **No bypass:** `disableBypassPermissionsMode`.\\n- **Cleanup:** Claude Code's own stops, its 30-day default too: set this app's periods. Code: without terminals, plans, pastes and shell snapshots are never cleaned.\\n- **`both` only:** browser policy, skill scans, Setup's Test.\\n- **Where:** this app's machine-level profile.\\n- **Not a boundary:** unless `off`, a user's own script can start this app's Claude Code without managed settings.\\n- **SSH:** needs `sshHostAllowlist`. Hosts and WSL keep their own.",
+    "- **設定停止生效的來源：** 設備、網關（包括其 Code 選項卡規則）以及 Anthropic 的伺服器。\\n- **不可繞過：** `disableBypassPermissionsMode`。\\n- **清理：** Claude Code 自身的清理會停止，包括其預設的 30 天期限：請設定此應用的期限。Code：除終端外，計劃、粘貼內容和 shell 快照永遠不會被清理。\\n- **僅 `both`：** 瀏覽器策略、技能掃描、Setup 的測試。\\n- **位置：** 此應用的整機級配置檔案。\\n- **並非邊界：** 除非為 `off`，否則用户自己的腳本可以在沒有託管設定的情況下啟動此應用的 Claude Code。\\n- **SSH：** 需要 `sshHostAllowlist`。主機和 WSL 會保留各自的設定。"
+  ],
+  [
+    "Entries use the same tool names and rules as `disabledBuiltinTools`, with the same limits. Command rules are not a security boundary, and `Bash(\\u2026)` rules do not cover `PowerShell`.\\n\\n`ask` also turns off the user's saved \\u201Calways allow\\u201D choices for that tool. A scheduled task in Cowork waits at the prompt.\\n\\n**Rules such as `Bash(curl *)`:** Claude Code's own managed settings win by default. A tool name such as `Bash` still applies. Update all devices first: an older version drops these rules, so the tool runs without a prompt.\\n\\nAn unusable entry is dropped and recorded as a configuration error.",
+    "條目使用與 `disabledBuiltinTools` 相同的工具名稱和規則，限制也相同。命令規則不是安全邊界，且 `Bash(…)` 規則不涵蓋 `PowerShell`。\\n\\n`ask` 還會關閉用户為該工具儲存的“始終允許”選擇。Cowork 中的計劃任務會在提示處等待。\\n\\n**`Bash(curl *)` 等規則**：預設情況下，Claude Code 自身的託管設定優先。諸如 `Bash` 之類的工具名稱仍然適用。請先更新所有設備：較舊的版本會丟棄這些規則，因此工具會在沒有提示的情況下運行。\\n\\n無法使用的條目會被丟棄，並記錄為配置錯誤。"
+  ],
+  [
+    "The launcher comes from the device's managed settings, not server-managed settings. SSH sessions to Linux or macOS use the host's managed-settings files.\\n\\n- **Credentials:** the app passes no inference credential. The launcher must supply one, such as `ANTHROPIC_AUTH_TOKEN`, and keep `ANTHROPIC_BASE_URL` or set your gateway's, or every reply fails.\\n- **Not used:** for sessions on a Windows device, in WSL, in Cowork, and for the connection test and title generation.\\n\\nTo stop users bypassing the launcher, set this key in your MDM profile, with `disableDeploymentModeChooser` if that profile sets more than app-behavior keys.",
+    "啟動器來自設備的託管設定，而非由伺服器管理的設定。到 Linux 或 macOS 的 SSH 會話使用主機的託管設定檔案。\\n\\n- **憑據：** 應用不傳遞任何推理憑據。啟動器必須提供一個，例如 `ANTHROPIC_AUTH_TOKEN`，並保留 `ANTHROPIC_BASE_URL` 或設定你網關的地址，否則每次回覆都會失敗。\\n- **不適用：** Windows 設備上的會話、WSL 中的會話、Cowork 中的會話，以及連接測試和標題生成。\\n\\n要阻止用户繞過啟動器，請在你的 MDM 配置檔案中設定此鍵；如果該配置檔案設定的不僅僅是應用行為鍵，還需設定 `disableDeploymentModeChooser`。"
+  ],
+  [
+    "Use a [tool name](https://code.claude.com/docs/en/tools-reference) or [permission rule](https://code.claude.com/docs/en/permissions#permission-rule-syntax). Start full paths with `//`. A relative rule (`Read(**/.env)`) covers only a Code project folder. `Bash(\\u2026)` rules apply in Code only. Command rules match text and aren't a security boundary.\\n\\nThe list doesn't stop all plugin code or hooks. It stops a hook's claude.ai connector call in Code, not Cowork or Chat.\\n\\nOnly Code's sandbox (`allowedWorkspaceFolders`) hides a denied folder from its shell: list the full path. Don't rely on it alone: keep secrets the user can't read.",
+    "使用[工具名稱](https://code.claude.com/docs/en/tools-reference)或[權限規則](https://code.claude.com/docs/en/permissions#permission-rule-syntax)。完整路徑以 `//` 開頭。相對規則（`Read(**/.env)`）僅涵蓋 Code 項目檔案夾。`Bash(…)` 規則僅在 Code 中適用。命令規則匹配文本，並非安全邊界。\\n\\n該列表不會阻止所有插件代碼或鈎子。它會阻止鈎子在 Code 中向 claude.ai 連接器發起調用，但在 Cowork 或 Chat 中不會。\\n\\n只有 Code 的沙盒（`allowedWorkspaceFolders`）會從其 shell 中隱藏被拒絕的檔案夾：請列出完整路徑。不要僅依賴它：請將機密信息儲存在用户無法讀取的位置。"
+  ],
+  [
+    "If the PAC file can't be downloaded, the app connects directly. On macOS and Windows, the Cowork VM fetches its own copy at each start. If that fails, it connects directly until its next start, with no warning. Block direct connections on your network if that's unacceptable.\\n\\nAll sessions use the proxy the script returns for your inference endpoint. Return an HTTP `PROXY host:port` entry there. `DIRECT` or only `SOCKS` means no proxy. Code sessions can skip it per `DIRECT` host: `api.`, `codeload.`, `uploads.`, `gist.github.com`. `github.com` and subdomains need all five.\\n\\nWhat `egressProxyUrl` exempts from its proxy skips the PAC file too.",
+    "如果無法下載 PAC 檔案，應用會直接連接。在 macOS 和 Windows 上，Cowork VM 每次啟動時都會獲取自己的副本。如果獲取失敗，它會直接連接直到下次啟動，且不會發出警告。如果無法接受，請在你的網絡上阻止直接連接。\\n\\n所有會話都使用該腳本為你的推理端點返回的代理。請在該處返回 HTTP `PROXY host:port` 條目。`DIRECT` 或僅 `SOCKS` 表示不使用代理。Code 會話可以按 `DIRECT` 主機跳過代理：`api.`、`codeload.`、`uploads.`、`gist.github.com`。`github.com` 及其子域需要上述全部五項。\\n\\n`egressProxyUrl` 從其代理中豁免的地址也會跳過 PAC 檔案。"
+  ],
+  [
+    "The app checks the addresses of public sites that open or are framed in the browser (query removed) against Anthropic's site safety list on `releases.claude.com`.\\n\\n- The check is signed out, with no account, organization, or device identifier. In an Admin Console organization it is signed in, on the host that serves the configuration.\\n- Private addresses, names resolving to them, and internal-suffix or single-label names are never sent. A name under a public domain is checked even if only your VPN resolves it.\\n- Allow `releases.claude.com` through your firewall. If a check fails, users can browse but Claude's page tools stay off for that site.",
+    "應用會將瀏覽器中打開或被嵌入的公共站點地址（去除查詢參數）與 `releases.claude.com` 上 Anthropic 的站點安全列表進行核對。\\n\\n- 該檢查以未登入狀態進行，不包含賬户、組織或設備標識符。在管理控制枱組織中，檢查會在提供配置的主機上以已登入狀態進行。\\n- 私有地址、解析到私有地址的名稱，以及內部後綴或單標籤名稱絕不會被髮送。公共域下的名稱即使只有你的 VPN 能解析，也會被檢查。\\n- 請在你的防火牆中允許存取 `releases.claude.com`。如果檢查失敗，用户可以瀏覽，但 Claude 的頁面工具會針對該站點保持關閉。"
+  ],
+  [
+    "An entry matches an address, not a server. The same server under another host name or IP address, or behind a plugin's local server, is not matched. To keep a plugin's servers out whatever address they use, set `allowedPluginMcpServers`.\\n\\n- **Entries:** `{\\\"serverUrl\\\": \\\"https://*.example.com/*\\\"}`. This example does not match `http://`, `wss://` or `example.com` itself. A pattern with no scheme matches nothing.\\n- **Not affected:** `managedMcpServers` and servers from the org-plugins directory on the device.\\n- **Any other form**, such as `serverName`, is reported and blocks every plugin's remote server.\\n\\nClaude Code's own managed settings win by default.",
+    "條目匹配的是地址，而不是伺服器。同一伺服器使用其他主機名或 IP 地址，或位於插件的本地伺服器之後，則不會匹配。要讓插件的伺服器無論使用什麼地址都被排除，請設定 `allowedPluginMcpServers`。\\n\\n- **條目：** `{\\\"serverUrl\\\": \\\"https://*.example.com/*\\\"}`。此示例不匹配 `http://`、`wss://` 或 `example.com` 本身。不含協議的匹配模式不匹配任何內容。\\n- **不受影響：** `managedMcpServers` 以及設備上 org-plugins 目錄中的伺服器。\\n- **任何其他形式**（例如 `serverName`）都會被報告，並阻止所有插件的遠程伺服器。\\n\\n預設情況下，Claude Code 自身的託管設定優先。"
+  ],
+  [
+    "Written as the value of [`autoMode`](https://code.claude.com/docs/en/auto-mode-config) in Claude Code's settings, in at most 16,384 characters.\\n\\n- **`$defaults`:** start each list with it to keep the built-in rules. A list without it can replace them.\\n- **Other lists:** these rules join the app's own, the user's, and those in the device's Claude Code managed settings. An `allow` line can overrule a `soft_deny` line, but never a `hard_deny` line.\\n- **Not a boundary:** a model applies these rules. To block a tool for certain, use `disabledBuiltinTools`.\\n- **A malformed value,** such as an unknown member or an entry that is not text, turns Auto mode off until you correct it.",
+    "作為 Claude Code 設定中 [`autoMode`](https://code.claude.com/docs/en/auto-mode-config) 的值寫入，最多 16,384 個字符。\\n\\n- **`$defaults`：** 在每個列表開頭使用它，以保留內置規則。不含它的列表可以替換這些規則。\\n- **其他列表：** 這些規則會與應用自身的規則、用户的規則以及設備 Claude Code 託管設定中的規則合併。`allow` 行可以覆蓋 `soft_deny` 行，但絕不能覆蓋 `hard_deny` 行。\\n- **並非邊界：** 這些規則由模型應用。要確定地阻止某個工具，請使用 `disabledBuiltinTools`。\\n- **格式錯誤的值**（例如未知成員或非文本條目）會關閉自動模式，直到你將其修正。"
+  ],
+  [
+    "Values of an entry\\'s `toolPolicy`, per tool name:\\n\\n- `allow`: pre-approves the tool, except in Code and for built-in connector tools that send or cannot be undone. In Automatically approve, the safety check still judges each call.\\n- `ask`: every call needs approval, with no option to always allow. A scheduled Cowork task waits at the prompt.\\n- `blocked`: the tool is removed from the session.\\n\\nA name can contain `*`, as in `read_*`. When several wildcards match, the strictest applies. An exact name normally takes priority over a wildcard. To block by default, use `\"*\": \"blocked\"` plus exact `allow` entries. On a plugin server that Claude Code runs, the stricter of the two applies.",
+    "按工具名稱，條目 `toolPolicy` 的取值：\\n\\n- `allow`：預先批准該工具，但在 Code 中以及對於會發送內容或無法撤銷的內置連接器工具除外。在“自動批准”中，安全檢查仍會評判每次調用。\\n- `ask`：每次調用都需要批准，且沒有始終允許的選項。Cowork 計劃任務會在提示處等待。\\n- `blocked`：該工具會從會話中移除。\\n\\n名稱可以包含 `*`，例如 `read_*`。當多個通配符匹配時，以最嚴格者為準。精確名稱通常優先於通配符。要預設阻止，請使用 `\"*\": \"blocked\"` 並新增精確的 `allow` 條目。在 Claude Code 運行的插件伺服器上，以兩者中較嚴格者為準。"
+  ],
+  [
+    "Your gateway or provider must accept the tool search beta value, or requests fail with HTTP 400. On Foundry and the Claude API, that value is `advanced-tool-use-2025-11-20`. Everywhere else, it is `tool-search-tool-2025-10-19`. It is sent in the `anthropic-beta` header. On Bedrock, but not Bedrock Mantle, it is sent in the request body\\u2019s `anthropic_beta` field. On Foundry, and on Vertex AI, Bedrock, or Bedrock Mantle with a custom base URL, requests also carry Claude Code\\u2019s other experimental betas. A proxy with an allowlist of beta values must allow those too.\\n\\nOn the Claude API, Vertex AI, Bedrock, and Bedrock Mantle with no custom base URL, tool search is normally on. This key has no effect there.",
+    "你的網關或提供方必須接受工具搜尋 beta 值，否則請求會失敗並返回 HTTP 400。在 Foundry 和 Claude API 上，該值為 `advanced-tool-use-2025-11-20`。在其他所有環境中，該值為 `tool-search-tool-2025-10-19`。該值會在 `anthropic-beta` 請求頭中發送。在 Bedrock（但不包括 Bedrock Mantle）上，它會在請求正文的 `anthropic_beta` 字段中發送。在 Foundry 上，以及在使用自定義基礎 URL 的 Vertex AI、Bedrock 或 Bedrock Mantle 上，請求還會攜帶 Claude Code 的其他實驗性 beta 值。帶有 beta 值允許列表的代理也必須允許這些值。\\n\\n在 Claude API、Vertex AI、Bedrock 以及沒有自定義基礎 URL 的 Bedrock Mantle 上，工具搜尋通常處於開啟狀態。此鍵在這些環境中不起作用。"
+  ],
+  [
+    "Applies only in third-party mode. Deletion can start soon after the app gets this configuration. Pinned sessions are not exempt. Opening an old chat or Cowork task without continuing it may not keep it.\n\nIt does not delete, for example:\n\n- a session while it is running or open on screen\n- another account's sessions, until that account signs in\n- Code sessions on an SSH host or in WSL\n- Cowork background tasks that the sidebar does not list\n- a Cowork task's live artifacts\n- Claude Code's prompt history, plans and shell snapshots\n\nA value that cannot be read as a whole number of days deletes nothing.\n\nTo keep some people's idle sessions, set all three periods to 3650 days in the configuration that sets their periods.",
+    "僅在第三方模式下適用。應用收到此配置後，刪除可能很快就會開始。已固定的會話也不例外。在不繼續使用的情況下打開舊的聊天或 Cowork 任務，可能無法保留它。\\n\\n例如，它不會刪除：\\n\\n- 正在運行或在屏幕上打開的會話\\n- 其他賬户的會話，直到該賬户登入\\n- SSH 主機上或 WSL 中的 Code 會話\\n- 側邊欄未列出的 Cowork 後台任務\\n- Cowork 任務的實時 Artifacts\\n- Claude Code 的提示歷史、計劃和 shell 快照\\n\\n無法讀取為整數天數的值不會刪除任何內容。\\n\\n要保留某些人的空閒會話，請在設定其期限的配置中將全部三個期限設定為 3650 天。"
+  ],
+  [
+    "- **File tools** refuse most reads outside the session folder and any \\`allowedWorkspaceFolders\\`, in every permission mode.\n- **Shell commands:** where Claude Code's sandbox runs (see \\`allowedWorkspaceFolders\\`), most reads in the home folder and other user folders are refused. Elsewhere, Claude Code asks for approval when it recognizes such a read. It cannot see what a running script or other program reads.\n- **Users** can re-open folders, even their whole home folder, in their own Claude Code settings.\n\nThe user's git configuration files stay readable, and they can hold credentials. If the app cannot download its Claude Code, sessions may run on an older copy without this block.\n\nClaude Code's own managed settings win by default.",
+    "- **檔案工具**在所有權限模式下都會拒絕會話檔案夾以及任何 \\`allowedWorkspaceFolders\\` 之外的大多數讀取。\\n- **Shell 命令：** 在 Claude Code 沙箱運行的位置（見 \\`allowedWorkspaceFolders\\`），主檔案夾和其他用户檔案夾中的大多數讀取會被拒絕。在其他位置，Claude Code 識別出此類讀取時會請求批准。它無法看到正在運行的腳本或其他程序讀取了什麼。\\n- **用户**可以在自己的 Claude Code 設定中重新打開檔案夾，甚至整個主檔案夾。\\n\\n用户的 git 配置檔案仍可讀取，而其中可能存有憑據。如果應用無法下載其 Claude Code，會話可能會在沒有此阻止措施的舊版本副本上運行。\\n\\nClaude Code 自身的託管設定預設優先。"
+  ],
+  [
+    "Claude can read and write in every listed folder unless its `mode` is `ro`. An empty list allows none.\\n\\n- **Paths:** `~` and these variables expand per user: `%OneDrive%`, `%OneDriveCommercial%`, `%OneDriveConsumer%`, `%APPDATA%`, `%LOCALAPPDATA%`, `%USERNAME%`, `%XDG_DOCUMENTS_DIR%`. An entry with any other variable, or an unset one, adds no folder.\\n- **Code shell commands:** this key turns on Claude Code's sandbox on macOS, and on Linux and WSL2 where bubblewrap and socat work. There, most writes outside the list are refused, and most reads are not. Elsewhere, Windows included, only Claude's file tools follow the list. Claude Code's own managed settings win by default.\\n\\nDo not list a home folder: it holds SSH keys and shell start-up files.",
+    "Claude 可以讀取和寫入每個列出的檔案夾，除非其 `mode` 為 `ro`。空列表則不允許任何檔案夾。\\n\\n- **路徑：** `~` 和以下變量會按用户展開：`%OneDrive%`、`%OneDriveCommercial%`、`%OneDriveConsumer%`、`%APPDATA%`、`%LOCALAPPDATA%`、`%USERNAME%`、`%XDG_DOCUMENTS_DIR%`。包含其他任何變量或未設定變量的條目不會新增任何檔案夾。\\n- **Code shell 命令：** 此鍵會在 macOS 上啟用 Claude Code 的沙箱；在 Linux 和 WSL2 上，則在 bubblewrap 和 socat 可用時啟用。在這些位置，列表之外的大多數寫入會被拒絕，而大多數讀取不會。在其他位置（包括 Windows），只有 Claude 的檔案工具遵循此列表。Claude Code 自身的託管設定預設優先。\\n\\n不要列出主檔案夾：其中包含 SSH 密鑰和 shell 啟動檔案。"
+  ],
+  [
+    "Entries use the `coworkEgressAllowedHosts` format: `host`, `host:port`, or `*.example.com` for its subdomains only. An IPv6 address goes in brackets, such as `[2001:db8::5]`, and a single-label name such as `intranet` is matched exactly. A bare `*` admits every site, as before this setting. A listed site, such as a TLS-inspecting proxy, gets the first matching certificate without asking. Other sites get none from these panes, which also make no background requests to a host you declared unless an entry names it. The app\\u2019s own windows and connections are unaffected. Only machine-wide device management can set it: a value from per-user Windows policy or the local configuration file is shown but not applied. A change applies at the next start.",
+    "條目的格式與 `coworkEgressAllowedHosts` 相同：`host`、`host:port`，或僅匹配其子域的 `*.example.com`。IPv6 地址放在方括號中，例如 `[2001:db8::5]`；像 `intranet` 這樣的單標籤名稱按精確匹配。裸 `*` 會放行所有站點，與此設定引入前一致。列出的站點（例如執行 TLS 檢查的代理）會直接獲得第一個匹配的證書，不會詢問。其他站點無法從這些窗格獲得證書；除非某個條目點名，這些窗格也不會向你聲明的任何主機發出後台請求。應用自身的窗口和連接不受影響。只有設備範圍的管理才能設定它：來自每用户 Windows 策略或本地配置檔案的值會顯示，但不會生效。更改會在下次啟動時生效。"
+  ],
+  [
+    "- **Runs:** on the user\\'s device, as the signed-in user. When: a session opens, a turn ends or its result arrives, the app regains focus or the model changes.\\n- **Input:** one JSON line on standard input: `{\"session_id\": \"\\u2026\", \"model\": {\"id\": \"\\u2026\", \"display_name\": \"\\u2026\"}, \"cost\": {\"total_cost_usd\": 1.24}}`. `cost` holds only the session\\'s estimated cost in USD, while `inferenceModelPricingEnabled` is on, and is for display only. Fields with no value are left out, so no `cost` means no estimate, not 0. Do not build a file path from these values.\\n- **Output:** Claude shows the first non-empty line, up to 200 characters. ANSI codes 31 to 36 and 91 to 96 set the color.\\n- **Limits:** 10 seconds and 64 KiB of output. Past either, Claude stops the program.",
+    "- **運行：** 在用户設備上，以已登入用户的身份運行。觸發時機：會話打開、回合結束或結果到達、應用重新獲得焦點，或模型發生變化。\\n- **輸入：** 標準輸入中的一行 JSON：`{\"session_id\": \"\\u2026\", \"model\": {\"id\": \"\\u2026\", \"display_name\": \"\\u2026\"}, \"cost\": {\"total_cost_usd\": 1.24}}`。`cost` 僅在 `inferenceModelPricingEnabled` 開啟時包含會話的預估費用（美元），僅供顯示。沒有值的字段會被省略，因此沒有 `cost` 表示沒有估算值，而不是 0。不要用這些值構建檔案路徑。\\n- **輸出：** Claude 顯示第一行非空內容，最多 200 個字符。ANSI 代碼 31 至 36 和 91 至 96 用於設定顏色。\\n- **限制：** 10 秒和 64 KiB 輸出。超過任一限制，Claude 都會停止該程序。"
+  ],
+  [
+    "Does not cover web search, model requests or MCP servers.\\n\\n- **Entries:** a hostname, a wildcard (`*.corp.com`, subdomains only) or `*` for all.\\n- **Ports:** an entry other than `*` can end in `:port`, which only Code ignores. Update all devices first: older versions then block every host in Cowork's shell.\\n- **Plugins:** command-line tools also reach hosts their plugin declares.\\n- **Built-in browser:** a list other than `*`, even an empty one, limits Claude's browsing.\\n- **Code:** a list other than `*` locks Claude Code's sandbox on, for shell commands only, where it runs (see `allowedWorkspaceFolders`). So does an unset list, except where a local file is the only configuration and `blockReadsOutsideWorkingDirectories` is off. Claude Code's own managed settings win by default.",
+    "不涵蓋網頁搜尋、模型請求或 MCP 伺服器。\\n\\n- **條目：** 一個主機名、一個通配符（`*.corp.com`，僅匹配子域），或表示全部的 `*`。\\n- **端口：** `*` 以外的條目可以以 `:port` 結尾，只有 Code 會忽略端口。請先更新所有設備，否則舊版本會阻止 Cowork shell 中的所有主機。\\n- **插件：** 命令行工具還可以存取其插件聲明的主機。\\n- **內置瀏覽器：** 非 `*` 的列表（即使是空列表）會限制 Claude 的瀏覽。\\n- **Code：** 非 `*` 的列表會在 Claude Code 沙箱運行的位置（見 `allowedWorkspaceFolders`）強制開啟沙箱，且僅對 shell 命令生效。未設定的列表也是如此，除非本地檔案是唯一配置且 `blockReadsOutsideWorkingDirectories` 已關閉。Claude Code 自身的託管設定預設優先。"
+  ],
+  [
+    "Unset is off except in Admin Console organizations. Without the Admin Console, also set `deploymentOrganizationUuid`: only sessions stored before you set it are copied.\\n\\nMost copied Cowork and Chat sessions continue with no prompt to confirm. Without asking, it copies more, including:\\n\\n- Cowork memory, global instructions, Instructions for Claude and project descriptions, used at once, unreviewed.\\n- Folders connected to Cowork projects and sessions. Claude can read and change their files.\\n- Scheduled tasks, which run on schedule if they were on. A task in Auto or bypass permissions mode gets Auto mode if its tab then offers it (`autoModeEnabled`).\\n- Uploaded plugins, unless `userPluginUploadsEnabled` is off. They can run programs.\\n- Saved skills, unless `skillCreationEnabled` is off.",
+    "除管理控制枱組織外，未設定即為關閉。不使用管理控制枱時，還需設定 `deploymentOrganizationUuid`：只有在你設定之前存儲的會話會被複制。\\n\\n複製的大多數 Cowork 和 Chat 會話會直接繼續，不會出現確認提示。它還會在未經詢問的情況下複製更多內容，包括：\\n\\n- Cowork 記憶、全局指令、給 Claude 的指令和項目描述；這些內容會立即啟用，且未經審核。\\n- 連接到 Cowork 項目和會話的檔案夾。Claude 可以讀取並更改其中的檔案。\\n- 計劃任務；若原本已開啟，則按計劃運行。處於自動或繞過權限模式的計劃任務，如果其標籤頁屆時提供自動模式（`autoModeEnabled`），則會獲得自動模式。\\n- 上傳的插件，除非 `userPluginUploadsEnabled` 已關閉。插件可以運行程序。\\n- 已儲存的技能，除非 `skillCreationEnabled` 已關閉。"
+  ],
+  [
+    "It is signed \\u201CFrom\\u201D and your `deploymentDisplayName`, or \\u201CFrom your organization\\u201D.\\n\\n- **Shown again:** without an `id`, when `title` or `body` changes. With one, only when the `id` changes.\\n- **Links:** write `[words](address)`, with an `http` or `https` address.\\n- **Invalid or too long text:** nothing is shown, and the log says why.\\n- **MDM:** alone in a profile, or with app-behavior keys only, it keeps other settings and wins over the console's message. Update all devices first. A first profile blocks WSL (see `disableWslSessions`). Over a Setup configuration it also takes Code's shell offline on macOS and Linux until Setup sets `coworkEgressAllowedHosts`.\\n- **Admin Console:** a group's message keeps the organization's `id` and `placement` unless it sets its own.",
+    "它會署名“From”加上你的 `deploymentDisplayName`，或署名為“From your organization”。\\n\\n- **再次顯示：** 沒有 `id` 時，在 `title` 或 `body` 變化時顯示。有該值時，僅在 `id` 變化時顯示。\\n- **鏈接：** 寫成 `[words](address)`，地址為 `http` 或 `https`。\\n- **無效或過長的文本：** 不顯示任何內容，日誌會説明原因。\\n- **MDM：** 單獨位於配置檔案中，或僅與應用程序行為鍵一起使用時，它會保留其他設定，並優先於控制枱的消息。請先更新所有設備。首個配置檔案會阻止 WSL（見 `disableWslSessions`）。在 Setup 配置之上使用時，它還會在 macOS 和 Linux 上使 Code 的 shell 離線，直到 Setup 設定 `coworkEgressAllowedHosts`。\\n- **管理控制枱：** 組消息會保留組織的 `id` 和 `placement`，除非該組自行設定。"
+  ],
+  [
+    "Unless it is `false`, new Code sessions normally start in Auto mode.\\n\\nOn a gateway, Auto mode's built-in check calls `claude-sonnet-5` by default. **Server-side Auto mode checks** says when it runs. Your gateway must accept that ID and the `anthropic-beta` value `context-1m-2025-08-07`. If you set `inferenceModels`, list that ID, or an Opus or older Sonnet entry tagged with its tier, there and in any group's model list. If not, Auto mode can block actions it would normally allow.\\n\\nIn Cowork's Auto mode, each shell command waits for a check. If no check can be made, the command is refused. On a model that can't run Auto mode, the task switches to Manually approve and shell commands skip this check. A plugin whose start hook sends a task's first message turns this check off for that task.",
+    "除非設定為 `false`，否則新的 Code 會話通常以自動模式啟動。\\n\\n在網關上，自動模式的內置檢查預設調用 `claude-sonnet-5`。**服務端自動模式檢查**説明瞭它何時運行。你的網關必須接受該 ID 以及 `anthropic-beta` 值 `context-1m-2025-08-07`。如果你設定了 `inferenceModels`，請在該列表以及任何組的模型列表中列出該 ID，或列出標記了其層級的 Opus 或較舊 Sonnet 條目。否則，自動模式可能會阻止它通常會允許的操作。\\n\\n在 Cowork 的自動模式中，每條 shell 命令都會等待檢查。如果無法進行檢查，該命令會被拒絕。在使用無法運行自動模式的模型時，任務會切換為手動批准，shell 命令會跳過此檢查。如果某個插件的啟動鈎子會發送任務的第一個消息，則會為該任務關閉此檢查。"
+  ],
+  [
+    "MDM profile only. Applies where the profile sets `forceLoginOrgUUID` and uses Claude Console sign-in with the Anthropic (Claude API) provider.\\n\\nOff or unset, an unlisted organization\\u2019s sign-in still works, with a configuration warning in main.log. When on, Chat, Cowork, and Code don\\u2019t start on it, and the app renews the saved sign-in with Anthropic at each launch. If that fails, no session starts.\\n\\nBefore you turn it on, add your Claude Console organization\\u2019s ID to the list. Your Claude organization\\u2019s ID doesn\\u2019t cover it. People with a key saved by an earlier version must then sign in again. An unreadable value counts as on, and a `[]` or unreadable list then allows no organization. Update all devices first. An earlier version ignores this key, and on Linux can reject the whole file.",
+    "僅限 MDM 配置檔案。適用於配置檔案設定了 `forceLoginOrgUUID`，並使用 Anthropic（Claude API）提供程序通過 Claude Console 登入的情況。\\n\\n關閉或未設定時，未列出的組織仍可登入，同時 main.log 中會出現配置警告。開啟後，Chat、Cowork 和 Code 不會在該組織下啟動，並且應用每次啟動時都會與 Anthropic 續訂已儲存的登入。如果續訂失敗，則不會啟動任何會話。\\n\\n在開啟之前，請將你的 Claude Console 組織 ID 新增到列表中。你的 Claude 組織 ID 並不涵蓋它。使用舊版本儲存了密鑰的用户屆時必須重新登入。無法讀取的值會被視為開啟，此時 `[]` 或無法讀取的列表不允許任何組織。請先更新所有設備。舊版本會忽略此鍵，並且在 Linux 上可能拒絕整個檔案。"
+  ],
+  [
+    "`process.owner` (the OS login name) is always sent to your collector. Set it here to replace the value. A `service.name` set here applies to Code sessions only.",
+    "`process.owner`（操作系統登入名）始終會發送到你的收集器。在此設定即可替換該值。在此設定的 `service.name` 僅適用於 Code 會話。"
+  ],
+  [
+    "Every level but `off` also sends one info record, `lam_vm_edr_extension_install_completed`, each time the Cowork workspace VM reports that an endpoint security (EDR) package installed. Filter on that name to leave it out of your collector.",
+    "除 `off` 外的每個級別還會在 Cowork 工作區 VM 每次報告已安裝某個端點安全（EDR）包時，額外發送一條信息記錄 `lam_vm_edr_extension_install_completed`。按該名稱過濾，即可將其排除在你的收集器之外。"
+  ],
+  [
+    "The PKG must be of a version that reads this key. Such a PKG lets every account on the Mac change the app's files, whatever this key says.\n\nOn a Mac with several users, only the one whose update installed last goes on without the prompt.\n\nThis key is temporary. It will be removed once updates work this way for everyone.",
+    "該 PKG 必須是會讀取此鍵的版本。此類 PKG 允許 Mac 上的每個賬户更改應用的檔案，無論此鍵怎麼設定。\\n\\n在多用户 Mac 上，只有最後安裝更新的用户才能無需提示繼續。\\n\\n此鍵是臨時的。一旦所有用户的更新都以這種方式工作，它就會被移除。"
+  ],
+  [
+    "Code sessions on an SSH host or in WSL send to this collector too. Their telemetry includes `process.owner` (the OS login name on the computer that runs the app) and, unless `endUserAttribution` is off, `enduser.id`.\\n\\nAn SSH host must be able to reach the address. If the address is a loopback address, sessions over SSH send nothing to it.",
+    "SSH 主機上或 WSL 中的 Code 會話也會發送到此收集器。其遙測包含 `process.owner`（運行應用的計算機上的操作系統登入名）；除非 `endUserAttribution` 已關閉，否則還包含 `enduser.id`。\\n\\nSSH 主機必須能夠存取該地址。如果該地址是迴環地址，通過 SSH 的會話不會向它發送任何內容。"
+  ],
+  [
+    "The helper script prints a token. It is sent as the Git password for user `x-access-token`, which GitHub, GitLab and Azure DevOps accept. For `url` sources it is sent as `Authorization: Bearer`.\\n\\n[Marketplace credentials](https://claude.com/docs/third-party/claude-desktop/extensions#marketplace-credentials) lists other forms, for hosts that need a username or for custom HTTP headers.",
+    "輔助腳本會打印一個令牌。該令牌會作為用户 `x-access-token` 的 Git 密碼發送，GitHub、GitLab 和 Azure DevOps 均接受這種方式。對於 `url` 源，它會以 `Authorization: Bearer` 的形式發送。\\n\\n[市場憑據](https://claude.com/docs/third-party/claude-desktop/extensions#marketplace-credentials)列出了其他形式，適用於需要用户名的主機或自定義 HTTP 請求頭。"
+  ],
+  [
+    "- If a `managedMcpServers` entry is for the same server (same URL, otherwise same name), the entry here is ignored. Put the locks in that entry's `toolPolicy`. On an operating system where that local (`stdio`) entry has no `command`, the entry here applies.\\n- Update all devices first: an older version ignores this list and enforces no locks.\\n- Claude Code's own managed settings win by default.",
+    "- 如果 `managedMcpServers` 中的某個條目針對同一伺服器（URL 相同，否則名稱相同），則此處的條目會被忽略。請把鎖定項放入該條目的 `toolPolicy` 中。在本地（`stdio`）條目沒有 `command` 的操作系統上，此處的條目適用。\\n- 請先更新所有設備：舊版本會忽略此列表，不強制執行任何鎖定。\\n- Claude Code 自身的託管設定預設優先。"
+  ],
+  [
+    "The helper script must exit with code `0`. Its standard output must hold only one of these, with no banners, prompts or log lines:\\n\\n- the token by itself\\n- `{\"token\": \"...\", \"headers\": {\"Name\": \"Value\"}}`, to also send headers with each request\\n\\nThe app sets `CLAUDE_HELPER_CONTEXT` so that the script can decide whether to prompt the user. [Write a credential helper](https://claude.com/docs/third-party/claude-desktop/credential-helper) lists its values.",
+    "輔助腳本必須以代碼 `0` 退出。其標準輸出只能包含以下內容之一，且不得帶有橫幅、提示或日誌行：\\n\\n- 僅令牌本身\\n- `{\"token\": \"...\", \"headers\": {\"Name\": \"Value\"}}`，用於在每次請求時一併發送請求頭\\n\\n應用會設定 `CLAUDE_HELPER_CONTEXT`，以便腳本決定是否提示用户。[編寫憑據輔助腳本](https://claude.com/docs/third-party/claude-desktop/credential-helper)列出了它的各項取值。"
+  ],
+  [
+    "Applies only while \\`disableAutoUpdates\\` is on and the restart is on (see \\`installedUpdateEnforcementEnabled\\`).\n\n- Only time with the app open and the device awake counts.\n- Idle means 10 minutes without input. Where the system reports no idle time (some Wayland sessions), an unset key never restarts: set a number.\n- The restart waits while Claude is mid-task on the device.\n- On macOS with no number set, it also waits up to 72 hours while the keychain is locked.",
+    "僅在 \\`disableAutoUpdates\\` 開啟且重啟功能開啟時適用（見 \\`installedUpdateEnforcementEnabled\\`）。\\n\\n- 只計入應用處於打開狀態且設備喚醒的時間。\\n- 空閒是指 10 分鐘無輸入。在系統不報告空閒時間的情況下（某些 Wayland 會話），未設定此鍵將永不重啟：請設定一個數字。\\n- 當 Claude 在設備上任務尚未完成時，重啟會等待。\\n- 在 macOS 上未設定數字時，若鑰匙串處於鎖定狀態，它還會最多等待 72 小時。"
+  ],
+  [
+    "The app takes its helper, and Claude Code unless your organization's SSH launcher starts it, only from root-owned `/usr/libexec/claude-desktop-ssh`, and uploads neither. It refuses macOS, Windows and unprepared hosts. Its socket, token and plugins stay in the user's home. It does not stop code run as the user.\\n\\nInstall each release's programs before devices update. Turning it on or off interrupts running work. If no device policy can be read, the app may upload as before.",
+    "應用只從 root 所有的 `/usr/libexec/claude-desktop-ssh` 獲取其輔助程序和 Claude Code（除非 Claude Code 由你組織的 SSH 啟動器啟動），並且不會上傳這兩者。它會拒絕 macOS、Windows 以及未準備就緒的主機。其套接字、令牌和插件保留在用户主目錄中。它不會阻止以用户身份運行的代碼。\\n\\n請在設備更新之前安裝每個版本的程序。開啟或關閉它會中斷正在進行的工作。如果無法讀取任何設備策略，應用可能會像以前一樣上傳。"
+  ],
+  [
+    "\\`installedUpdateEnforcementHours\\` sets the wait.\n\n- **Unset:** off in third-party deployments. Elsewhere it follows Anthropic's rollout, and \\`false\\` keeps it off.\n- **macOS:** outside third-party deployments, if the keychain is locked and the device is locked or idle, Claude closes instead of restarting.\n- **Windows:** Claude may not reopen, and other signed-in users' Cowork tasks may end.\n- If it stays closed, scheduled tasks and background work stop until a user opens it.",
+    "\\`installedUpdateEnforcementHours\\` 用於設定等待時長。\\n\\n- **未設定：** 在第三方部署中處於關閉狀態。在其他部署中遵循 Anthropic 的逐步推行，\\`false\\` 會使其保持關閉。\\n- **macOS：** 在第三方部署之外，如果鑰匙串已鎖定且設備已鎖定或空閒，Claude 會關閉而不是重啟。\\n- **Windows：** Claude 可能不會重新打開，其他已登入用户的 Cowork 任務可能會結束。\\n- 如果它一直處於關閉狀態，計劃任務和後台工作會停止，直到有用户打開它。"
+  ],
+  [
+    "Turning it back on restores those marketplaces. Off also stops plugins kept in skills folders, with their hooks and servers, and /plugin-authoring.\\n\\n- It does not limit Claude Code in a terminal.\\n- Claude Code's own managed settings win by default. Restrict marketplaces in those settings as well.\\n\\nApplies only while the app runs in third-party mode. If users could otherwise sign in to Claude.ai on the device, also set `deploymentMode` to `3p`, or `disableDeploymentModeChooser`.",
+    "重新開啟會恢復這些市場。關閉還會停止儲存在 skills 檔案夾中的插件（連同其鈎子和伺服器），以及 /plugin-authoring。\\n\\n- 它不會限制終端中的 Claude Code。\\n- Claude Code 自身的託管設定預設優先。請同時在這些設定中限制市場。\\n\\n僅在應用以第三方模式運行時適用。如果用户原本可以在設備上登入 Claude.ai，還需將 `deploymentMode` 設為 `3p`，或設定 `disableDeploymentModeChooser`。"
+  ],
+  [
+    "For a `url` source, `marketplace.json` lists each plugin as an `archive`: a zip `url` plus its `sha256`. [Host the marketplace over HTTPS](https://claude.com/docs/third-party/claude-desktop/extensions#host-the-marketplace-over-https-instead-of-git) has an example.\\n\\n- Archives must be on the same origin as the manifest. Open that host on your firewall. A credential is sent only to it.\\n- With `credentialKind` set to `inferenceCredential`, the manifest must be on your gateway's or bootstrap server's origin.",
+    "對於 `url` 源，`marketplace.json` 會將每個插件列為 `archive`：一個 zip `url` 及其 `sha256`。[通過 HTTPS 託管市場](https://claude.com/docs/third-party/claude-desktop/extensions#host-the-marketplace-over-https-instead-of-git)提供了一個示例。\\n\\n- 歸檔必須與清單位於同一源（origin）。請在你的防火牆上開放該主機。憑據只會發送給它。\\n- 當 `credentialKind` 設為 `inferenceCredential` 時，清單必須位於你的網關或引導伺服器的源上。"
+  ],
+  [
+    "On any other device, set \\`allowManagedPermissionRulesOnly\\` in its Claude Code managed settings instead.\n\nNo approval card for a Claude Code tool offers to save a rule. Such a tool that needs approval asks each time, unless a rule in this configuration allows it. One exception: a card for a file write, a shell command's too, can still offer Accept edits and the file's folder for that session. The app's own site and computer use cards are not covered.\n\nSessions over SSH, in WSL, in Cowork and in Chat are not covered.",
+    "在其他任何設備上，請改為在其 Claude Code 託管設定中設定 \\`allowManagedPermissionRulesOnly\\`。\\n\\nClaude Code 工具的任何批准卡片都不會提供儲存規則的選項。此類需要批准的工具每次都會詢問，除非此配置中的某條規則允許它。一個例外：檔案寫入的卡片（shell 命令的卡片也是如此）仍可為該會話提供“接受編輯”以及該檔案所在檔案夾的選項。應用自身針對站點和計算機使用的卡片不在此範圍內。\\n\\n通過 SSH、在 WSL 中、在 Cowork 中以及在 Chat 中的會話不在此範圍內。"
+  ],
+  [
+    "Each entry is a model ID or an object:\\n```json\\n[\\n  {\"name\": \"claude-sonnet-5\",\\n   \"supports1m\": true},\\n  \"claude-opus-4-8\"\\n]\\n```\\nUse your provider\\'s exact model ID:\\n\\n- **Vertex:** the publisher ID (`claude-sonnet-5`).\\n- **Bedrock:** the inference-profile ID (`us.anthropic.claude-sonnet-5`).\\n- **Foundry:** the deployment name.\\n- **Gateway:** the ID its `/v1/models` endpoint returns.\\n\\nFor Auto mode on a gateway, also list `claude-sonnet-5`, or an Opus or older Sonnet entry tagged with its tier (see `autoModeEnabled`).",
+    "每個條目是一個模型 ID 或一個對象：\\n```json\\n[\\n  {\"name\": \"claude-sonnet-5\",\\n   \"supports1m\": true},\\n  \"claude-opus-4-8\"\\n]\\n```\\n請使用提供商的確切模型 ID：\\n\\n- **Vertex：** 發佈者 ID（`claude-sonnet-5`）。\\n- **Bedrock：** 推理配置檔案 ID（`us.anthropic.claude-sonnet-5`）。\\n- **Foundry：** 部署名稱。\\n- **網關：** 其 `/v1/models` 端點返回的 ID。\\n\\n對於網關上的自動模式，還需列出 `claude-sonnet-5`，或列出標記了其層級的 Opus 或較舊 Sonnet 條目（見 `autoModeEnabled`）。"
+  ],
+  [
+    "Every connection is still checked against `sshHostAllowlist`. While that list allows no host, Code offers none of these.\\n\\nFor a connection from this list, the app does not first ask the user to confirm the host. SSH's own host-key checks still apply, so a first connection to a host missing from the user's `known_hosts` may ask the user or fail. Users can still add connections of their own.\\n\\nWhile `disableDesktopLocalSessions` is on, new sessions default to the first SSH connection in the user's list, which can be one of these.",
+    "每個連接仍會根據 `sshHostAllowlist` 進行檢查。當該列表不允許任何主機時，Code 不會提供其中任何一種連接。\\n\\n對於來自此列表的連接，應用不會先要求用户確認主機。SSH 自身的主機密鑰檢查仍然適用，因此首次連接到用户 `known_hosts` 中缺失的主機時，可能會詢問用户或失敗。用户仍可新增自己的連接。\\n\\n當 `disableDesktopLocalSessions` 開啟時，新會話預設使用用户列表中的第一個 SSH 連接，該連接可能就是其中之一。"
+  ],
+  [
+    "With pings arriving (SSE `ping` events or `:` comment lines), sessions accept at least about five minutes of them, then wait this many seconds more. With no pings, each attempt at a silent response fails a minute or so after this many seconds. An attempt with no response headers fails after 15 minutes at most. On the Code tab, 16 minutes of silence ends the session, so values above 900 add nothing there.\\n\\nWhile this key is set, it takes priority over `CLAUDE_STREAM_IDLE_TIMEOUT_MS` in Claude Code's managed settings for sessions the app starts.",
+    "在有 ping 到達時（SSE `ping` 事件或 `:` 註釋行），會話至少接受約五分鐘的此類 ping，然後再等待這麼多秒。沒有 ping 時，每次嘗試靜默響應都會在此秒數之後再過約一分鐘失敗。沒有響應請求頭的嘗試最多在 15 分鐘後失敗。在 Code 標籤頁中，16 分鐘的靜默會結束會話，因此那裡的值超過 900 不會帶來任何額外效果。\\n\\n設定此鍵後，對於應用啟動的會話，它會優先於 Claude Code 託管設定中的 `CLAUDE_STREAM_IDLE_TIMEOUT_MS`。"
+  ],
+  [
+    "- **Unset:** after 72 hours the app restarts once the device is idle for 10 minutes. On macOS it also waits up to 72 hours while the keychain is locked.\n- **Any number, even 72:** the app restarts when time is up, even if the user is active.\n\nBoth wait while Claude is mid-task on the device or the update server doesn't answer. On macOS, outside third-party deployments, if the keychain is still locked and the device is locked or idle, Claude closes instead of restarting.\n\nAn update usually installs sooner, after 10 minutes with no window in use or task running.",
+    "- **未設定：** 72 小時後，一旦設備空閒 10 分鐘，應用就會重啟。在 macOS 上，若鑰匙串處於鎖定狀態，它還會最多等待 72 小時。\\n- **任何數字，包括 72：** 時間一到，應用就會重啟，即使用户正在活動。\\n\\n當 Claude 在設備上任務尚未完成，或更新伺服器沒有響應時，兩者都會等待。在 macOS 上，第三方部署之外，如果鑰匙串仍處於鎖定狀態且設備已鎖定或空閒，Claude 會關閉而不是重啟。\\n\\n更新通常會更快安裝，即在沒有任何窗口在使用或任務在運行的 10 分鐘之後。"
+  ],
+  [
+    "Also use it to move a marketplace. A change to an entry's `url`, `repo` or `path` (not `ref`) counts as removing the marketplace, which uninstalls the plugins that users installed from it.\\n\\nTo avoid that, set the new entry's `expectedName` to the old marketplace's manifest name, in the same change that removes the old entry. Match the letter case and leave it set. Plugins that the new marketplace holds under the same names then normally stay installed. [Move a marketplace to a new source](https://claude.com/docs/third-party/claude-desktop/extensions#move-a-marketplace-to-a-new-source) lists the exceptions.",
+    "也可以用它遷移市場。更改某個條目的 `url`、`repo` 或 `path`（而非 `ref`）會被視為移除該市場，這會卸載用户從該市場安裝的插件。\\n\\n為避免這種情況，請在移除舊條目的同一次更改中，將新條目的 `expectedName` 設為舊市場的清單名稱。請匹配字母大小寫，並保持該設定不變。新市場以相同名稱提供的插件通常仍會保持安裝狀態。[將市場遷移到新源](https://claude.com/docs/third-party/claude-desktop/extensions#move-a-marketplace-to-a-new-source)列出了例外情況。"
+  ],
+  [
+    "The address replaces `https://downloads.claude.ai`. Keep the paths `claude-ssh-releases/` and `claude-code-releases/` under it, and add each app version's files before devices update.\\n\\n- It counts only from device management: a configuration profile on macOS, HKLM policy on Windows, the managed file on Linux.\\n- Devices and hosts download with no login.\\n- The app refuses a changed file and does not fall back to `downloads.claude.ai`.\\n- The device's own Claude Code does not use it.\\n\\nUpdate all devices first: older versions can lose settings. Alone in a profile, it marks the device as managed. WSL sessions then need a machine-wide `disableWslSessions` of `false`. Shell commands can lose network until the user lists hosts in Setup.",
+    "該地址會替代 `https://downloads.claude.ai`。請在其下保留 `claude-ssh-releases/` 和 `claude-code-releases/` 路徑，並在設備更新前新增各應用版本的檔案。\\n\\n- 它僅通過設備管理生效：macOS 上的配置描述檔案、Windows 上的 HKLM 策略、Linux 上的受管檔案。\\n- 設備和主機無需登入即可下載。\\n- 應用會拒絕已更改的檔案，且不會回退到 `downloads.claude.ai`。\\n- 設備自身的 Claude Code 不使用它。\\n\\n請先更新所有設備：舊版本可能丟失設定。單獨放在描述檔案中時，它會將該設備標記為受管。此時 WSL 會話需要將機器級 `disableWslSessions` 設為 `false`。在用户於 Setup 中列出主機之前，Shell 命令可能失去網絡連接。"
+  ],
+  [
+    "- **`device-code`:** shows a code to enter at microsoft.com/devicelogin. The app registration must have **Allow public client flows** enabled.\\n- **`browser`:** register `http://127.0.0.1/callback` under **Mobile and desktop applications**. It works with **Allow public client flows** disabled. Conditional Access policies that block device-code sign-in do not affect it.\\n- **`broker`:** uses Web Account Manager on Windows or Company Portal on macOS, and does not work on Linux. It can satisfy Conditional Access policies requiring a compliant or managed device, or token protection. Add the redirect URIs from [Register the Entra ID application](https://claude.com/docs/third-party/claude-desktop/entra-broker#register-the-entra-id-application).",
+    "- **`device-code`：** 顯示一個代碼，供在 microsoft.com/devicelogin 輸入。應用註冊必須啟用 **Allow public client flows**。\\n- **`browser`：** 在 **Mobile and desktop applications** 下注冊 `http://127.0.0.1/callback`。它在禁用 **Allow public client flows** 時也能工作。阻止設備代碼登入的條件存取策略不會影響它。\\n- **`broker`：** 在 Windows 上使用 Web Account Manager，在 macOS 上使用 Company Portal，在 Linux 上不可用。它可以滿足要求使用合規或受管設備、或令牌保護的條件存取策略。請新增 [註冊 Entra ID 應用程序](https://claude.com/docs/third-party/claude-desktop/entra-broker#register-the-entra-id-application) 中的重定向 URI。"
+  ],
+  [
+    "`refuse` stops new SSH sessions where the sandbox cannot start, and all on Windows hosts.\\n\\nIn an administrator\\u2019s configuration, it applies unless `coworkEgressAllowedHosts` holds `*` and `allowedWorkspaceFolders` is unset. Unreadable values count as `refuse`.\\n\\nIt has no effect where a host\\u2019s launcher locates Claude Code. Where a host\\u2019s managed settings replace yours, it applies only if settings there turn a sandbox on. For both, set `sandbox.enabled` and `sandbox.failIfUnavailable` in the host\\u2019s managed settings.\\n\\nIt does not protect against the host\\u2019s account, repository settings, hooks, MCP servers, `!` commands, or approved terminal commands.\\n\\nIf a server or the Admin Console delivers configuration, set it there, not in MDM.",
+    "`refuse` 會在沙盒無法啟動的位置停止新的 SSH 會話，在 Windows 主機上則全部停止。\\n\\n在管理員配置中，除非 `coworkEgressAllowedHosts` 包含 `*` 且 `allowedWorkspaceFolders` 未設定，否則它都會生效。無法讀取的值按 `refuse` 處理。\\n\\n在主機的啟動器用於定位 Claude Code 的位置，它不起作用。在主機的受管設定會替換你的設定的位置，只有當那裡的設定啟用沙盒時它才生效。對於這兩種情況，請在主機的受管設定中設定 `sandbox.enabled` 和 `sandbox.failIfUnavailable`。\\n\\n它不能防範主機賬户、倉庫設定、hooks、MCP 伺服器、`!` 命令或已批准的終端命令。\\n\\n如果由伺服器或 Admin Console 下發配置，請在那裡設定，而不要在 MDM 中設定。"
+  ],
+  [
+    "`all` can take files off a host in bulk where devices block `ssh`, with no app log. With no admin policy, unset means `all`, so set `limited` in a script-installed file.\\n\\n`none` is not a security boundary: users can still open files.\\n\\nIn an MDM profile:\\n\\n- Update all devices first: older versions can lose settings.\\n- If MDM sets your connection keys, set it beside them. On Windows and macOS, machine policy hides per-user policy.\\n- Alone or beside app-behavior keys, it wins over the console. Otherwise a server or console that omits it wins.\\n- Alone, this key marks the device as managed. WSL sessions need a machine-wide `disableWslSessions` of `false`. Shell commands can lose network until the user lists hosts in Setup. `coworkEgressAllowedHosts` here would replace the user's configuration.",
+    "在設備阻止 `ssh` 時，`all` 可以批量將檔案從主機取走，且不會留下應用日誌。沒有管理員策略時，未設定即表示 `all`，因此請在腳本安裝的檔案中設定 `limited`。\\n\\n`none` 不是安全邊界：用户仍可打開檔案。\\n\\n在 MDM 描述檔案中：\\n\\n- 請先更新所有設備：舊版本可能丟失設定。\\n- 如果 MDM 設定了你的連接密鑰，請將此項與它們放在一起。在 Windows 和 macOS 上，機器策略會隱藏每用户策略。\\n- 單獨放置或與應用行為鍵放在一起時，它優先於控制枱。否則，省略此項的伺服器或控制枱優先。\\n- 單獨放置時，此鍵會將設備標記為受管。WSL 會話需要將機器級 `disableWslSessions` 設為 `false`。在用户於 Setup 中列出主機之前，Shell 命令可能失去網絡連接。此處的 `coworkEgressAllowedHosts` 會替換用户的配置。"
+  ],
+  [
+    "On unless you set it to `false`. A Claude apps gateway's `gateway.yaml` can't set it. While off, Auto mode's built-in check reviews risky actions.\\n\\nThis setting goes away when Claude Code drops that check. After that, only turning off Auto mode (**Allow Auto mode**) avoids the provider's check.\\n\\nWhile on, Auto mode requests carry a `safeguards` field with session details such as rules, folder paths and a user name. They add one `anthropic-beta` value, which a session keeps sending after it leaves Auto mode.\\n\\nYour gateway must pass both on, and `safeguard_results` and tool-use IDs back, unchanged. If it drops the result or answers 400, 403, 422, 500 or 502, the built-in check takes over. Other errors or an unreadable result can break every turn: turn this off and have users restart the app.",
+    "預設開啟，除非將其設為 `false`。Claude 應用網關的 `gateway.yaml` 無法設定此項。關閉期間，Auto 模式的內置檢查會審核有風險的操作。\\n\\n當 Claude Code 移除該檢查後，此設定也會消失。此後，只有關閉 Auto 模式（**Allow Auto mode**）才能避免提供商的檢查。\\n\\n開啟期間，Auto 模式請求會攜帶 `safeguards` 字段，其中包含規則、檔案夾路徑和用户名等會話詳情。這些請求還會新增一個 `anthropic-beta` 值，會話在離開 Auto 模式後仍會繼續發送該值。\\n\\n你的網關必須將兩者原樣傳遞，並將 `safeguard_results` 和工具使用 ID 原樣傳回。如果網關丟棄結果或返回 400、403、422、500 或 502，內置檢查將接管。其他錯誤或結果無法讀取可能導致每個回合都失敗：請關閉此設定，並讓用户重啟應用。"
+  ],
+  [
+    "This data never reaches Anthropic.\\n\\n- `userPrompts`: what users type, and Claude's responses\\n- `assistantResponses`: Claude's responses\\n- `toolDetails`: tool inputs, such as a web search query\\n- `toolContent`: tool outputs, such as fetched page text or command output\\n- `rawApiBodies`: model request and response bodies\\n\\nTo send prompts without responses, leave out `rawApiBodies`. Then set `OTEL_LOG_ASSISTANT_RESPONSES` to `0` in the `env` block of the highest-priority Claude Code managed settings, not a per-user Windows registry policy. Update all devices first: an older version still sends responses.\\n\\nWithout `parentSettingsBehavior` set to `\\\"merge\\\"` in [those settings](https://claude.com/docs/third-party/claude-desktop/code#interaction-with-claude-code%E2%80%99s-own-managed-settings), Claude Code can drop the restrictions that Claude Desktop passes to it.",
+    "此數據絕不會發送到 Anthropic。\\n\\n- `userPrompts`：用户輸入的內容，以及 Claude 的回覆\\n- `assistantResponses`：Claude 的回覆\\n- `toolDetails`：工具輸入，例如網絡搜尋查詢\\n- `toolContent`：工具輸出，例如獲取的頁面文本或命令輸出\\n- `rawApiBodies`：模型請求和響應正文\\n\\n若只想發送提示而不發送回覆，請省略 `rawApiBodies`。然後請在最高優先級 Claude Code 受管設定的 `env` 塊中將 `OTEL_LOG_ASSISTANT_RESPONSES` 設為 `0`，而不要設定在每用户的 Windows 註冊表策略中。請先更新所有設備：舊版本仍會發送回復。\\n\\n如果 [那些設定](https://claude.com/docs/third-party/claude-desktop/code#interaction-with-claude-code%E2%80%99s-own-managed-settings) 中未將 `parentSettingsBehavior` 設為 `\\\"merge\\\"`，Claude Code 可能會丟棄 Claude Desktop 傳給它的限制。"
+  ],
+  [
+    "The app log names a host rejected for a referrer mismatch. Add that hostname here.",
+    "應用日誌會指出因 referrer 不匹配而被拒絕的主機。請在此處新增該主機名。"
+  ],
+  [
+    "For a GCC High or DoD tenant, leave this unset and set `authorizationServer` to `https://login.microsoftonline.us/<tenant-id>/v2.0`.",
+    "對於 GCC High 或 DoD 租户，請不設定此項，並將 `authorizationServer` 設為 `https://login.microsoftonline.us/<tenant-id>/v2.0`。"
+  ],
+  [
+    "If your MDM profile holds only app-behavior keys like this one, a user's or bootstrap server's value for one is ignored. Put all you use there.",
+    "如果你的 MDM 描述檔案僅包含此類應用行為鍵，則用户或引導伺服器為其中某項設定的值會被忽略。請將你使用的所有項都放在那裡。"
+  ],
+  [
+    "In ID-token mode, `offline_access` is not added to scopes that you set. Include it yourself, or users sign in again each time the token expires.",
+    "在 ID 令牌模式下，`offline_access` 不會被新增到你所設定的 scope 中。請自行新增，否則用户每次令牌過期都需要重新登入。"
+  ],
+  [
+    "Turn off only if your authorization server rejects `offline_access` as an unknown scope. Then add the server\\u2019s own refresh-token scope to `scopes`.",
+    "僅當你的授權伺服器將 `offline_access` 視為未知 scope 而拒絕時才關閉此項。然後請將伺服器自身的刷新令牌 scope 新增到 `scopes`。"
+  ],
+  [
+    "Set this at or below your token lifetime. Otherwise a server that crashes because its token expired can restart with the same cached values until this time is up.",
+    "請將其設定為等於或小於令牌有效期。否則，因令牌過期而崩潰的伺服器在此時間到期前可能帶着相同的緩存值重啟。"
+  ],
+  [
+    "A PNG of 48 by 48 pixels or smaller works well. Keep icons small: Windows Group Policy holds the whole `managedMcpServers` list in one value of at most 65,535 characters.",
+    "48 x 48 像素或更小的 PNG 效果較好。請保持圖標小巧：Windows 組策略將整個 `managedMcpServers` 列表儲存在一個最多 65,535 個字符的值中。"
+  ],
+  [
+    "Leave off if `scope` already includes `offline_access` or the server rejects it.\\n\\nIf you set `authorizationUrl` and `tokenUrl`, this switch does not work on its own. Add `offline_access` to `scope` instead.",
+    "如果 `scope` 已包含 `offline_access`，或伺服器拒絕它，請保持關閉。\\n\\n如果你設定了 `authorizationUrl` 和 `tokenUrl`，此開關無法單獨生效。請改為將 `offline_access` 新增到 `scope`。"
+  ],
+  [
+    "Choose **Bring your own client** when the provider requires an OAuth client that you register, and set `clientId`. Add `clientSecret` and `authorizationServer` only when the provider also requires the secret.",
+    "當提供商要求使用你註冊的 OAuth 客户端時，選擇 **Bring your own client** 並設定 `clientId`。僅當提供商還要求密鑰時，才新增 `clientSecret` 和 `authorizationServer`。"
+  ],
+  [
+    "An ID token's audience (`aud`) is `clientId`. An access token's audience must be your gateway or proxy.\\n\\nWith Entra ID the scopes decide the audience, so add the gateway's API scope to `scopes`, such as `api://<gateway-app-id>/.default`.",
+    "ID 令牌的受眾（`aud`）是 `clientId`。存取令牌的受眾必須是你的網關或代理。\\n\\n使用 Entra ID 時，scope 決定受眾，因此請將網關的 API scope 新增到 `scopes`，例如 `api://<gateway-app-id>/.default`。"
+  ],
+  [
+    "With a Conditional Access policy on IP named locations or Global Secure Access compliant networks, a token presented from outside that network is cut off. Tenants without such a policy get no network-based replay protection.\n\nAfter a change, users sign in again.",
+    "如果條件存取策略針對命名位置的 IP 或 Global Secure Access 合規網絡，則從該網絡外部出示的令牌會被切斷。沒有此類策略的租户不會獲得基於網絡的防重放保護。\\n\\n更改後，用户需重新登入。"
+  ],
+  [
+    "Required, unless `platformOverrides` gives a `command` for at least one operating system. The server then runs only where it has a `command`. Elsewhere its `toolPolicy` does not apply. It still counts as a managed server there: Claude Code drops MCP servers that users add. No other entry can use its name.",
+    "必填，除非 `platformOverrides` 為至少一個操作系統提供了 `command`。此時伺服器只在具有 `command` 的位置運行。在其他位置，其 `toolPolicy` 不適用。它在那裡仍被視為受管伺服器：Claude Code 會丟棄用户新增的 MCP 伺服器。其他任何條目都不能使用其名稱。"
+  ],
+  [
+    "- An argument cannot be empty or contain a double quote, a percent sign or a control character.\n- Do not put secrets in arguments. They are visible in the app log and to other processes on the device.\n- Have the script fail when a needed argument is missing. A version that does not know this setting passes none.",
+    "- 參數不能為空，也不能包含雙引號、百分號或控制字符。\\n- 不要在參數中放入機密信息。它們會顯示在應用日誌中，並會被設備上的其他進程看到。\\n- 當缺少所需參數時，應讓腳本失敗。不識別此設定的版本不會傳遞任何參數。"
+  ],
+  [
+    "For Claude's calls to this server it takes the place of \\`mcpToolTimeoutSec\\`. Use a whole number from 5 to 3600: any other value is ignored.\n\n- Progress messages from the server do not extend the limit.\n- Time that a user spends on a sign-in or consent step during the call counts toward the limit. On a server that asks for sign-in, set a generous value.",
+    "對於 Claude 對此伺服器的調用，它會取代 \\`mcpToolTimeoutSec\\`。請使用 5 到 3600 之間的整數：其他任何值都會被忽略。\\n\\n- 伺服器發送的進度消息不會延長此限制。\\n- 用户在調用期間花在登入或同意步驟上的時間會計入該限制。對於要求登入的伺服器，請設定較寬裕的值。"
+  ],
+  [
+    "Not needed on the Anthropic API or Vertex, where the model's built-in web search is available.\\n\\nEvery search provider except `custom` needs an auth header. The API key is a credential, so have `headersHelper` print the header rather than storing it in `headers`:\\n- **Brave:** `X-Subscription-Token`\\n- **Exa:** `x-api-key`\\n- **Tavily:** `Authorization` (Bearer \\u2026)",
+    "在 Anthropic API 或 Vertex 上不需要此項，因為那裡提供模型內置的網絡搜尋。\\n\\n除 `custom` 外，每個搜尋提供商都需要授權標頭。API 密鑰屬於憑據，因此請讓 `headersHelper` 輸出該標頭，而不要將其存儲在 `headers` 中：\\n- **Brave：** `X-Subscription-Token`\\n- **Exa：** `x-api-key`\\n- **Tavily：** `Authorization`（Bearer …）"
+  ],
+  [
+    "Use it only with `bearerTokenType` set to `access_token`, and only if your identity provider supports RFC 8707. Changing it signs users in again.\\n\\nFor AD FS, enter one of the relying-party trust's identifiers. A value with no scheme is sent as `https://<value>`, so a plain name or GUID does not match. Add an `https://\\u2026` or `urn:\\u2026` identifier to the trust and enter that.",
+    "僅在 `bearerTokenType` 設為 `access_token` 且你的身份提供商支援 RFC 8707 時使用。更改此項會讓用户重新登入。\\n\\n對於 AD FS，請輸入依賴方信任的標識符之一。不帶方案的值會按 `https://<value>` 發送，因此純名稱或 GUID 無法匹配。請向信任新增 `https://…` 或 `urn:…` 標識符，並輸入該標識符。"
+  ],
+  [
+    "Unset means `on`.\\n\\n- This is a starting point, not a restriction: each user can turn the connector on. To withhold a connector, remove it or block its tools with `toolPolicy`.\\n- Adding `off` to a connector already in use turns it off for all users who have not switched it on themselves, scheduled tasks included.\\n- This setting does not apply to a plugin's server that matches this entry.",
+    "未設定表示 `on`。\\n\\n- 這是初始狀態，而非限制：每個用户都可以打開該連接器。若要暫不提供某個連接器，請將其移除或用 `toolPolicy` 阻止其工具。\\n- 對已在使用的連接器新增 `off`，會為所有尚未自行開啟它的用户關閉該連接器，包括計劃任務。\\n- 此設定不適用於與該條目匹配的插件伺服器。"
+  ],
+  [
+    "- Claude Desktop\\u2019s own fetch turns off. Also list `WebFetch` in `disabledBuiltinTools` for older versions and for Claude Code outside the app.\\n- The server decides what it reaches: `coworkEgressAllowedHosts` and the sandbox do not limit it.\\n- Write rules and hooks on `WebFetch`. Beside a `domain:` deny or ask rule, the tool must return `destination_url` in its structured content.\\n- Web fetch stops for a person while this server is off for them.",
+    "- Claude Desktop 自帶的抓取會關閉。對於舊版本以及應用之外的 Claude Code，還需在 `disabledBuiltinTools` 中列出 `WebFetch`。\\n- 伺服器決定它能存取什麼：`coworkEgressAllowedHosts` 和沙盒不會限制它。\\n- 請在 `WebFetch` 上編寫規則和 hooks。除了 `domain:` 的拒絕或詢問規則外，該工具必須在其結構化內容中返回 `destination_url`。\\n- 當此伺服器對某人關閉時，其網絡抓取也會停止。"
+  ],
+  [
+    "After a rename:\n\n- Users' own choices start over: a server they had turned off can be on again, and a tool they had blocked is no longer blocked.\n- If a plugin's server matched this entry by name, the entry's \\`toolPolicy\\` may stop applying to it.\n- In the Admin Console, enter a permission policy's rules for the server again. They do not carry over.\n- Giving the entry its old name back restores users' choices and tool permissions.\n\nDo not reuse an old name for a different server. It can inherit choices that users made for the old one.",
+    "重命名後：\\n\\n- 用户自己的選擇會重置：他們之前關閉的伺服器可能重新開啟，之前阻止的工具也不再被阻止。\\n- 如果某個插件的伺服器按名稱匹配此條目，該條目的 \\`toolPolicy\\` 可能不再適用於它。\\n- 在 Admin Console 中，請重新輸入權限策略針對該伺服器的規則。這些規則不會保留。\\n- 將條目改回原名稱可恢復用户的選擇和工具權限。\\n\\n不要為其他伺服器重用舊名稱。它可能繼承用户為舊伺服器所做的選擇。"
+  ],
+  [
+    "`broker` signs in through the OS identity broker: Web Account Manager on Windows, the Company Portal SSO extension on macOS. It can satisfy Conditional Access policies requiring a compliant or managed device, or token protection.\\n\\n- It requires `tenantId`, `clientId` and `scope`, and an Entra-registered device.\\n- The app registration must list the [broker redirect URIs](https://claude.com/docs/third-party/claude-desktop/entra-broker).\\n- `broker` is not supported on Linux. Where the broker is not available, sign-in falls back to the system browser.",
+    "`broker` 通過操作系統身份代理登入：Windows 上的 Web Account Manager，macOS 上的 Company Portal SSO 擴展。它可以滿足要求使用合規或受管設備、或令牌保護的條件存取策略。\\n\\n- 它需要 `tenantId`、`clientId` 和 `scope`，以及已在 Entra 註冊的設備。\\n- 應用註冊必須列出 [broker 重定向 URI](https://claude.com/docs/third-party/claude-desktop/entra-broker)。\\n- Linux 不支援 `broker`。在 broker 不可用的位置，登入會回退到系統瀏覽器。"
+  ],
+  [
+    "Lists and maps are replaced, not merged.\\n\\n- A local (`stdio`) entry can repeat `command`, `args`, `env`, `envHelper` and `envHelperArgs`.\\n- A remote or web search entry can repeat `headersHelper` and `headersHelperArgs`. If it gives `headersHelper` here, it needs its own too.\\n- A mistake under any operating system drops the server on all.\\n- Older versions ignore this setting and use the entry's values. They and some later versions drop a local entry with no `command` of its own. Until all devices are updated, put the Windows values in the entry itself.",
+    "列表和映射會被替換，而不是合併。\\n\\n- 本地（`stdio`）條目可以重複 `command`、`args`、`env`、`envHelper` 和 `envHelperArgs`。\\n- 遠程或網絡搜尋條目可以重複 `headersHelper` 和 `headersHelperArgs`。如果此處提供了 `headersHelper`，它也需要自己的。\\n- 任一操作系統下的錯誤都會在所有系統上移除該伺服器。\\n- 舊版本會忽略此設定並使用條目的值。它們及部分較新版本會丟棄沒有自帶 `command` 的本地條目。在所有設備更新之前，請將 Windows 的值放在條目本身中。"
+  ],
+  [
+    "For a `policy-only` entry:\\n\\n- Set `name` to the server's name exactly as the plugin declares it. A name that matches no plugin server does nothing.\\n- On a plugin server that Claude Code runs, `allow` in `toolPolicy` removes the prompt only in Cowork and Chat, in Manually approve. Its other limits are those listed for `permission` in `orgPluginSettings`.\\n- The entry takes priority over `orgPluginSettings` for that server. With no `toolPolicy`, the server is left unrestricted.\\n- An older version drops the entry and applies `orgPluginSettings` instead. Until all devices are updated, keep the same permissions there, and do not deploy a list made only of `policy-only` entries.",
+    "對於 `policy-only` 條目：\\n\\n- 將 `name` 設為插件聲明該伺服器時使用的確切名稱。不匹配任何插件伺服器的名稱不會起任何作用。\\n- 對於 Claude Code 運行的插件伺服器，`toolPolicy` 中的 `allow` 僅在 Cowork 和 Chat 的手動批准模式下移除提示。它的其他限制與 `orgPluginSettings` 中 `permission` 所列的一致。\\n- 對於該伺服器，此條目優先於 `orgPluginSettings`。如果沒有 `toolPolicy`，該伺服器將不受限制。\\n- 舊版本會丟棄該條目並改用 `orgPluginSettings`。在所有設備更新之前，請在那裡保持相同的權限，並且不要部署僅由 `policy-only` 條目組成的列表。"
+  ],
+  [
+    "By default, sign-in sends the URL that this server publishes as the OAuth `resource` parameter, which ties the token to this server. Microsoft Entra ID rejects it with `AADSTS9010010` when the URL is not an Application ID URI in your tenant.\\n\\n- **Requires:** `clientId`, a `scope` with an API scope, and exactly one of `tenantId`, a single `authorizationServer`, or `authorizationUrl` with `tokenUrl`. Otherwise the entry is not loaded.\\n- **Risk:** `scope` alone now says which API the token is for, so check that it names this server's app. A scope for another app is accepted, and this server then receives a token meant for that app.\\n- **Entra ID:** write the scope in full, as in `api://<app-id>/<scope>`.",
+    "預設情況下，登入會發送此伺服器發佈的 URL 作為 OAuth `resource` 參數，從而將令牌與此伺服器綁定。當該 URL 不是你租户中的應用程序 ID URI 時，Microsoft Entra ID 會以 `AADSTS9010010` 拒絕它。\\n\\n- **要求：** `clientId`、包含 API scope 的 `scope`，以及 `tenantId`、單個 `authorizationServer`，或同時帶有 `tokenUrl` 的 `authorizationUrl` 三者中恰好一個。否則該條目不會被加載。\\n- **風險：** 僅憑 `scope` 現在就能確定令牌用於哪個 API，因此請確認它指向此伺服器的應用。其他應用的 scope 也會被接受，然後此伺服器會收到本應發給該應用的令牌。\\n- **Entra ID：** 請完整寫出 scope，例如 `api://<app-id>/<scope>`。"
+  ],
+  [
+    "- **Checked:** files by extension, and email with its attachments by the email's label. Word, Excel, PowerPoint and PDF attachments are also checked by their own label, except .doc, .xls and .ppt attachments. OneNote, Loop and Whiteboard items are refused.\n- **Not checked:** new files and new email, calendar events, Teams messages, site pages and meeting transcripts. Nor are files in a folder that is moved, copied or deleted.\n- **Search** can show a blocked file's name or an email's headers until Microsoft indexes the label.\n- **Tenant:** \\`tenantId\\` must be your tenant's GUID. Give other Microsoft 365 entries that can reach your tenant the GUID and this list too, or remove them.\n\nUpdate all devices first: an older version blocks only files, or nothing.",
+    "- **已檢查：** 按擴展名檢查檔案，並按電子郵件標籤檢查電子郵件及其附件。Word、Excel、PowerPoint 和 PDF 附件還會按其自身標籤檢查，.doc、.xls 和 .ppt 附件除外。OneNote、Loop 和 Whiteboard 項目會被拒絕。\\n- **未檢查：** 新檔案和新建電子郵件、日曆事件、Teams 消息、站點頁面和會議轉錄。被移動、複製或刪除的檔案夾中的檔案也不檢查。\\n- **搜尋**可能會顯示已阻止檔案的名稱或電子郵件的標頭，直到 Microsoft 為標籤建立索引。\\n- **租户：** \\`tenantId\\` 必須是你租户的 GUID。請為其他可存取你租户的 Microsoft 365 條目提供該 GUID 和此列表，或將其移除。\\n\\n請先更新所有設備：舊版本只會阻止檔案，或完全不阻止。"
+  ],
+  [
+    "`blocked` stops an `mcp_tool` hook's call to a server that the app serves itself, such as most servers in the org-plugins folder. No value stops a hook's call to an SSH host's server, or to one that Claude Code starts or connects to for a plugin. `ask` or no entry can stop a hook in SSH sessions, not in local sessions. The action that a stopped hook guards can still run.\\n\\nOn a plugin server that Claude Code runs, `allow` removes the prompt only in Cowork and Chat, in Manually approve. It covers that name in every plugin from `allowedPluginMarketplaces`, at any address that `allowedPluginMcpServers` admits. A wildcard `ask` or `blocked` outranks it. Users are still asked in Code, and where a device's own Claude Code settings replace the plugin server lists.",
+    "`blocked` 會阻止 `mcp_tool` hook 調用由應用自身提供的伺服器，例如 org-plugins 檔案夾中的大多數伺服器。任何值都無法阻止 hook 調用 SSH 主機上的伺服器，或調用 Claude Code 為插件啟動或連接的伺服器。`ask` 或不設定條目可以在 SSH 會話中（而非本地會話中）阻止 hook。被阻止的 hook 所守護的操作仍可能運行。\\n\\n對於 Claude Code 運行的插件伺服器，`allow` 僅在 Cowork 和 Chat 的手動批准模式下移除提示。它涵蓋來自 `allowedPluginMarketplaces` 的所有插件中該名稱，以及 `allowedPluginMcpServers` 允許的任何地址。通配符 `ask` 或 `blocked` 的優先級更高。在 Code 中，以及當設備自身的 Claude Code 設定替換插件伺服器列表時，仍會詢問用户。"
+  ],
+  [
+    "Plugins' own code can call an `allow` or unlisted tool without approval. A built-in connector's write tools ask by default. `blocked` can stop a hook. In SSH sessions, all but `allow` by exact name can. What the hook guards can still run.\\n\\nThe policy also applies to a plugin's server with this entry's URL or name.\\n\\n- It follows this entry instead of `orgPluginSettings`, even with no `toolPolicy`. A built-in entry (one with `server`) applies only if it sets one. A local entry applies only where it has a `command`.\\n- For a plugin-only server, use `transport: \\\"policy-only\\\"`.\\n- Claude Code runs some plugin servers. There, `allow` counts only in a `policy-only` entry or in `orgPluginSettings`. Claude Code's own managed settings win by default. No value stops hooks there or to SSH hosts.",
+    "插件自身的代碼可以在未經批准的情況下調用 `allow` 或未列出的工具。內置連接器的寫入工具預設會詢問。`blocked` 可以阻止 hook。在 SSH 會話中，除按確切名稱的 `allow` 外，其他都可以阻止。hook 所守護的內容仍可能運行。\\n\\n該策略也適用於 URL 或名稱與此條目相同的插件伺服器。\\n\\n- 它會遵循此條目而非 `orgPluginSettings`，即使沒有 `toolPolicy`。內置條目（帶有 `server` 的條目）僅在設定它時適用。本地條目僅在有 `command` 時適用。\\n- 對於僅插件的伺服器，請使用 `transport: \\\"policy-only\\\"`。\\n- Claude Code 會運行部分插件伺服器。在那裡，`allow` 僅在 `policy-only` 條目或 `orgPluginSettings` 中才算數。預設情況下，Claude Code 自身的受管設定優先。任何值都無法在那裡或對 SSH 主機阻止 hooks。"
   ]
 ]

@@ -505,15 +505,17 @@ def main():
     cn_fe, _ = load("frontend-zh-CN.json")
     cn_hc, _ = load("frontend-hardcoded-zh-CN.json")
     cn_dt, _ = load("desktop-zh-CN.json")
+    cn_de, _ = load("desktop-extra-zh-CN.json")
 
     targets = {}
     for tag in ("zh-TW", "zh-HK"):
         fe, fe_raw = load(f"frontend-{tag}.json")
         hc, hc_raw = load(f"frontend-hardcoded-{tag}.json")
         dt, _ = load(f"desktop-{tag}.json")
+        de, _ = load(f"desktop-extra-{tag}.json")
         assert dump(fe) == fe_raw, f"{tag} frontend 词库格式与预期不符（避免整文件重排）"
         assert dump(hc) == hc_raw, f"{tag} hardcoded 词库格式与预期不符"
-        targets[tag] = {"fe": fe, "hc": hc, "dt": dt}
+        targets[tag] = {"fe": fe, "hc": hc, "dt": dt, "de": de}
 
     print("== 学习术语风格（从现有平行译文 + 贪心一致性过滤）==")
     converters, banned_map = {}, {}
@@ -540,9 +542,11 @@ def main():
         fe_out, w1 = fill_dict(cn_fe, t["fe"], conv, f"frontend-{tag}", keep_tr_order=True)
         hc_out, w2 = fill_hardcoded(cn_hc, t["hc"], conv, f"frontend-hardcoded-{tag}")
         dt_out, w3 = fill_dict(cn_dt, t["dt"], conv, f"desktop-{tag}", keep_tr_order=False)
+        de_out, w4 = fill_dict(cn_de, t["de"], conv, f"desktop-extra-{tag}", keep_tr_order=False)
         total_bad += validate_written(w1, f"frontend-{tag}", banned)
         total_bad += validate_written(w2, f"frontend-hardcoded-{tag}", banned)
         total_bad += validate_written(w3, f"desktop-{tag}", banned)
+        total_bad += validate_written(w4, f"desktop-extra-{tag}", banned)
         # 抽样预览
         samples = [k for k, v in fe_out.items() if has_cjk(v) and (k not in t["fe"] or not has_cjk(t["fe"][k]))][:5]
         print(f"  抽样[{tag}]:")
@@ -551,6 +555,7 @@ def main():
         (RES / f"frontend-{tag}.json").write_text(dump(fe_out), encoding="utf-8")
         (RES / f"frontend-hardcoded-{tag}.json").write_text(dump(hc_out), encoding="utf-8")
         (RES / f"desktop-{tag}.json").write_text(dump(dt_out), encoding="utf-8")
+        (RES / f"desktop-extra-{tag}.json").write_text(dump(de_out), encoding="utf-8")
 
     if total_bad:
         sys.exit(f"校验未通过（{total_bad} 条），已中止——文件已写出，请回滚后检查")

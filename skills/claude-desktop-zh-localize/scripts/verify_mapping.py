@@ -31,6 +31,16 @@ from pathlib import Path
 ROOT = Path(os.environ.get("CLAUDE_ZH_REPO", Path(__file__).resolve().parents[3]))
 sys.path.insert(0, str(ROOT / "scripts"))
 
+
+def _ensure_utf8_pipe() -> None:
+    """Piped output is UTF-8 even where the locale is not (Windows cp1252/GBK)."""
+    encoding = (sys.stdout.encoding or "").lower().replace("-", "").replace("_", "")
+    if not sys.stdout.isatty() and encoding != "utf8" and hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
+
+_ensure_utf8_pipe()
+
 import patch_claude_zh_cn as patcher  # noqa: E402
 
 FRONTEND_EN_REL = "i18n/en-US.json"

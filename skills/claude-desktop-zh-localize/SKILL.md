@@ -68,14 +68,20 @@ node -e 'const G=[[/^Past (\d+) months?$/,"过去 $1 个月"]];for(const s of ["
 ### 第 5 步：验证
 
 ```bash
-# 三地映射命中 + 废弃键检查（有未命中即退出码 1）
-python3 skills/claude-desktop-zh-localize/scripts/verify_mapping.py "Theme" "Past 3 months" ...
+# 三地映射命中 + 粗体边界（有未命中即退出码 1）
+python3 skills/claude-desktop-zh-localize/scripts/verify_mapping.py "Theme" "Copy details" ...
 
 # 语法检查
 python3 -m py_compile scripts/patch_claude_zh_cn.py scripts/patch_linux_asar.py
 ```
 
-`verify_mapping.py` 默认读 `/Applications/Claude.app`，可用 `CLAUDE_APP=/path/to/Claude.app` 覆盖。需要端到端确认时再跑 `python3 scripts/patch_claude_zh_cn.py --user-home "$HOME" --dry-run`（约 5 分钟，非必需）。
+`verify_mapping.py` 会先按三地词表扫描 `**粗体**` 的 CommonMark 左右界，再逐条检查短语：
+命中 `frontend-hardcoded-zh-*.json` 的源文算 hardcoded；命中应用 `en-US.json` 的某个 key
+且中文词表有不同译文算 i18n。默认依次找 `~/.local/lib/claude-desktop`、
+`/usr/lib/claude-desktop`、`/Applications/Claude.app`，也可用 `CLAUDE_APP` 指定应用根目录。
+找不到应用时只查 hardcoded 与粗体，退出码 2 表示“未完整验证”；词表里保留的旧版本 key
+只报告数量，不算失败（供旧版 Claude 使用）。需要端到端确认时再跑
+`python3 scripts/patch_claude_zh_cn.py --user-home "$HOME" --dry-run`（约 5 分钟，非必需）。
 
 ### 第 6 步：Computer Use 视觉回归验证（可选但推荐）
 

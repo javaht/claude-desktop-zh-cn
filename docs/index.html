@@ -423,6 +423,7 @@
       font-family: var(--mono); font-size: 12.5px; background: rgba(27, 24, 19, 0.05);
       padding: 1px 5px; border-radius: 4px; color: var(--ink); white-space: nowrap;
     }
+    .steps code.launch-command { white-space: normal; overflow-wrap: anywhere; }
     .steps b { color: var(--ink); font-weight: 600; }
     .os-note {
       margin: 20px 0 0; padding: 13px 15px; font-size: 13px; line-height: 1.55; color: var(--ink-2);
@@ -718,7 +719,7 @@
         <article class="feature">
           <span class="fno">01</span>
           <h3>一键安装，三平台通吃</h3>
-          <p>macOS 双击 <code>install-mac.command</code>，Windows 右键以管理员身份运行 <code>install-windows.bat</code>，Linux 在终端运行 <code>./install-linux.sh</code>，跟着菜单走完即可，不用手动改文件。</p>
+          <p>macOS 双击 <code>install-mac.command</code>，Windows 在项目目录启动 <code>install-windows.ps1</code>，Linux 在终端运行 <code>./install-linux.sh</code>，跟着菜单走完即可，不用手动改文件。</p>
         </article>
         <article class="feature">
           <span class="fno">02</span>
@@ -807,15 +808,15 @@
         <article class="os-card" data-reveal style="--delay:80ms">
           <div class="os-head">
             <span class="os-glyph" aria-hidden="true">⊞</span>
-            <div><b>Windows</b><span>install-windows.bat</span></div>
+            <div><b>Windows</b><span>install-windows.ps1</span></div>
           </div>
           <ol class="steps">
-            <li>退出 Claude Desktop。</li>
-            <li>右键 <code>install-windows.bat</code>，选择以管理员身份运行。</li>
-            <li>按菜单提示选择操作，再选语言（简体 / 繁體（台灣） / 繁體（香港））。</li>
-            <li>脚本自动备份资源、写入中文并重启 Claude。</li>
+            <li>退出 Claude Desktop，解压完整项目。</li>
+            <li>在项目目录打开 PowerShell，运行：<br><code class="launch-command">pwsh -NoProfile -ExecutionPolicy Bypass -File .\install-windows.ps1</code></li>
+            <li>没有 PowerShell 7 时可用系统自带的 5.1：<br><code class="launch-command">powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install-windows.ps1</code></li>
+            <li>按 UAC 提示授权，再从菜单选择安装语言或恢复。取消授权不会修改 Claude。</li>
           </ol>
-          <p class="os-note"><b>不改写 <span class="term">app.asar</span>：</b> 只安装中文资源与前端汉化，应用签名和 Cowork 沙箱不受影响。官方账号界面已由 Claude 原生支持中文。</p>
+          <p class="os-note"><b>推荐环境：</b> Microsoft Store 的 <a href="https://www.microsoft.com/store/apps/9MZ1SNWT0N5D">PowerShell 7</a>（7.6 或更新的稳定版）和可选的 <a href="https://apps.microsoft.com/detail/9n0dx20hk701">Windows Terminal</a>。没有 Terminal 时直接运行 PowerShell；商店不可用时可从 <a href="https://github.com/PowerShell/PowerShell/releases/latest">PowerShell 官方 GitHub Releases</a> 下载，见 <a href="https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell-on-windows">微软安装指南</a>。<code>Bypass</code> 不修改全局策略，也不能覆盖组织组策略；如仍被拦截，请联系管理员。</p>
         </article>
 
         <article class="os-card" data-reveal style="--delay:160ms">

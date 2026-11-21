@@ -29,9 +29,9 @@ jobs:
         env:
           PYTHONIOENCODING: utf-8
         run: python -I -m unittest discover -s tests -v
-      - name: Windows PowerShell 5.1 与 C# 测试
+      - name: Windows PowerShell 7 与 C# 测试
         if: runner.os == 'Windows'
-        shell: powershell
+        shell: pwsh
         run: |
           ./tests/Test-StructuralReplacements.ps1
           ./tests/Test-SlashCommandMenu.ps1
@@ -44,6 +44,12 @@ jobs:
           ./tests/Test-ProcessStop.ps1
           ./tests/Test-AsarReplace.ps1
           ./tests/Test-CoworkPatch.ps1
+          ./tests/Test-AppxPathResolution.ps1
+          ./tests/Test-WindowsInstallerLauncher.ps1
+      - name: Windows PowerShell 5.1 入口兼容回归
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: ./tests/Test-WindowsInstallerLauncher.ps1
       - name: PowerShell 7 跨平台测试
         if: runner.os == 'Linux'
         shell: pwsh

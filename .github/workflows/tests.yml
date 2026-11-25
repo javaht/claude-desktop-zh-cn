@@ -39,6 +39,7 @@ jobs:
           ./tests/Test-AsarFrontend.ps1
           ./tests/Test-AsarIntegrity.ps1
           ./tests/Test-AsarFrontendWorkflow.ps1
+          ./tests/Test-DirectAsarFastPath.ps1
           ./tests/Test-DesktopShell.ps1
           ./tests/Test-WriteAccess.ps1
           ./tests/Test-ProcessStop.ps1

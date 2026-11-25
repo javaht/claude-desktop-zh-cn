@@ -1023,16 +1023,19 @@ function Install-LanguageFiles {
     param(
         [string]$ResourcesPath,
         [hashtable]$Pack,
-        [string]$Lang
+        [string]$Lang,
+        [switch]$DesktopOnly
     )
 
-    $i18nDir = Join-Path $ResourcesPath "ion-dist\i18n"
-    $statsigDir = Join-Path $i18nDir "statsig"
-    New-Item -ItemType Directory -Path $i18nDir -Force | Out-Null
-    New-Item -ItemType Directory -Path $statsigDir -Force | Out-Null
+    if (-not $DesktopOnly) {
+        $i18nDir = Join-Path $ResourcesPath "ion-dist\i18n"
+        $statsigDir = Join-Path $i18nDir "statsig"
+        New-Item -ItemType Directory -Path $i18nDir -Force | Out-Null
+        New-Item -ItemType Directory -Path $statsigDir -Force | Out-Null
 
-    Copy-Item $Pack["Frontend"] (Join-Path $i18nDir "$Lang.json") -Force
-    Write-Host "  installed ion-dist/i18n/$Lang.json" -ForegroundColor Green
+        Copy-Item $Pack["Frontend"] (Join-Path $i18nDir "$Lang.json") -Force
+        Write-Host "  installed ion-dist/i18n/$Lang.json" -ForegroundColor Green
+    }
 
     Copy-Item $Pack["Desktop"] (Join-Path $ResourcesPath "$Lang.json") -Force
     Write-Host "  installed resources/$Lang.json" -ForegroundColor Green
@@ -1053,6 +1056,10 @@ function Install-LanguageFiles {
         catch {
             Write-Host "  [提示] 独立窗口词库不是有效 JSON，跳过合并: $($_.Exception.Message)" -ForegroundColor DarkYellow
         }
+    }
+
+    if ($DesktopOnly) {
+        return
     }
 
     Copy-Item $Pack["Statsig"] (Join-Path $statsigDir "$Lang.json") -Force
@@ -1216,6 +1223,13 @@ function Test-AsarFrontendArchive {
         return $false
     }
 
+    if (-not ("ClaudeZhPatch.AsarHelper" -as [type]) -and $script:FrontendPatcherCSharp) {
+        try { Add-Type -TypeDefinition $script:FrontendPatcherCSharp -ErrorAction Stop } catch {}
+    }
+    if ("ClaudeZhPatch.AsarHelper" -as [type]) {
+        return [ClaudeZhPatch.AsarHelper]::TestFrontendArchive($AsarPath)
+    }
+
     try {
         $parsed = Read-AsarHeaderFromFile $AsarPath
         $paths = @(Get-AsarEntryPaths $parsed["Header"])
@@ -1252,10 +1266,22 @@ function Expand-AsarArchive {
         throw "ASAR 解包目标已存在: $DestinationPath"
     }
 
+    if (-not ("ClaudeZhPatch.AsarHelper" -as [type]) -and $script:FrontendPatcherCSharp) {
+        try { Add-Type -TypeDefinition $script:FrontendPatcherCSharp -ErrorAction Stop } catch {}
+    }
+    if ("ClaudeZhPatch.AsarHelper" -as [type]) {
+        $workers = [Math]::Max(1, [Math]::Min([Environment]::ProcessorCount, 8))
+        [ClaudeZhPatch.AsarHelper]::ExpandArchive($AsarPath, $DestinationPath, $workers)
+        return
+    }
+
     $parsed = Read-AsarHeaderFromFile $AsarPath
     $dataStart = 8 + [int]$parsed["HeaderSize"]
     New-Item -ItemType Directory -Path $DestinationPath -Force | Out-Null
     $destinationRoot = [IO.Path]::GetFullPath($DestinationPath).TrimEnd('\', '/')
+    $buffer = [byte[]]::new(256 * 1024)
+    $createdDirs = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+    [void]$createdDirs.Add($destinationRoot)
     $asarStream = [IO.File]::Open($AsarPath, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
     try {
         $expand = {
@@ -1274,7 +1300,9 @@ function Expand-AsarArchive {
 
                 $child = $property.Value
                 if ($child.PSObject.Properties["files"]) {
-                    New-Item -ItemType Directory -Path $target -Force | Out-Null
+                    if ($createdDirs.Add($target)) {
+                        [void][IO.Directory]::CreateDirectory($target)
+                    }
                     & $expand $child $relative
                     continue
                 }
@@ -1282,8 +1310,10 @@ function Expand-AsarArchive {
                     throw "暂不支持包含软链接的 ASAR: $relative"
                 }
 
-                $parent = Split-Path -Parent $target
-                New-Item -ItemType Directory -Path $parent -Force | Out-Null
+                $parent = [IO.Path]::GetDirectoryName($target)
+                if ($parent -and $createdDirs.Add($parent)) {
+                    [void][IO.Directory]::CreateDirectory($parent)
+                }
                 if ($child.PSObject.Properties["unpacked"] -and [bool]$child.unpacked) {
                     $unpackedSource = Join-Path ($AsarPath + ".unpacked") ($relative -replace '/', '\')
                     Require-File $unpackedSource
@@ -1301,7 +1331,6 @@ function Expand-AsarArchive {
                 try {
                     $asarStream.Position = $dataStart + $offset
                     $remaining = $size
-                    $buffer = [byte[]]::new(1024 * 1024)
                     while ($remaining -gt 0) {
                         $wanted = [int][Math]::Min([int64]$buffer.Length, $remaining)
                         $read = $asarStream.Read($buffer, 0, $wanted)
@@ -1716,6 +1745,25 @@ function New-AsarArchive {
         throw "缺少 ASAR 输出路径。"
     }
 
+    if (-not ("ClaudeZhPatch.AsarHelper" -as [type]) -and $script:FrontendPatcherCSharp) {
+        try { Add-Type -TypeDefinition $script:FrontendPatcherCSharp -ErrorAction Stop } catch {}
+    }
+    if ("ClaudeZhPatch.AsarHelper" -as [type]) {
+        $destinationFull = [IO.Path]::GetFullPath($DestinationPath)
+        $parent = Split-Path -Parent $destinationFull
+        New-Item -ItemType Directory -Path $parent -Force | Out-Null
+        $temporary = "$destinationFull.tmp-" + [guid]::NewGuid().ToString("N")
+        $workers = [Math]::Max(1, [Math]::Min([Environment]::ProcessorCount, 12))
+        try {
+            [ClaudeZhPatch.AsarHelper]::CreateArchiveToPath($SourceDirectory, $temporary, [int]$AsarIntegrityBlockSize, $workers)
+            Move-Item -LiteralPath $temporary -Destination $destinationFull -Force
+        }
+        finally {
+            Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue
+        }
+        return
+    }
+
     $payloadEntries = New-Object System.Collections.Generic.List[object]
     $offsetState = [pscustomobject]@{ Offset = [int64]0 }
     # 手工拼装紧凑 JSON。ConvertTo-Json 在数千个嵌套节点上会构建完整 PSObject 图，
@@ -1922,6 +1970,176 @@ function Close-FrontendPatchTarget {
     }
 }
 
+function Patch-AsarFrontendDirect {
+    param(
+        [string]$ResourcesPath,
+        [hashtable]$Pack,
+        [string]$Language
+    )
+
+    $asarPath = Join-Path $ResourcesPath "ion-dist.asar"
+    $workspacePath = Join-Path $ResourcesPath "ion-dist"
+    $markerPath = Join-Path $ResourcesPath ".zh-cn-asar-extracted"
+    if (Test-Path -LiteralPath $workspacePath) {
+        if (-not (Test-Path -LiteralPath $markerPath -PathType Leaf)) {
+            throw "发现未标记的 ion-dist 目录，为避免删除用户文件已停止: $workspacePath"
+        }
+        Remove-GeneratedFrontendWorkspace $ResourcesPath $workspacePath
+    }
+    Remove-Item -LiteralPath $markerPath -Force -ErrorAction SilentlyContinue
+
+    $replacements = @(Get-FrontendHardcodedReplacements $Language)
+    $prepared = New-Object 'System.Collections.Generic.List[object[]]'
+    foreach ($pair in $replacements) {
+        $source = [string]$pair[0]
+        $target = [string]$pair[1]
+        if (Test-StructuralJsReplacement $source) {
+            continue
+        }
+        $isPlain = Test-PlainUiTextReplacement $source
+        $prepared.Add([object[]]@([bool]$isPlain, $source, $target))
+    }
+
+    $slashConfig = Get-SlashCommandGlossConfig $Language
+    $displayMarker = "__claudeZhLabelPatch"
+    $displayPatch = ';(()=>{const e=Intl.DisplayNames&&Intl.DisplayNames.prototype;if(!e||e.__claudeZhLabelPatch)return;const n=e.of;e.of=function(e){const t=String(e);return t==="zh-CN"?"简体中文":t==="zh-HK"?"繁體中文（香港）":t==="zh-TW"?"繁體中文（台灣）":n.call(this,e)},Object.defineProperty(e,"__claudeZhLabelPatch",{value:!0})})();'
+    $workers = [Math]::Max(1, [Math]::Min([Environment]::ProcessorCount, 12))
+
+    Write-Host "  直接扫描 ion-dist.asar（免解包落盘，规则数: $($prepared.Count)）..." -ForegroundColor DarkGray
+    $scan = [ClaudeZhPatch.AsarHelper]::ScanFrontendAsar(
+        $asarPath,
+        $Language,
+        $BaseLanguageList,
+        $LanguageListPattern,
+        $prepared.ToArray(),
+        [string]$slashConfig.Profile.module_pattern,
+        $displayMarker,
+        $workers
+    )
+
+    if (-not $scan.AssetsDir -or $scan.TotalJsFiles -eq 0) {
+        throw "未找到前端 JS bundle（在 $asarPath 中未定位到前端主 bundle）。Claude 前端目录结构可能已变化，请带上安装日志反馈。"
+    }
+
+    if ($scan.WhitelistMatchedNames.Length -eq 0) {
+        throw "未能注册中文语言：前端 bundle ($($scan.AssetsDir)) 中找不到语言白名单锚点，Claude 前端格式可能已经变化。"
+    }
+    Write-Host "  located $($scan.WhitelistMatchedNames.Length)/$($scan.TotalJsFiles) frontend JS files containing target text" -ForegroundColor DarkGray
+    foreach ($name in $scan.WhitelistAlreadyNames) {
+        Write-Host "  $Language already registered: $name" -ForegroundColor Green
+    }
+    foreach ($name in $scan.WhitelistChangedNames) {
+        Write-Host "  patched language whitelist for ${Language}: $name" -ForegroundColor Green
+    }
+    if (($scan.WhitelistChangedNames.Length + $scan.WhitelistAlreadyNames.Length) -eq 0) {
+        throw "未能注册中文语言，Claude 前端 bundle 格式可能已经变化。"
+    }
+
+    Write-Host "  patched hardcoded frontend strings: $($scan.HardcodedTotalReplacements) replacements in $($scan.HardcodedPatchedFiles) files" -ForegroundColor Green
+
+    if ($scan.SlashCandidatePaths.Length -ne 1) {
+        Write-Host '  [WARNING] Slash command gloss skipped: expected one menu component' -ForegroundColor DarkYellow
+    }
+    else {
+        $candPath = $scan.SlashCandidatePaths[0]
+        $candName = $candPath.Substring($candPath.LastIndexOf('/') + 1)
+        try {
+            $slashResult = Convert-SlashCommandMenuText $scan.SlashCandidateTexts[0] $slashConfig.Profile $slashConfig.Labels
+            if ($slashResult.Status -eq 'already') {
+                Write-Host "  slash command gloss already installed: $candName" -ForegroundColor DarkGray
+            }
+            else {
+                $scan.ModifiedTexts[$candPath] = $slashResult.Text
+                Write-Host "  patched bilingual slash command menu (${Language}): $candName" -ForegroundColor Green
+            }
+        }
+        catch {
+            Write-Host "  [WARNING] Slash command gloss skipped: $($_.Exception.Message)" -ForegroundColor DarkYellow
+        }
+    }
+
+    if (($scan.DisplayNameTargetPaths.Length + $scan.DisplayNameAlreadyPaths.Length) -eq 0) {
+        Write-Host "  no Intl.DisplayNames bundle found; skipping language display names" -ForegroundColor DarkYellow
+    }
+    else {
+        foreach ($p in $scan.DisplayNameAlreadyPaths) {
+            $name = $p.Substring($p.LastIndexOf('/') + 1)
+            Write-Host "  language display names already patched: $name" -ForegroundColor Green
+        }
+        $patchedDn = 0
+        foreach ($p in $scan.DisplayNameTargetPaths) {
+            $cur = $scan.ModifiedTexts[$p]
+            if (-not $cur.Contains($displayMarker)) {
+                $scan.ModifiedTexts[$p] = $cur + $displayPatch
+                $name = $p.Substring($p.LastIndexOf('/') + 1)
+                Write-Host "  patched language display names: $name" -ForegroundColor Green
+                $patchedDn += 1
+            }
+        }
+        if ($patchedDn -eq 0) {
+            Write-Host "  no language display name changes needed" -ForegroundColor Green
+        }
+    }
+
+    $overlays = New-Object 'System.Collections.Generic.Dictionary[string, byte[]]' ([StringComparer]::Ordinal)
+    foreach ($kv in $scan.ModifiedTexts.GetEnumerator()) {
+        $overlays[$kv.Key] = $Utf8NoBom.GetBytes($kv.Value)
+    }
+
+    $overlays["i18n/$Language.json"] = [IO.File]::ReadAllBytes($Pack["Frontend"])
+    Write-Host "  installed ion-dist/i18n/$Language.json" -ForegroundColor Green
+    $overlays["i18n/statsig/$Language.json"] = [IO.File]::ReadAllBytes($Pack["Statsig"])
+    Write-Host "  installed ion-dist/i18n/statsig/$Language.json" -ForegroundColor Green
+
+    if ($scan.HasDynamicEnUs) {
+        $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
+        $localizedDynamic = Join-Path (Split-Path -Parent $scriptDir) "resources\dynamic-$Language.json"
+        if (Test-Path -LiteralPath $localizedDynamic -PathType Leaf) {
+            $overlays["i18n/dynamic/$Language.json"] = [IO.File]::ReadAllBytes($localizedDynamic)
+        }
+        else {
+            $overlays["i18n/dynamic/$Language.json"] = $scan.DynamicEnUsBytes
+        }
+        Write-Host "  installed ion-dist/i18n/dynamic/$Language.json" -ForegroundColor Green
+    }
+
+    if ($scan.HasEnUsJson) {
+        $mergedEnUs = Merge-LocaleJson $scan.EnUsJsonText ([IO.File]::ReadAllText($Pack["Frontend"], [Text.Encoding]::UTF8))
+        if ($mergedEnUs.Changed -gt 0) {
+            $overlays["i18n/en-US.json"] = $Utf8NoBom.GetBytes($mergedEnUs.Json)
+            Write-Host "  ion-dist.asar 已把 $Language 词库覆盖进 i18n/en-US.json（$($mergedEnUs.Changed) 条）" -ForegroundColor Green
+        }
+    }
+
+    if (-not [ClaudeZhPatch.AsarHelper]::HasOverlayChanges($asarPath, $overlays)) {
+        Write-Host "  ion-dist.asar 已是最新汉化状态，无需重建" -ForegroundColor Green
+        return
+    }
+
+    $temporaryAsar = $asarPath + ".zh-cn-new"
+    Remove-Item -LiteralPath $temporaryAsar -Force -ErrorAction SilentlyContinue
+    Assert-AsarReplaceable -Path $asarPath
+    Backup-ModifiedFile $ResourcesPath $asarPath
+    Write-Host "  正在流式重建 ion-dist.asar（仅重算 $($overlays.Count) 个变更条目哈希）..." -ForegroundColor DarkGray
+    try {
+        [ClaudeZhPatch.AsarHelper]::RebuildAsarWithOverlays(
+            $asarPath,
+            $temporaryAsar,
+            $overlays,
+            [int]$AsarIntegrityBlockSize,
+            $workers
+        )
+        if (-not (Test-AsarFrontendArchive $temporaryAsar)) {
+            throw "重新打包后的 ion-dist.asar 未通过结构校验。"
+        }
+        Move-FileWithRetry -Source $temporaryAsar -Destination $asarPath
+        Write-Host "  ion-dist.asar 已更新" -ForegroundColor Green
+    }
+    finally {
+        Remove-Item -LiteralPath $temporaryAsar -Force -ErrorAction SilentlyContinue
+    }
+}
+
 
 
 
@@ -1971,8 +2189,46 @@ function Get-Sha256Hex {
 function Get-AsarHeaderHash {
     param([string]$AsarPath)
 
-    $parsed = Read-AsarHeaderFromFile $AsarPath
-    return Get-Sha256Hex ([System.Text.Encoding]::UTF8.GetBytes($parsed["HeaderString"]))
+    if (-not ("ClaudeZhPatch.AsarHelper" -as [type]) -and $script:FrontendPatcherCSharp) {
+        try { Add-Type -TypeDefinition $script:FrontendPatcherCSharp -ErrorAction Stop } catch {}
+    }
+    if ("ClaudeZhPatch.AsarHelper" -as [type]) {
+        Require-File $AsarPath
+        return [ClaudeZhPatch.AsarHelper]::GetHeaderHash($AsarPath)
+    }
+
+    Require-File $AsarPath
+    $stream = [System.IO.File]::Open($AsarPath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::Read)
+    try {
+        if ($stream.Length -lt 16) {
+            throw "Unsupported app.asar header in $AsarPath"
+        }
+        $prefix = [byte[]]::new(8)
+        if ($stream.Read($prefix, 0, 8) -ne 8) {
+            throw "Unsupported app.asar header in $AsarPath"
+        }
+        $sizePicklePayload = Get-UInt32LE $prefix 0
+        $headerSize = Get-UInt32LE $prefix 4
+        if (($sizePicklePayload -ne 4) -or ($headerSize -le 0) -or ($stream.Length -lt (8 + $headerSize))) {
+            throw "Unsupported app.asar size pickle in $AsarPath"
+        }
+        $headerPickle = [byte[]]::new($headerSize)
+        if ($stream.Read($headerPickle, 0, [int]$headerSize) -ne [int]$headerSize) {
+            throw "Unsupported app.asar header in $AsarPath"
+        }
+        $headerPayloadSize = Get-UInt32LE $headerPickle 0
+        $headerStringSize = Get-Int32LE $headerPickle 4
+        $expectedPayloadSize = Align-4 (4 + $headerStringSize)
+        if (($headerPayloadSize -ne $expectedPayloadSize) -or ($headerSize -ne (4 + $headerPayloadSize))) {
+            throw "Unsupported app.asar header pickle in $AsarPath"
+        }
+        $headerBytes = [byte[]]::new($headerStringSize)
+        [System.Array]::Copy($headerPickle, 8, $headerBytes, 0, $headerStringSize)
+        return Get-Sha256Hex $headerBytes
+    }
+    finally {
+        $stream.Dispose()
+    }
 }
 
 function Get-ClaudeExePathFromResources {
@@ -2030,14 +2286,22 @@ function Assert-ClaudeExeIntegrityMarkers {
     # 真正写入前先只读校验所有目标的标记，格式不兼容时零副作用地快速失败。
     $exePath = Get-ClaudeExePathFromResources $ResourcesPath
     $exeInfo = Get-Item -LiteralPath $exePath
-    $targets = @("app.asar", "ion-dist.asar") | Where-Object {
+    $targets = @(@("app.asar", "ion-dist.asar") | Where-Object {
         Test-Path -LiteralPath (Join-Path $ResourcesPath $_) -PathType Leaf
-    }
+    })
     if ($targets.Count -eq 0) {
         return
     }
 
     Write-Host "  [进度] 正在校验 Claude.exe 完整性标记..." -ForegroundColor DarkGray
+    if (-not ("ClaudeZhPatch.ExeIntegrityHelper" -as [type]) -and $script:FrontendPatcherCSharp) {
+        try { Add-Type -TypeDefinition $script:FrontendPatcherCSharp -ErrorAction Stop } catch {}
+    }
+    if ("ClaudeZhPatch.ExeIntegrityHelper" -as [type]) {
+        $null = [ClaudeZhPatch.ExeIntegrityHelper]::FindMarkerOffsets($exePath, [string[]]$targets)
+        return
+    }
+
     $exeText = [System.IO.File]::ReadAllText($exePath, [System.Text.Encoding]::ASCII)
     foreach ($asarName in $targets) {
         $marker = Get-ClaudeExeIntegrityMarker -ExeText $exeText -AsarName $asarName
@@ -2051,6 +2315,18 @@ function Assert-ClaudeExeIntegrityMarkers {
 
 function Merge-LocaleJson {
     param([string]$TargetJson, [string]$OverrideJson)
+
+    if (-not ("ClaudeZhPatch.AsarHelper" -as [type]) -and $script:FrontendPatcherCSharp) {
+        try { Add-Type -TypeDefinition $script:FrontendPatcherCSharp -ErrorAction Stop } catch {}
+    }
+    if ("ClaudeZhPatch.AsarHelper" -as [type]) {
+        $changedCount = 0
+        $mergedJson = [ClaudeZhPatch.AsarHelper]::MergeLocaleJson($TargetJson, $OverrideJson, [ref]$changedCount)
+        return [pscustomobject]@{
+            Changed = $changedCount
+            Json = $mergedJson
+        }
+    }
 
     $target = $TargetJson | ConvertFrom-Json
     $override = $OverrideJson | ConvertFrom-Json
@@ -2109,7 +2385,8 @@ function Merge-LocaleOverride {
 function Patch-DesktopShellLocale {
     param(
         [string]$ResourcesPath,
-        [string]$Lang
+        [string]$Lang,
+        [switch]$SkipIntegritySync
     )
 
     # Claude 4.29+ 的主进程界面（原生菜单栏、任务栏右键菜单）只从 app.asar 内的
@@ -2145,26 +2422,90 @@ function Patch-DesktopShellLocale {
         return
     }
 
-    $changed = 0
-    if ($merged.Changed -gt 0) {
-        Set-AsarEntryContent -AsarPath $asarPath -ResourcesPath $ResourcesPath -EntryPath $basePath -Content ([Text.Encoding]::UTF8.GetBytes($merged.Json))
-        $changed = $merged.Changed
-        Write-Host "  app.asar 已把 $Lang 词库覆盖进 $basePath（$changed 条）" -ForegroundColor Green
-    }
-    else {
-        Write-Host "  app.asar 的 $basePath 已是最新中文词库" -ForegroundColor Green
+    $localePath = "resources/i18n/$Lang.json"
+    $needSetEnUs = $merged.Changed -gt 0
+    $needAddLocale = $entryPaths -notcontains $localePath
+
+    if (-not ("ClaudeZhPatch.AsarHelper" -as [type]) -and $script:FrontendPatcherCSharp) {
+        try { Add-Type -TypeDefinition $script:FrontendPatcherCSharp -ErrorAction Stop } catch {}
     }
 
-    $localePath = "resources/i18n/$Lang.json"
-    if ($entryPaths -notcontains $localePath) {
-        $localeBytes = [IO.File]::ReadAllBytes($desktopPack)
-        if (Add-AsarEntryContent -AsarPath $asarPath -ResourcesPath $ResourcesPath -EntryPath $localePath -Content $localeBytes) {
+    $changed = 0
+    if (($needSetEnUs -or $needAddLocale) -and ("ClaudeZhPatch.AsarHelper" -as [type])) {
+        if ($needSetEnUs) {
+            $setPaths = [string[]]@($basePath)
+            $setContents = New-Object 'byte[][]' 1
+            $setContents[0] = [Text.Encoding]::UTF8.GetBytes($merged.Json)
+        }
+        else {
+            $setPaths = [string[]]@()
+            $setContents = New-Object 'byte[][]' 0
+        }
+        if ($needAddLocale) {
+            $addPaths = [string[]]@($localePath)
+            $addContents = New-Object 'byte[][]' 1
+            $addContents[0] = [IO.File]::ReadAllBytes($desktopPack)
+        }
+        else {
+            $addPaths = [string[]]@()
+            $addContents = New-Object 'byte[][]' 0
+        }
+
+        Assert-AsarReplaceable -Path $asarPath
+        $temporary = "$asarPath.zh-cn-new"
+        Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue
+        Backup-ModifiedFile $ResourcesPath $asarPath
+        try {
+            $applied = [ClaudeZhPatch.AsarHelper]::UpdateAsarEntries(
+                $asarPath,
+                $temporary,
+                $setPaths,
+                $setContents,
+                $addPaths,
+                $addContents,
+                [int]$AsarIntegrityBlockSize
+            )
+            if ($applied -gt 0) {
+                Move-FileWithRetry -Source $temporary -Destination $asarPath
+            }
+        }
+        catch {
+            Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue
+            throw
+        }
+
+        if ($needSetEnUs) {
+            $changed = $merged.Changed
+            Write-Host "  app.asar 已把 $Lang 词库覆盖进 $basePath（$changed 条）" -ForegroundColor Green
+        }
+        else {
+            Write-Host "  app.asar 的 $basePath 已是最新中文词库" -ForegroundColor Green
+        }
+        if ($needAddLocale) {
             Write-Host "  app.asar 已补入主进程词库 $localePath" -ForegroundColor Green
             $changed = $changed + 1
         }
     }
+    else {
+        if ($needSetEnUs) {
+            Set-AsarEntryContent -AsarPath $asarPath -ResourcesPath $ResourcesPath -EntryPath $basePath -Content ([Text.Encoding]::UTF8.GetBytes($merged.Json))
+            $changed = $merged.Changed
+            Write-Host "  app.asar 已把 $Lang 词库覆盖进 $basePath（$changed 条）" -ForegroundColor Green
+        }
+        else {
+            Write-Host "  app.asar 的 $basePath 已是最新中文词库" -ForegroundColor Green
+        }
 
-    if ($changed -gt 0) {
+        if ($needAddLocale) {
+            $localeBytes = [IO.File]::ReadAllBytes($desktopPack)
+            if (Add-AsarEntryContent -AsarPath $asarPath -ResourcesPath $ResourcesPath -EntryPath $localePath -Content $localeBytes) {
+                Write-Host "  app.asar 已补入主进程词库 $localePath" -ForegroundColor Green
+                $changed = $changed + 1
+            }
+        }
+    }
+
+    if ($changed -gt 0 -and -not $SkipIntegritySync) {
         # app.asar 头部变了，Claude.exe 内嵌的 ASAR 头哈希必须同步，否则应用校验失败。
         Sync-ClaudeExeAsarIntegrity $ResourcesPath
     }
@@ -2175,29 +2516,50 @@ function Sync-ClaudeExeAsarIntegrity {
     param([string]$ResourcesPath)
 
     $exePath = Get-ClaudeExePathFromResources $ResourcesPath
-    $targets = @("app.asar", "ion-dist.asar") | Where-Object {
+    $targets = @(@("app.asar", "ion-dist.asar") | Where-Object {
         Test-Path -LiteralPath (Join-Path $ResourcesPath $_) -PathType Leaf
+    })
+    if ($targets.Count -eq 0) {
+        return
     }
     $exeInfo = Get-Item -LiteralPath $exePath
     Write-Host "  [进度] 正在读取 Claude.exe ($(Format-ByteSize $exeInfo.Length)) 用于定位完整性标记..." -ForegroundColor DarkGray
 
-    foreach ($asarName in $targets) {
+    if (-not ("ClaudeZhPatch.ExeIntegrityHelper" -as [type]) -and $script:FrontendPatcherCSharp) {
+        try { Add-Type -TypeDefinition $script:FrontendPatcherCSharp -ErrorAction Stop } catch {}
+    }
+
+    $hashOffsets = $null
+    $exeText = $null
+    if ("ClaudeZhPatch.ExeIntegrityHelper" -as [type]) {
+        $hashOffsets = [ClaudeZhPatch.ExeIntegrityHelper]::FindMarkerOffsets($exePath, [string[]]$targets)
+    }
+    else {
+        $exeText = [System.IO.File]::ReadAllText($exePath, [System.Text.Encoding]::ASCII)
+    }
+
+    for ($idx = 0; $idx -lt $targets.Count; $idx++) {
+        $asarName = $targets[$idx]
         $asarPath = Join-Path $ResourcesPath $asarName
         Write-Host "  [进度] 正在计算 $asarName header hash..." -ForegroundColor DarkGray
         $headerHash = Get-AsarHeaderHash $asarPath
-        $exeText = [System.IO.File]::ReadAllText($exePath, [System.Text.Encoding]::ASCII)
-        $marker = Get-ClaudeExeIntegrityMarker -ExeText $exeText -AsarName $asarName
-        $markerIndex = $exeText.IndexOf($marker, [System.StringComparison]::Ordinal)
 
-        $hashOffset = $markerIndex + $marker.Length
-        if (($hashOffset + 64) -gt $exeInfo.Length) {
-            throw "Claude.exe $asarName integrity marker has invalid bounds."
+        if ($null -ne $hashOffsets) {
+            $hashOffset = [int64]$hashOffsets[$idx]
+        }
+        else {
+            $marker = Get-ClaudeExeIntegrityMarker -ExeText $exeText -AsarName $asarName
+            $markerIndex = $exeText.IndexOf($marker, [System.StringComparison]::Ordinal)
+            $hashOffset = [int64]($markerIndex + $marker.Length)
+            if (($hashOffset + 64) -gt $exeInfo.Length) {
+                throw "Claude.exe $asarName integrity marker has invalid bounds."
+            }
         }
 
         $stream = [System.IO.File]::Open($exePath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::Read)
         try {
             $hashBytes = [byte[]]::new(64)
-            $stream.Seek([int64]$hashOffset, [System.IO.SeekOrigin]::Begin) | Out-Null
+            $stream.Seek($hashOffset, [System.IO.SeekOrigin]::Begin) | Out-Null
             if ($stream.Read($hashBytes, 0, $hashBytes.Length) -ne $hashBytes.Length) {
                 throw "Claude.exe $asarName integrity marker has invalid bounds."
             }
@@ -2214,7 +2576,7 @@ function Sync-ClaudeExeAsarIntegrity {
             Backup-AppFile $ResourcesPath $exePath
             Write-Host "  [进度] 正在定点写回 Claude.exe 中 $asarName 的完整性哈希（64 bytes）..." -ForegroundColor DarkGray
             $newHashBytes = [System.Text.Encoding]::ASCII.GetBytes($headerHash)
-            $stream.Seek([int64]$hashOffset, [System.IO.SeekOrigin]::Begin) | Out-Null
+            $stream.Seek($hashOffset, [System.IO.SeekOrigin]::Begin) | Out-Null
             $stream.Write($newHashBytes, 0, $newHashBytes.Length)
         }
         finally {
@@ -2533,17 +2895,32 @@ function Get-FrontendJsFilesContaining {
     }
 
     $patterns = @($Needles | Where-Object { $_ })
+    if (-not ("ClaudeZhPatch.FrontendPatcher" -as [type]) -and $script:FrontendPatcherCSharp) {
+        try { Add-Type -TypeDefinition $script:FrontendPatcherCSharp -ErrorAction Stop } catch {}
+    }
+    if ("ClaudeZhPatch.FrontendPatcher" -as [type]) {
+        $filePaths = [string[]]@($jsFiles | ForEach-Object { $_.FullName })
+        $workers = [Math]::Max(1, [Math]::Min([Environment]::ProcessorCount, 12))
+        $matchedPaths = [ClaudeZhPatch.FrontendPatcher]::FindFilesContaining($filePaths, [string[]]$patterns, $workers)
+        $matched = New-Object System.Collections.Generic.List[System.IO.FileInfo]
+        foreach ($p in $matchedPaths) {
+            $matched.Add([System.IO.FileInfo]::new($p))
+        }
+        Write-Host "  located $($matched.Count)/$($jsFiles.Count) frontend JS files containing target text" -ForegroundColor DarkGray
+        return @($matched)
+    }
+
     $keep = 0
     foreach ($needle in $patterns) {
         $keep = [Math]::Max($keep, $needle.Length - 1)
     }
+    $buffer = [char[]]::new(256 * 1024)
     $matched = New-Object System.Collections.Generic.List[System.IO.FileInfo]
     foreach ($file in $jsFiles) {
         # StreamReader preserves UTF-8 characters split across reads. Keep enough
         # overlap for the longest needle, rather than imposing a fixed limit.
         $reader = [System.IO.StreamReader]::new($file.FullName, [System.Text.Encoding]::UTF8)
         try {
-            $buffer = [char[]]::new(1024 * 1024)
             $carry = ""
             while (($read = $reader.Read($buffer, 0, $buffer.Length)) -gt 0) {
                 $chunk = $carry + [string]::new($buffer, 0, $read)
@@ -2718,12 +3095,12 @@ function Get-FrontendHardcodedReplacements {
     Require-File $path
 
     $items = Get-Content $path -Raw -Encoding UTF8 | ConvertFrom-Json
-    $replacements = @()
+    $replacements = New-Object 'System.Collections.Generic.List[object[]]'
     foreach ($item in $items) {
         if ($item.Count -ne 2) {
             throw "无效的前端硬编码替换项: $path"
         }
-        $replacements += ,@([string]$item[0], [string]$item[1])
+        $replacements.Add([object[]]@([string]$item[0], [string]$item[1]))
     }
     return @($replacements | Sort-Object -Property @{ Expression = { $_[0].Length }; Descending = $true })
 }
@@ -2860,7 +3237,9 @@ function Replace-FrontendHardcodedText {
 $script:FrontendPatcherCSharp = @'
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -2868,13 +3247,638 @@ using System.Threading.Tasks;
 
 namespace ClaudeZhPatch
 {
+    internal sealed class JsonRawNumber
+    {
+        public readonly string Raw;
+        public JsonRawNumber(string raw) { Raw = raw; }
+        public long AsInt64()
+        {
+            return long.Parse(Raw, CultureInfo.InvariantCulture);
+        }
+    }
+
+    internal sealed class JsonObject
+    {
+        public readonly List<KeyValuePair<string, object>> Entries = new List<KeyValuePair<string, object>>();
+        private readonly Dictionary<string, int> _index = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        public bool TryGet(string key, out object value)
+        {
+            int idx;
+            if (_index.TryGetValue(key, out idx))
+            {
+                value = Entries[idx].Value;
+                return true;
+            }
+            value = null;
+            return false;
+        }
+
+        public bool ContainsKey(string key)
+        {
+            return _index.ContainsKey(key);
+        }
+
+        public void Set(string key, object value)
+        {
+            int idx;
+            if (_index.TryGetValue(key, out idx))
+            {
+                Entries[idx] = new KeyValuePair<string, object>(key, value);
+            }
+            else
+            {
+                _index[key] = Entries.Count;
+                Entries.Add(new KeyValuePair<string, object>(key, value));
+            }
+        }
+    }
+
+    internal static class MiniJson
+    {
+        private struct Parser
+        {
+            private readonly string _s;
+            private int _pos;
+
+            public Parser(string s)
+            {
+                _s = s;
+                _pos = 0;
+            }
+
+            public object ParseRoot()
+            {
+                SkipWs();
+                object val = ParseValue();
+                SkipWs();
+                if (_pos != _s.Length)
+                {
+                    throw new FormatException("Unexpected trailing JSON content at position " + _pos);
+                }
+                return val;
+            }
+
+            private void SkipWs()
+            {
+                while (_pos < _s.Length)
+                {
+                    char c = _s[_pos];
+                    if (c == ' ' || c == '\t' || c == '\r' || c == '\n') _pos++;
+                    else break;
+                }
+            }
+
+            private object ParseValue()
+            {
+                SkipWs();
+                if (_pos >= _s.Length) throw new FormatException("Unexpected end of JSON");
+                char c = _s[_pos];
+                if (c == '{') return ParseObject();
+                if (c == '[') return ParseArray();
+                if (c == '"') return ParseString();
+                if (c == 't') { Expect("true"); return true; }
+                if (c == 'f') { Expect("false"); return false; }
+                if (c == 'n') { Expect("null"); return null; }
+                if (c == '-' || (c >= '0' && c <= '9')) return ParseNumber();
+                throw new FormatException("Unexpected JSON character '" + c + "' at position " + _pos);
+            }
+
+            private void Expect(string lit)
+            {
+                if (_pos + lit.Length > _s.Length || string.CompareOrdinal(_s, _pos, lit, 0, lit.Length) != 0)
+                {
+                    throw new FormatException("Expected '" + lit + "' at position " + _pos);
+                }
+                _pos += lit.Length;
+            }
+
+            private JsonObject ParseObject()
+            {
+                _pos++; // '{'
+                JsonObject obj = new JsonObject();
+                SkipWs();
+                if (_pos < _s.Length && _s[_pos] == '}')
+                {
+                    _pos++;
+                    return obj;
+                }
+                while (true)
+                {
+                    SkipWs();
+                    if (_pos >= _s.Length || _s[_pos] != '"')
+                    {
+                        throw new FormatException("Expected string key at position " + _pos);
+                    }
+                    string key = ParseString();
+                    SkipWs();
+                    if (_pos >= _s.Length || _s[_pos] != ':')
+                    {
+                        throw new FormatException("Expected ':' at position " + _pos);
+                    }
+                    _pos++;
+                    object val = ParseValue();
+                    obj.Set(key, val);
+                    SkipWs();
+                    if (_pos >= _s.Length) throw new FormatException("Unterminated JSON object");
+                    char sep = _s[_pos++];
+                    if (sep == '}') return obj;
+                    if (sep != ',') throw new FormatException("Expected ',' or '}' at position " + (_pos - 1));
+                }
+            }
+
+            private List<object> ParseArray()
+            {
+                _pos++; // '['
+                List<object> list = new List<object>();
+                SkipWs();
+                if (_pos < _s.Length && _s[_pos] == ']')
+                {
+                    _pos++;
+                    return list;
+                }
+                while (true)
+                {
+                    list.Add(ParseValue());
+                    SkipWs();
+                    if (_pos >= _s.Length) throw new FormatException("Unterminated JSON array");
+                    char sep = _s[_pos++];
+                    if (sep == ']') return list;
+                    if (sep != ',') throw new FormatException("Expected ',' or ']' at position " + (_pos - 1));
+                }
+            }
+
+            private string ParseString()
+            {
+                _pos++; // '"'
+                int start = _pos;
+                StringBuilder sb = null;
+                while (_pos < _s.Length)
+                {
+                    char c = _s[_pos++];
+                    if (c == '"')
+                    {
+                        if (sb == null) return _s.Substring(start, _pos - 1 - start);
+                        sb.Append(_s, start, _pos - 1 - start);
+                        return sb.ToString();
+                    }
+                    if (c == '\\')
+                    {
+                        if (sb == null) sb = new StringBuilder();
+                        if (_pos - 1 > start) sb.Append(_s, start, _pos - 1 - start);
+                        if (_pos >= _s.Length) throw new FormatException("Unterminated string escape");
+                        char esc = _s[_pos++];
+                        switch (esc)
+                        {
+                            case '"': sb.Append('"'); break;
+                            case '\\': sb.Append('\\'); break;
+                            case '/': sb.Append('/'); break;
+                            case 'b': sb.Append('\b'); break;
+                            case 'f': sb.Append('\f'); break;
+                            case 'n': sb.Append('\n'); break;
+                            case 'r': sb.Append('\r'); break;
+                            case 't': sb.Append('\t'); break;
+                            case 'u':
+                                if (_pos + 4 > _s.Length) throw new FormatException("Invalid unicode escape");
+                                int code = ParseHex4(_s, _pos);
+                                _pos += 4;
+                                sb.Append((char)code);
+                                break;
+                            default:
+                                throw new FormatException("Invalid escape character '\\" + esc + "'");
+                        }
+                        start = _pos;
+                    }
+                }
+                throw new FormatException("Unterminated JSON string");
+            }
+
+            private static int ParseHex4(string s, int offset)
+            {
+                int v = 0;
+                for (int i = 0; i < 4; i++)
+                {
+                    char c = s[offset + i];
+                    int d;
+                    if (c >= '0' && c <= '9') d = c - '0';
+                    else if (c >= 'a' && c <= 'f') d = 10 + (c - 'a');
+                    else if (c >= 'A' && c <= 'F') d = 10 + (c - 'A');
+                    else throw new FormatException("Invalid hex digit '" + c + "'");
+                    v = (v << 4) | d;
+                }
+                return v;
+            }
+
+            private JsonRawNumber ParseNumber()
+            {
+                int start = _pos;
+                if (_s[_pos] == '-') _pos++;
+                if (_pos >= _s.Length || _s[_pos] < '0' || _s[_pos] > '9')
+                {
+                    throw new FormatException("Invalid number at position " + start);
+                }
+                while (_pos < _s.Length && _s[_pos] >= '0' && _s[_pos] <= '9') _pos++;
+                if (_pos < _s.Length && _s[_pos] == '.')
+                {
+                    _pos++;
+                    if (_pos >= _s.Length || _s[_pos] < '0' || _s[_pos] > '9')
+                    {
+                        throw new FormatException("Invalid fraction at position " + _pos);
+                    }
+                    while (_pos < _s.Length && _s[_pos] >= '0' && _s[_pos] <= '9') _pos++;
+                }
+                if (_pos < _s.Length && (_s[_pos] == 'e' || _s[_pos] == 'E'))
+                {
+                    _pos++;
+                    if (_pos < _s.Length && (_s[_pos] == '+' || _s[_pos] == '-')) _pos++;
+                    if (_pos >= _s.Length || _s[_pos] < '0' || _s[_pos] > '9')
+                    {
+                        throw new FormatException("Invalid exponent at position " + _pos);
+                    }
+                    while (_pos < _s.Length && _s[_pos] >= '0' && _s[_pos] <= '9') _pos++;
+                }
+                return new JsonRawNumber(_s.Substring(start, _pos - start));
+            }
+        }
+
+        public static object Parse(string json)
+        {
+            if (json == null) throw new FormatException("JSON input is null");
+            Parser p = new Parser(json);
+            return p.ParseRoot();
+        }
+
+        public static string Serialize(object value)
+        {
+            StringBuilder sb = new StringBuilder(1024);
+            WriteValue(value, sb);
+            return sb.ToString();
+        }
+
+        public static void WriteString(string s, StringBuilder sb)
+        {
+            sb.Append('"');
+            int start = 0;
+            int len = s.Length;
+            for (int i = 0; i < len; i++)
+            {
+                char c = s[i];
+                if (c == '"' || c == '\\' || c < 0x20 || c == '\u2028' || c == '\u2029')
+                {
+                    if (i > start) sb.Append(s, start, i - start);
+                    switch (c)
+                    {
+                        case '"': sb.Append("\\\""); break;
+                        case '\\': sb.Append("\\\\"); break;
+                        case '\b': sb.Append("\\b"); break;
+                        case '\f': sb.Append("\\f"); break;
+                        case '\n': sb.Append("\\n"); break;
+                        case '\r': sb.Append("\\r"); break;
+                        case '\t': sb.Append("\\t"); break;
+                        case '\u2028': sb.Append("\\u2028"); break;
+                        case '\u2029': sb.Append("\\u2029"); break;
+                        default:
+                            sb.Append("\\u");
+                            sb.Append(((int)c).ToString("x4", CultureInfo.InvariantCulture));
+                            break;
+                    }
+                    start = i + 1;
+                }
+            }
+            if (len > start) sb.Append(s, start, len - start);
+            sb.Append('"');
+        }
+
+        public static void WriteValue(object value, StringBuilder sb)
+        {
+            if (value == null)
+            {
+                sb.Append("null");
+                return;
+            }
+            string str = value as string;
+            if (str != null)
+            {
+                WriteString(str, sb);
+                return;
+            }
+            if (value is bool)
+            {
+                sb.Append((bool)value ? "true" : "false");
+                return;
+            }
+            JsonRawNumber num = value as JsonRawNumber;
+            if (num != null)
+            {
+                sb.Append(num.Raw);
+                return;
+            }
+            if (value is long)
+            {
+                sb.Append(((long)value).ToString(CultureInfo.InvariantCulture));
+                return;
+            }
+            if (value is int)
+            {
+                sb.Append(((int)value).ToString(CultureInfo.InvariantCulture));
+                return;
+            }
+            JsonObject obj = value as JsonObject;
+            if (obj != null)
+            {
+                sb.Append('{');
+                for (int i = 0; i < obj.Entries.Count; i++)
+                {
+                    if (i > 0) sb.Append(',');
+                    WriteString(obj.Entries[i].Key, sb);
+                    sb.Append(':');
+                    WriteValue(obj.Entries[i].Value, sb);
+                }
+                sb.Append('}');
+                return;
+            }
+            string[] strArr = value as string[];
+            if (strArr != null)
+            {
+                sb.Append('[');
+                for (int i = 0; i < strArr.Length; i++)
+                {
+                    if (i > 0) sb.Append(',');
+                    WriteString(strArr[i], sb);
+                }
+                sb.Append(']');
+                return;
+            }
+            IList<object> list = value as IList<object>;
+            if (list != null)
+            {
+                sb.Append('[');
+                for (int i = 0; i < list.Count; i++)
+                {
+                    if (i > 0) sb.Append(',');
+                    WriteValue(list[i], sb);
+                }
+                sb.Append(']');
+                return;
+            }
+            throw new InvalidOperationException("Unsupported JSON value type: " + value.GetType().FullName);
+        }
+
+        public static string MergeLocaleJson(string targetJson, string overrideJson, out int changed)
+        {
+            JsonObject target = Parse(targetJson) as JsonObject;
+            JsonObject over = Parse(overrideJson) as JsonObject;
+            if (target == null || over == null)
+            {
+                throw new FormatException("Locale catalog must be a JSON object");
+            }
+            changed = 0;
+            for (int i = 0; i < over.Entries.Count; i++)
+            {
+                string key = over.Entries[i].Key;
+                string newVal = over.Entries[i].Value as string;
+                if (newVal == null) continue;
+                object existing;
+                if (target.TryGet(key, out existing))
+                {
+                    string existingStr = existing as string;
+                    if (existingStr == null && existing != null)
+                    {
+                        JsonRawNumber rn = existing as JsonRawNumber;
+                        existingStr = rn != null ? rn.Raw : existing.ToString();
+                    }
+                    if (!string.Equals(existingStr, newVal, StringComparison.Ordinal))
+                    {
+                        target.Set(key, newVal);
+                        changed++;
+                    }
+                }
+                else
+                {
+                    target.Set(key, newVal);
+                    changed++;
+                }
+            }
+            StringBuilder sb = new StringBuilder(targetJson.Length + overrideJson.Length / 2);
+            WriteValue(target, sb);
+            return sb.ToString();
+        }
+    }
+
+    public sealed class CompiledFrontendRules
+    {
+        public readonly string[] Sources;
+        public readonly string[] Targets;
+        public readonly bool[] IsPlain;
+        public readonly int RuleCount;
+        public readonly int MaxSourceLength;
+
+        private readonly int[] _rootAscii;
+        private readonly Dictionary<char, int> _rootNonAscii;
+        private readonly int[] _edgeStart;
+        private readonly int[] _edgeCount;
+        private readonly char[] _edgeChar;
+        private readonly int[] _edgeNext;
+        private readonly int[] _fail;
+        private readonly int[] _dictLink;
+        private readonly int[] _outHead;
+        private readonly int[] _outRule;
+        private readonly int[] _outNext;
+
+        public CompiledFrontendRules(object[][] rules)
+        {
+            int n = rules == null ? 0 : rules.Length;
+            Sources = new string[n];
+            Targets = new string[n];
+            IsPlain = new bool[n];
+            RuleCount = n;
+
+            List<Dictionary<char, int>> trie = new List<Dictionary<char, int>>();
+            List<int> outHead = new List<int>();
+            List<int> outRule = new List<int>();
+            List<int> outNext = new List<int>();
+            trie.Add(new Dictionary<char, int>());
+            outHead.Add(-1);
+
+            int maxLen = 0;
+            for (int r = 0; r < n; r++)
+            {
+                object[] row = rules[r];
+                object marker = row[0];
+                bool plain = false;
+                if (marker is bool) plain = (bool)marker;
+                else if (marker != null) plain = true;
+
+                string src = (string)row[1];
+                string dst = (string)row[2];
+                Sources[r] = src;
+                Targets[r] = dst;
+                IsPlain[r] = plain;
+                if (string.IsNullOrEmpty(src)) continue;
+                if (src.Length > maxLen) maxLen = src.Length;
+
+                int state = 0;
+                for (int i = 0; i < src.Length; i++)
+                {
+                    char c = src[i];
+                    int next;
+                    if (!trie[state].TryGetValue(c, out next))
+                    {
+                        next = trie.Count;
+                        trie[state][c] = next;
+                        trie.Add(new Dictionary<char, int>());
+                        outHead.Add(-1);
+                    }
+                    state = next;
+                }
+                outRule.Add(r);
+                outNext.Add(outHead[state]);
+                outHead[state] = outRule.Count - 1;
+            }
+            MaxSourceLength = maxLen;
+
+            int stateCount = trie.Count;
+            _fail = new int[stateCount];
+            _dictLink = new int[stateCount];
+            for (int i = 0; i < stateCount; i++) _dictLink[i] = -1;
+            _outHead = outHead.ToArray();
+            _outRule = outRule.ToArray();
+            _outNext = outNext.ToArray();
+
+            Queue<int> queue = new Queue<int>();
+            _rootAscii = new int[128];
+            _rootNonAscii = new Dictionary<char, int>();
+            foreach (KeyValuePair<char, int> kv in trie[0])
+            {
+                if (kv.Key < 128) _rootAscii[kv.Key] = kv.Value;
+                else _rootNonAscii[kv.Key] = kv.Value;
+                _fail[kv.Value] = 0;
+                _dictLink[kv.Value] = -1;
+                queue.Enqueue(kv.Value);
+            }
+
+            while (queue.Count > 0)
+            {
+                int u = queue.Dequeue();
+                foreach (KeyValuePair<char, int> kv in trie[u])
+                {
+                    char c = kv.Key;
+                    int v = kv.Value;
+                    int f = _fail[u];
+                    int next = 0;
+                    while (f != 0 && !trie[f].TryGetValue(c, out next))
+                    {
+                        f = _fail[f];
+                    }
+                    if (f == 0)
+                    {
+                        if (!trie[0].TryGetValue(c, out next)) next = 0;
+                    }
+                    _fail[v] = next;
+                    _dictLink[v] = _outHead[next] >= 0 ? next : _dictLink[next];
+                    queue.Enqueue(v);
+                }
+            }
+
+            int totalEdges = 0;
+            for (int s = 1; s < stateCount; s++) totalEdges += trie[s].Count;
+            _edgeStart = new int[stateCount];
+            _edgeCount = new int[stateCount];
+            _edgeChar = new char[totalEdges];
+            _edgeNext = new int[totalEdges];
+            int cursor = 0;
+            for (int s = 1; s < stateCount; s++)
+            {
+                int cnt = trie[s].Count;
+                _edgeStart[s] = cursor;
+                _edgeCount[s] = cnt;
+                if (cnt == 0) continue;
+                int start = cursor;
+                foreach (KeyValuePair<char, int> kv in trie[s])
+                {
+                    _edgeChar[cursor] = kv.Key;
+                    _edgeNext[cursor] = kv.Value;
+                    cursor++;
+                }
+                if (cnt > 1)
+                {
+                    Array.Sort(_edgeChar, _edgeNext, start, cnt);
+                }
+            }
+        }
+
+        private int Step(int state, char c)
+        {
+            while (state != 0)
+            {
+                int cnt = _edgeCount[state];
+                if (cnt == 1)
+                {
+                    int start = _edgeStart[state];
+                    if (_edgeChar[start] == c) return _edgeNext[start];
+                }
+                else if (cnt > 1)
+                {
+                    int start = _edgeStart[state];
+                    if (cnt <= 8)
+                    {
+                        int end = start + cnt;
+                        for (int i = start; i < end; i++)
+                        {
+                            if (_edgeChar[i] == c) return _edgeNext[i];
+                        }
+                    }
+                    else
+                    {
+                        int lo = start;
+                        int hi = start + cnt - 1;
+                        while (lo <= hi)
+                        {
+                            int mid = (lo + hi) >> 1;
+                            char mc = _edgeChar[mid];
+                            if (mc == c) return _edgeNext[mid];
+                            if (mc < c) lo = mid + 1;
+                            else hi = mid - 1;
+                        }
+                    }
+                }
+                state = _fail[state];
+            }
+            if (c < 128) return _rootAscii[c];
+            int rootNext;
+            return _rootNonAscii.TryGetValue(c, out rootNext) ? rootNext : 0;
+        }
+
+        public void ScanInto(string text, int startIdx, int endIdx, int minRuleExclusive, SortedSet<int> hits)
+        {
+            if (RuleCount == 0 || startIdx >= endIdx) return;
+            int state = 0;
+            for (int i = startIdx; i < endIdx; i++)
+            {
+                state = Step(state, text[i]);
+                int o = _outHead[state] >= 0 ? state : _dictLink[state];
+                while (o >= 0)
+                {
+                    for (int idx = _outHead[o]; idx >= 0; idx = _outNext[idx])
+                    {
+                        int r = _outRule[idx];
+                        if (r > minRuleExclusive) hits.Add(r);
+                    }
+                    o = _dictLink[o];
+                }
+            }
+        }
+    }
+
     public static class FrontendPatcher
     {
         static readonly Regex StructuralContextRe = new Regex(
-            "(?<![A-Za-z0-9_$-])(?:as|component|displayName|glyph|[\\w$-]*[Ii]con(?:Name)?|name|role|type)\\s*[:=]\\s*(?:(?:(?:(?:[^?:\\\"'`,;{}]|\\\"[^\\\"]{0,60}\\\"|'[^']{0,60}'|`[^`]{0,60}`){1,120}?)\\?\\??\\s*(?:\\\"[^\\\"]{0,80}\\\"|'[^']{0,80}'|`[^`]{0,80}`)\\s*:\\s*)*)(?:(?:(?:[^?:\\\"'`,;{}]|\\\"[^\\\"]{0,60}\\\"|'[^']{0,60}'|`[^`]{0,60}`){1,120}?)(?:\\?\\??)?\\s*)?(?:=\\s*)?$");
+            "(?<![A-Za-z0-9_$-])(?:as|component|displayName|glyph|[\\w$-]*[Ii]con(?:Name)?|name|role|type)\\s*[:=]\\s*(?:(?:(?:(?:[^?:\\\"'`,;{}]|\\\"[^\\\"]{0,60}\\\"|'[^']{0,60}'|`[^`]{0,60}`){1,120}?)\\?\\??\\s*(?:\\\"[^\\\"]{0,80}\\\"|'[^']{0,80}'|`[^`]{0,80}`)\\s*:\\s*)*)(?:(?:(?:[^?:\\\"'`,;{}]|\\\"[^\\\"]{0,60}\\\"|'[^']{0,60}'|`[^`]{0,60}`){1,120}?)(?:\\?\\??)?\\s*)?(?:=\\s*)?$",
+            RegexOptions.Compiled);
 
         static readonly Regex StructuralAliasContextRe = new Regex(
-            "(?<![A-Za-z0-9_$-])[\\w$-]*[Ii]con(?:Name)?\\s*:\\s*(?<alias>[A-Za-z0-9_$]+)\\b.*?(?:=\\s*\\k<alias>\\s*===\\s*void 0\\s*\\?\\s*|=\\s*\\k<alias>\\s*!==\\s*void 0\\s*\\?\\s*\\k<alias>\\s*:\\s*|(?<![A-Za-z0-9_$-])\\k<alias>\\s*\\?\\?\\s*)$");
+            "(?<![A-Za-z0-9_$-])[\\w$-]*[Ii]con(?:Name)?\\s*:\\s*(?<alias>[A-Za-z0-9_$]+)\\b.*?(?:=\\s*\\k<alias>\\s*===\\s*void 0\\s*\\?\\s*|=\\s*\\k<alias>\\s*!==\\s*void 0\\s*\\?\\s*\\k<alias>\\s*:\\s*|(?<![A-Za-z0-9_$-])\\k<alias>\\s*\\?\\?\\s*)$",
+            RegexOptions.Compiled);
 
         static bool IsStructuralJsLiteralContext(string text, int literalStart)
         {
@@ -2888,19 +3892,134 @@ namespace ClaudeZhPatch
             return StructuralContextRe.IsMatch(shortPrefix);
         }
 
-        static int CountOrdinal(string text, string source)
+        static string ApplyRule(string current, string source, string target, bool isPlain, out int localCount, List<int> changedStarts, List<int> changedEnds)
         {
-            int occurrences = 0;
-            int index = text.IndexOf(source, StringComparison.Ordinal);
-            while (index >= 0)
+            int srcLen = source.Length;
+            int len = current.Length;
+            localCount = 0;
+            if (srcLen == 0) return current;
+
+            if (isPlain)
             {
-                occurrences++;
-                index = text.IndexOf(source, index + source.Length, StringComparison.Ordinal);
+                int searchPos = 1;
+                int lastCopy = 0;
+                StringBuilder sb = null;
+                while (searchPos <= len - srcLen - 1)
+                {
+                    int idx = current.IndexOf(source, searchPos, StringComparison.Ordinal);
+                    if (idx < 0 || idx + srcLen >= len) break;
+                    char q = current[idx - 1];
+                    if ((q == '"' || q == '\'' || q == '`') && current[idx + srcLen] == q)
+                    {
+                        int litStart = idx - 1;
+                        if (!IsStructuralJsLiteralContext(current, litStart))
+                        {
+                            if (sb == null) sb = new StringBuilder(len + 64);
+                            sb.Append(current, lastCopy, litStart - lastCopy);
+                            int repStart = sb.Length;
+                            sb.Append(q);
+                            sb.Append(target);
+                            sb.Append(q);
+                            changedStarts.Add(repStart);
+                            changedEnds.Add(sb.Length);
+                            lastCopy = idx + srcLen + 1;
+                            localCount++;
+                        }
+                        // Regex consumed [idx-1 .. idx+srcLen]; next opening quote cannot be before idx+srcLen+1.
+                        searchPos = idx + srcLen + 2;
+                    }
+                    else
+                    {
+                        searchPos = idx + 1;
+                    }
+                }
+                if (sb == null) return current;
+                sb.Append(current, lastCopy, len - lastCopy);
+                return sb.ToString();
             }
-            return occurrences;
+            else
+            {
+                int searchPos = 0;
+                int lastCopy = 0;
+                StringBuilder sb = null;
+                while (searchPos <= len - srcLen)
+                {
+                    int idx = current.IndexOf(source, searchPos, StringComparison.Ordinal);
+                    if (idx < 0) break;
+                    if (sb == null) sb = new StringBuilder(len + 64);
+                    sb.Append(current, lastCopy, idx - lastCopy);
+                    int repStart = sb.Length;
+                    sb.Append(target);
+                    changedStarts.Add(repStart);
+                    changedEnds.Add(sb.Length);
+                    lastCopy = idx + srcLen;
+                    searchPos = lastCopy;
+                    localCount++;
+                }
+                if (sb == null) return current;
+                sb.Append(current, lastCopy, len - lastCopy);
+                return sb.ToString();
+            }
         }
 
-        // rules 行结构: [Regex(plain 规则, 直接替换规则为 null), source, target]，顺序与词表一致。
+        public static string PatchText(string text, CompiledFrontendRules compiled, out int count)
+        {
+            count = 0;
+            if (string.IsNullOrEmpty(text) || compiled == null || compiled.RuleCount == 0)
+            {
+                return text;
+            }
+            SortedSet<int> worklist = new SortedSet<int>();
+            compiled.ScanInto(text, 0, text.Length, -1, worklist);
+            if (worklist.Count == 0)
+            {
+                return text;
+            }
+
+            string patched = text;
+            List<int> starts = new List<int>(8);
+            List<int> ends = new List<int>(8);
+            int pad = Math.Max(0, compiled.MaxSourceLength - 1);
+            while (worklist.Count > 0)
+            {
+                int r = worklist.Min;
+                worklist.Remove(r);
+                starts.Clear();
+                ends.Clear();
+                int localCount;
+                string next = ApplyRule(patched, compiled.Sources[r], compiled.Targets[r], compiled.IsPlain[r], out localCount, starts, ends);
+                if (localCount > 0)
+                {
+                    count += localCount;
+                    patched = next;
+                    if (pad > 0 && starts.Count > 0 && r + 1 < compiled.RuleCount)
+                    {
+                        int pLen = patched.Length;
+                        int winStart = Math.Max(0, starts[0] - pad);
+                        int winEnd = Math.Min(pLen, ends[0] + pad);
+                        for (int k = 1; k < starts.Count; k++)
+                        {
+                            int s = Math.Max(0, starts[k] - pad);
+                            int e = Math.Min(pLen, ends[k] + pad);
+                            if (s <= winEnd)
+                            {
+                                if (e > winEnd) winEnd = e;
+                            }
+                            else
+                            {
+                                compiled.ScanInto(patched, winStart, winEnd, r, worklist);
+                                winStart = s;
+                                winEnd = e;
+                            }
+                        }
+                        compiled.ScanInto(patched, winStart, winEnd, r, worklist);
+                    }
+                }
+            }
+            return patched;
+        }
+
+        // rules 行结构: [Regex 或 bool(plain 规则, 直接替换规则为 null/false), source, target]，顺序与词表一致。
         // 纯计算：不读盘之外不做任何副作用，变更后的内容写入 outputContents[i]，由调用方备份并写盘。
         // 返回每个文件的替换计数（未变更为 0）。
         public static int[] PatchFiles(string[] filePaths, object[][] rules, int maxWorkers, string[] outputContents)
@@ -2908,47 +4027,13 @@ namespace ClaudeZhPatch
             int total = filePaths.Length;
             int scanned = 0;
             int[] counts = new int[total];
+            CompiledFrontendRules compiled = new CompiledFrontendRules(rules);
             Parallel.For(0, total, new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, maxWorkers) }, delegate(int i)
             {
                 string filePath = filePaths[i];
                 string text = File.ReadAllText(filePath, Encoding.UTF8);
-                string patched = text;
-                int count = 0;
-                for (int r = 0; r < rules.Length; r++)
-                {
-                    object[] rule = rules[r];
-                    string source = (string)rule[1];
-                    if (!patched.Contains(source))
-                    {
-                        continue;
-                    }
-                    Regex regex = (Regex)rule[0];
-                    string target = (string)rule[2];
-                    if (regex != null)
-                    {
-                        string current = patched;
-                        int localCount = 0;
-                        patched = regex.Replace(current, delegate(Match m)
-                        {
-                            if (IsStructuralJsLiteralContext(current, m.Index))
-                            {
-                                return m.Value;
-                            }
-                            localCount++;
-                            return m.Groups["quote"].Value + target + m.Groups["quote"].Value;
-                        });
-                        count += localCount;
-                    }
-                    else
-                    {
-                        int occurrences = CountOrdinal(patched, source);
-                        if (occurrences > 0)
-                        {
-                            patched = patched.Replace(source, target);
-                            count += occurrences;
-                        }
-                    }
-                }
+                int count;
+                string patched = PatchText(text, compiled, out count);
                 if (count > 0 && !string.Equals(patched, text, StringComparison.OrdinalIgnoreCase))
                 {
                     outputContents[i] = patched;
@@ -2962,9 +4047,1540 @@ namespace ClaudeZhPatch
             });
             return counts;
         }
+
+        public static string[] FindFilesContaining(string[] filePaths, string[] needles, int maxWorkers)
+        {
+            if (filePaths == null || filePaths.Length == 0 || needles == null || needles.Length == 0)
+            {
+                return new string[0];
+            }
+            bool[] matched = new bool[filePaths.Length];
+            Parallel.For(0, filePaths.Length, new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, maxWorkers) }, delegate(int i)
+            {
+                string text = File.ReadAllText(filePaths[i], Encoding.UTF8);
+                for (int n = 0; n < needles.Length; n++)
+                {
+                    string needle = needles[n];
+                    if (!string.IsNullOrEmpty(needle) && text.IndexOf(needle, StringComparison.Ordinal) >= 0)
+                    {
+                        matched[i] = true;
+                        break;
+                    }
+                }
+            });
+            List<string> results = new List<string>();
+            for (int i = 0; i < filePaths.Length; i++)
+            {
+                if (matched[i]) results.Add(filePaths[i]);
+            }
+            return results.ToArray();
+        }
+
+        public static string[] FindFilesMatchingRegex(string[] filePaths, string pattern, int maxWorkers)
+        {
+            if (filePaths == null || filePaths.Length == 0 || string.IsNullOrEmpty(pattern))
+            {
+                return new string[0];
+            }
+            Regex re = new Regex(pattern, RegexOptions.Compiled);
+            bool[] matched = new bool[filePaths.Length];
+            Parallel.For(0, filePaths.Length, new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, maxWorkers) }, delegate(int i)
+            {
+                string text = File.ReadAllText(filePaths[i], Encoding.UTF8);
+                if (re.IsMatch(text))
+                {
+                    matched[i] = true;
+                }
+            });
+            List<string> results = new List<string>();
+            for (int i = 0; i < filePaths.Length; i++)
+            {
+                if (matched[i]) results.Add(filePaths[i]);
+            }
+            return results.ToArray();
+        }
     }
 
+    public sealed class FrontendAsarScanResult
+    {
+        public string AssetsDir;
+        public int TotalJsFiles;
+        public string[] WhitelistMatchedNames;
+        public string[] WhitelistChangedNames;
+        public string[] WhitelistAlreadyNames;
+        public int HardcodedPatchedFiles;
+        public int HardcodedTotalReplacements;
+        public string[] HardcodedLogEntries;
+        public string[] SlashCandidatePaths;
+        public string[] SlashCandidateTexts;
+        public string[] DisplayNameTargetPaths;
+        public string[] DisplayNameAlreadyPaths;
+        public Dictionary<string, string> ModifiedTexts;
+        public bool HasEnUsJson;
+        public string EnUsJsonText;
+        public bool HasDynamicEnUs;
+        public byte[] DynamicEnUsBytes;
     }
+
+    public static class AsarHelper
+    {
+        private static readonly UTF8Encoding Utf8NoBom = new UTF8Encoding(false);
+        private static readonly Regex FrontendIndexRe = new Regex("(^|/)assets/(?:[^/]+/)?index-[^/]+\\.js$", RegexOptions.Compiled);
+
+        private static int Align4(int value)
+        {
+            return value + ((4 - (value % 4)) % 4);
+        }
+
+        private static string BytesToLowerHex(byte[] hash)
+        {
+            char[] c = new char[hash.Length * 2];
+            const string hex = "0123456789abcdef";
+            for (int i = 0; i < hash.Length; i++)
+            {
+                int b = hash[i];
+                c[i * 2] = hex[b >> 4];
+                c[i * 2 + 1] = hex[b & 0xF];
+            }
+            return new string(c);
+        }
+
+        private static byte[] ReadHeaderJsonBytes(string asarPath, out int headerSize, out long dataStart)
+        {
+            using (FileStream fs = File.Open(asarPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                if (fs.Length < 16) throw new InvalidDataException("Unsupported app.asar header in " + asarPath);
+                byte[] prefix = new byte[8];
+                if (fs.Read(prefix, 0, 8) != 8) throw new InvalidDataException("Unsupported app.asar header in " + asarPath);
+                uint sizePicklePayload = BitConverter.ToUInt32(prefix, 0);
+                uint rawHeaderSize = BitConverter.ToUInt32(prefix, 4);
+                if (sizePicklePayload != 4 || rawHeaderSize == 0 || fs.Length < 8L + rawHeaderSize)
+                {
+                    throw new InvalidDataException("Unsupported app.asar size pickle in " + asarPath);
+                }
+                headerSize = (int)rawHeaderSize;
+                dataStart = 8L + headerSize;
+                byte[] pickle = new byte[headerSize];
+                int read = 0;
+                while (read < headerSize)
+                {
+                    int n = fs.Read(pickle, read, headerSize - read);
+                    if (n <= 0) throw new InvalidDataException("Unsupported app.asar header in " + asarPath);
+                    read += n;
+                }
+                uint headerPayloadSize = BitConverter.ToUInt32(pickle, 0);
+                int headerStringSize = BitConverter.ToInt32(pickle, 4);
+                int expectedPayloadSize = Align4(4 + headerStringSize);
+                if (headerStringSize < 0 || headerPayloadSize != (uint)expectedPayloadSize || headerSize != 4 + (int)headerPayloadSize)
+                {
+                    throw new InvalidDataException("Unsupported app.asar header pickle in " + asarPath);
+                }
+                byte[] jsonBytes = new byte[headerStringSize];
+                Buffer.BlockCopy(pickle, 8, jsonBytes, 0, headerStringSize);
+                return jsonBytes;
+            }
+        }
+
+        public static string GetHeaderHash(string asarPath)
+        {
+            int headerSize;
+            long dataStart;
+            byte[] jsonBytes = ReadHeaderJsonBytes(asarPath, out headerSize, out dataStart);
+            using (SHA256 sha = SHA256.Create())
+            {
+                return BytesToLowerHex(sha.ComputeHash(jsonBytes));
+            }
+        }
+
+        public static string MergeLocaleJson(string targetJson, string overrideJson, out int changed)
+        {
+            return MiniJson.MergeLocaleJson(targetJson, overrideJson, out changed);
+        }
+
+        private static bool GetBoolProp(JsonObject obj, string key)
+        {
+            object val;
+            return obj.TryGet(key, out val) && val is bool && (bool)val;
+        }
+
+        private static long GetInt64Prop(JsonObject obj, string key)
+        {
+            object val;
+            if (!obj.TryGet(key, out val) || val == null) return 0;
+            JsonRawNumber rn = val as JsonRawNumber;
+            if (rn != null) return rn.AsInt64();
+            string s = val as string;
+            if (s != null) return long.Parse(s, CultureInfo.InvariantCulture);
+            if (val is long) return (long)val;
+            if (val is int) return (int)val;
+            return Convert.ToInt64(val, CultureInfo.InvariantCulture);
+        }
+
+        private static void CollectEntryPaths(JsonObject node, string prefix, List<string> paths)
+        {
+            object filesVal;
+            if (!node.TryGet("files", out filesVal)) return;
+            JsonObject files = filesVal as JsonObject;
+            if (files == null) return;
+            for (int i = 0; i < files.Entries.Count; i++)
+            {
+                string name = files.Entries[i].Key;
+                string rel = prefix.Length == 0 ? name : prefix + "/" + name;
+                JsonObject child = files.Entries[i].Value as JsonObject;
+                if (child != null && child.ContainsKey("files"))
+                {
+                    CollectEntryPaths(child, rel, paths);
+                }
+                else
+                {
+                    paths.Add(rel);
+                }
+            }
+        }
+
+        public static bool TestFrontendArchive(string asarPath)
+        {
+            if (!File.Exists(asarPath)) return false;
+            try
+            {
+                int headerSize;
+                long dataStart;
+                byte[] jsonBytes = ReadHeaderJsonBytes(asarPath, out headerSize, out dataStart);
+                JsonObject header = MiniJson.Parse(Encoding.UTF8.GetString(jsonBytes)) as JsonObject;
+                if (header == null) return false;
+                List<string> paths = new List<string>(256);
+                CollectEntryPaths(header, "", paths);
+                bool hasI18n = false;
+                bool hasBundle = false;
+                for (int i = 0; i < paths.Count; i++)
+                {
+                    string p = paths[i];
+                    if (!hasI18n && string.Equals(p, "i18n/en-US.json", StringComparison.OrdinalIgnoreCase))
+                    {
+                        hasI18n = true;
+                    }
+                    if (!hasBundle && FrontendIndexRe.IsMatch(p))
+                    {
+                        hasBundle = true;
+                    }
+                    if (hasI18n && hasBundle) return true;
+                }
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private sealed class ExpandItem
+        {
+            public string TargetPath;
+            public string RelativePath;
+            public bool Unpacked;
+            public long Offset;
+            public long Size;
+        }
+
+        private static void CollectExpandItems(JsonObject node, string prefix, string destRoot, string destRootWithSep, List<string> dirs, List<ExpandItem> items, long dataStart, long archiveLength)
+        {
+            object filesVal;
+            if (!node.TryGet("files", out filesVal)) return;
+            JsonObject files = filesVal as JsonObject;
+            if (files == null) return;
+            for (int i = 0; i < files.Entries.Count; i++)
+            {
+                string name = files.Entries[i].Key;
+                if (string.IsNullOrEmpty(name) || name == "." || name == ".." || name.IndexOf('/') >= 0 || name.IndexOf('\\') >= 0)
+                {
+                    throw new InvalidDataException("ASAR 包含不安全路径: " + name);
+                }
+                string rel = prefix.Length == 0 ? name : prefix + Path.DirectorySeparatorChar + name;
+                string target = Path.GetFullPath(Path.Combine(destRoot, rel));
+                if (!target.StartsWith(destRootWithSep, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidDataException("ASAR 路径越界: " + rel);
+                }
+                JsonObject child = files.Entries[i].Value as JsonObject;
+                if (child == null) continue;
+                if (child.ContainsKey("files"))
+                {
+                    dirs.Add(target);
+                    CollectExpandItems(child, rel, destRoot, destRootWithSep, dirs, items, dataStart, archiveLength);
+                    continue;
+                }
+                if (child.ContainsKey("link"))
+                {
+                    throw new InvalidDataException("暂不支持包含软链接的 ASAR: " + rel);
+                }
+                if (GetBoolProp(child, "unpacked"))
+                {
+                    ExpandItem ui = new ExpandItem();
+                    ui.TargetPath = target;
+                    ui.RelativePath = rel;
+                    ui.Unpacked = true;
+                    items.Add(ui);
+                    continue;
+                }
+                long offset = GetInt64Prop(child, "offset");
+                long size = GetInt64Prop(child, "size");
+                if (offset < 0 || size < 0 || dataStart + offset + size > archiveLength)
+                {
+                    throw new InvalidDataException("ASAR 文件边界无效: " + rel + " (offset=" + offset + ", size=" + size + ", dataStart=" + dataStart + ", archive=" + archiveLength + ")");
+                }
+                ExpandItem item = new ExpandItem();
+                item.TargetPath = target;
+                item.RelativePath = rel;
+                item.Unpacked = false;
+                item.Offset = offset;
+                item.Size = size;
+                items.Add(item);
+            }
+        }
+
+        public static void ExpandArchive(string asarPath, string destinationPath, int maxWorkers)
+        {
+            if (!File.Exists(asarPath)) throw new FileNotFoundException("缺少必要文件: " + asarPath);
+            if (Directory.Exists(destinationPath) || File.Exists(destinationPath))
+            {
+                throw new IOException("ASAR 解包目标已存在: " + destinationPath);
+            }
+
+            int headerSize;
+            long dataStart;
+            byte[] jsonBytes = ReadHeaderJsonBytes(asarPath, out headerSize, out dataStart);
+            JsonObject header = MiniJson.Parse(Encoding.UTF8.GetString(jsonBytes)) as JsonObject;
+            long archiveLength = new FileInfo(asarPath).Length;
+
+            Directory.CreateDirectory(destinationPath);
+            string destRoot = Path.GetFullPath(destinationPath).TrimEnd('\\', '/');
+            string destRootWithSep = destRoot + Path.DirectorySeparatorChar;
+            List<string> dirs = new List<string>(64);
+            List<ExpandItem> items = new List<ExpandItem>(256);
+            CollectExpandItems(header, "", destRoot, destRootWithSep, dirs, items, dataStart, archiveLength);
+
+            for (int i = 0; i < dirs.Count; i++)
+            {
+                Directory.CreateDirectory(dirs[i]);
+            }
+
+            string unpackedBase = asarPath + ".unpacked";
+            int workers = items.Count < 32 ? 1 : Math.Max(1, Math.Min(maxWorkers, 8));
+            if (workers == 1)
+            {
+                byte[] buffer = new byte[256 * 1024];
+                using (FileStream asarStream = File.Open(asarPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+                {
+                    for (int i = 0; i < items.Count; i++)
+                    {
+                        WriteExpandedItem(items[i], asarStream, dataStart, unpackedBase, buffer);
+                    }
+                }
+            }
+            else
+            {
+                int nextIdx = -1;
+                Exception firstErr = null;
+                Parallel.For(0, workers, new ParallelOptions { MaxDegreeOfParallelism = workers }, delegate(int w)
+                {
+                    byte[] buffer = new byte[256 * 1024];
+                    using (FileStream asarStream = File.Open(asarPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+                    {
+                        while (true)
+                        {
+                            if (Volatile.Read(ref firstErr) != null) return;
+                            int idx = Interlocked.Increment(ref nextIdx);
+                            if (idx >= items.Count) return;
+                            try
+                            {
+                                WriteExpandedItem(items[idx], asarStream, dataStart, unpackedBase, buffer);
+                            }
+                            catch (Exception ex)
+                            {
+                                Interlocked.CompareExchange(ref firstErr, ex, null);
+                                return;
+                            }
+                        }
+                    }
+                });
+                if (firstErr != null) throw new IOException(firstErr.Message, firstErr);
+            }
+        }
+
+        private static void WriteExpandedItem(ExpandItem item, FileStream asarStream, long dataStart, string unpackedBase, byte[] buffer)
+        {
+            if (item.Unpacked)
+            {
+                string src = Path.Combine(unpackedBase, item.RelativePath);
+                if (!File.Exists(src)) throw new FileNotFoundException("缺少必要文件: " + src);
+                File.Copy(src, item.TargetPath, true);
+                return;
+            }
+            using (FileStream output = File.Open(item.TargetPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                if (item.Size == 0) return;
+                asarStream.Position = dataStart + item.Offset;
+                long remaining = item.Size;
+                while (remaining > 0)
+                {
+                    int wanted = (int)Math.Min(buffer.Length, remaining);
+                    int read = asarStream.Read(buffer, 0, wanted);
+                    if (read <= 0) throw new IOException("ASAR 文件内容不完整: " + item.RelativePath);
+                    output.Write(buffer, 0, read);
+                    remaining -= read;
+                }
+            }
+        }
+
+        private sealed class IntegrityResult
+        {
+            public string Hash;
+            public int BlockSize;
+            public string[] Blocks;
+        }
+
+        private static IntegrityResult ComputeFileIntegrity(string path, int blockSize, byte[] buffer, SHA256 wholeSha, SHA256 blockSha)
+        {
+            wholeSha.Initialize();
+            List<string> blocks = new List<string>(2);
+            using (FileStream fs = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                while (true)
+                {
+                    int filled = 0;
+                    while (filled < blockSize)
+                    {
+                        int n = fs.Read(buffer, filled, blockSize - filled);
+                        if (n <= 0) break;
+                        filled += n;
+                    }
+                    if (filled <= 0) break;
+                    wholeSha.TransformBlock(buffer, 0, filled, null, 0);
+                    blockSha.Initialize();
+                    byte[] bh = blockSha.ComputeHash(buffer, 0, filled);
+                    blocks.Add(BytesToLowerHex(bh));
+                    if (filled < blockSize) break;
+                }
+            }
+            wholeSha.TransformFinalBlock(new byte[0], 0, 0);
+            string hash = BytesToLowerHex(wholeSha.Hash);
+            if (blocks.Count == 0) blocks.Add(hash);
+            IntegrityResult res = new IntegrityResult();
+            res.Hash = hash;
+            res.BlockSize = blockSize;
+            res.Blocks = blocks.ToArray();
+            return res;
+        }
+
+        private static IntegrityResult ComputeBytesIntegrity(byte[] data, int blockSize, SHA256 wholeSha, SHA256 blockSha)
+        {
+            wholeSha.Initialize();
+            List<string> blocks = new List<string>(2);
+            int offset = 0;
+            while (offset < data.Length)
+            {
+                int len = Math.Min(blockSize, data.Length - offset);
+                wholeSha.TransformBlock(data, offset, len, null, 0);
+                blockSha.Initialize();
+                byte[] bh = blockSha.ComputeHash(data, offset, len);
+                blocks.Add(BytesToLowerHex(bh));
+                offset += len;
+            }
+            wholeSha.TransformFinalBlock(new byte[0], 0, 0);
+            string hash = BytesToLowerHex(wholeSha.Hash);
+            if (blocks.Count == 0) blocks.Add(hash);
+            IntegrityResult res = new IntegrityResult();
+            res.Hash = hash;
+            res.BlockSize = blockSize;
+            res.Blocks = blocks.ToArray();
+            return res;
+        }
+
+        private static JsonObject IntegrityToJson(IntegrityResult r)
+        {
+            JsonObject obj = new JsonObject();
+            obj.Set("algorithm", "SHA256");
+            obj.Set("hash", r.Hash);
+            obj.Set("blockSize", (long)r.BlockSize);
+            obj.Set("blocks", r.Blocks);
+            return obj;
+        }
+
+        private sealed class PackNode
+        {
+            public string Name;
+            public bool IsDir;
+            public string FullPath;
+            public long Size;
+            public long Offset;
+            public int FileIndex;
+            public List<PackNode> Children;
+        }
+
+        private static PackNode ScanDirectoryTree(string directory, List<PackNode> flatFiles, ref long offset)
+        {
+            PackNode dirNode = new PackNode();
+            dirNode.IsDir = true;
+            dirNode.Children = new List<PackNode>();
+            DirectoryInfo di = new DirectoryInfo(directory);
+            FileSystemInfo[] entries = di.GetFileSystemInfos();
+            Array.Sort(entries, delegate(FileSystemInfo a, FileSystemInfo b)
+            {
+                return string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase);
+            });
+            for (int i = 0; i < entries.Length; i++)
+            {
+                FileSystemInfo fsi = entries[i];
+                if ((fsi.Attributes & FileAttributes.Directory) == FileAttributes.Directory)
+                {
+                    PackNode sub = ScanDirectoryTree(fsi.FullName, flatFiles, ref offset);
+                    sub.Name = fsi.Name;
+                    dirNode.Children.Add(sub);
+                }
+                else
+                {
+                    if ((fsi.Attributes & FileAttributes.ReparsePoint) == FileAttributes.ReparsePoint)
+                    {
+                        throw new IOException("ASAR 源目录包含不支持的软链接: " + fsi.FullName);
+                    }
+                    FileInfo fi = (FileInfo)fsi;
+                    PackNode fileNode = new PackNode();
+                    fileNode.Name = fi.Name;
+                    fileNode.IsDir = false;
+                    fileNode.FullPath = fi.FullName;
+                    fileNode.Size = fi.Length;
+                    fileNode.Offset = offset;
+                    fileNode.FileIndex = flatFiles.Count;
+                    offset += fileNode.Size;
+                    flatFiles.Add(fileNode);
+                    dirNode.Children.Add(fileNode);
+                }
+            }
+            return dirNode;
+        }
+
+        private static void AppendPackNodeJson(PackNode dir, IntegrityResult[] hashes, StringBuilder sb)
+        {
+            sb.Append("{\"files\":{");
+            for (int i = 0; i < dir.Children.Count; i++)
+            {
+                if (i > 0) sb.Append(',');
+                PackNode child = dir.Children[i];
+                MiniJson.WriteString(child.Name, sb);
+                sb.Append(':');
+                if (child.IsDir)
+                {
+                    AppendPackNodeJson(child, hashes, sb);
+                }
+                else
+                {
+                    IntegrityResult h = hashes[child.FileIndex];
+                    sb.Append("{\"size\":");
+                    sb.Append(child.Size.ToString(CultureInfo.InvariantCulture));
+                    sb.Append(",\"offset\":\"");
+                    sb.Append(child.Offset.ToString(CultureInfo.InvariantCulture));
+                    sb.Append("\",\"integrity\":{\"algorithm\":\"SHA256\",\"hash\":\"");
+                    sb.Append(h.Hash);
+                    sb.Append("\",\"blockSize\":");
+                    sb.Append(h.BlockSize.ToString(CultureInfo.InvariantCulture));
+                    sb.Append(",\"blocks\":[");
+                    for (int b = 0; b < h.Blocks.Length; b++)
+                    {
+                        if (b > 0) sb.Append(',');
+                        sb.Append('"');
+                        sb.Append(h.Blocks[b]);
+                        sb.Append('"');
+                    }
+                    sb.Append("]}}");
+                }
+            }
+            sb.Append("}}");
+        }
+
+        private static void WriteAsarPrefixAndHeader(FileStream output, byte[] headerStringBytes)
+        {
+            int headerPayloadSize = Align4(4 + headerStringBytes.Length);
+            int headerSize = 4 + headerPayloadSize;
+            byte[] headerPickle = new byte[headerSize];
+            Buffer.BlockCopy(BitConverter.GetBytes((uint)headerPayloadSize), 0, headerPickle, 0, 4);
+            Buffer.BlockCopy(BitConverter.GetBytes(headerStringBytes.Length), 0, headerPickle, 4, 4);
+            Buffer.BlockCopy(headerStringBytes, 0, headerPickle, 8, headerStringBytes.Length);
+
+            byte[] prefix = new byte[8];
+            Buffer.BlockCopy(BitConverter.GetBytes((uint)4), 0, prefix, 0, 4);
+            Buffer.BlockCopy(BitConverter.GetBytes((uint)headerSize), 0, prefix, 4, 4);
+
+            output.Write(prefix, 0, 8);
+            output.Write(headerPickle, 0, headerPickle.Length);
+        }
+
+        public static void CreateArchiveToPath(string sourceDirectory, string destinationPath, int blockSize, int maxWorkers)
+        {
+            if (!Directory.Exists(sourceDirectory)) throw new DirectoryNotFoundException("ASAR 源目录不存在: " + sourceDirectory);
+            List<PackNode> flatFiles = new List<PackNode>(256);
+            long offset = 0;
+            PackNode root = ScanDirectoryTree(Path.GetFullPath(sourceDirectory), flatFiles, ref offset);
+
+            IntegrityResult[] hashes = new IntegrityResult[flatFiles.Count];
+            int workers = flatFiles.Count < 16 ? 1 : Math.Max(1, Math.Min(maxWorkers, 12));
+            if (workers == 1)
+            {
+                byte[] buffer = new byte[blockSize];
+                using (SHA256 wholeSha = SHA256.Create())
+                using (SHA256 blockSha = SHA256.Create())
+                {
+                    for (int i = 0; i < flatFiles.Count; i++)
+                    {
+                        hashes[i] = ComputeFileIntegrity(flatFiles[i].FullPath, blockSize, buffer, wholeSha, blockSha);
+                    }
+                }
+            }
+            else
+            {
+                int nextIdx = -1;
+                Exception firstErr = null;
+                Parallel.For(0, workers, new ParallelOptions { MaxDegreeOfParallelism = workers }, delegate(int w)
+                {
+                    byte[] buffer = new byte[blockSize];
+                    using (SHA256 wholeSha = SHA256.Create())
+                    using (SHA256 blockSha = SHA256.Create())
+                    {
+                        while (true)
+                        {
+                            if (Volatile.Read(ref firstErr) != null) return;
+                            int idx = Interlocked.Increment(ref nextIdx);
+                            if (idx >= flatFiles.Count) return;
+                            try
+                            {
+                                hashes[idx] = ComputeFileIntegrity(flatFiles[idx].FullPath, blockSize, buffer, wholeSha, blockSha);
+                            }
+                            catch (Exception ex)
+                            {
+                                Interlocked.CompareExchange(ref firstErr, ex, null);
+                                return;
+                            }
+                        }
+                    }
+                });
+                if (firstErr != null) throw new IOException(firstErr.Message, firstErr);
+            }
+
+            StringBuilder headerJson = new StringBuilder(flatFiles.Count * 220 + 64);
+            AppendPackNodeJson(root, hashes, headerJson);
+            byte[] headerStringBytes = Utf8NoBom.GetBytes(headerJson.ToString());
+
+            string destFull = Path.GetFullPath(destinationPath);
+            string parent = Path.GetDirectoryName(destFull);
+            if (!string.IsNullOrEmpty(parent)) Directory.CreateDirectory(parent);
+
+            byte[] copyBuf = new byte[1024 * 1024];
+            using (FileStream output = File.Open(destFull, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                WriteAsarPrefixAndHeader(output, headerStringBytes);
+                for (int i = 0; i < flatFiles.Count; i++)
+                {
+                    using (FileStream input = File.Open(flatFiles[i].FullPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+                    {
+                        int n;
+                        while ((n = input.Read(copyBuf, 0, copyBuf.Length)) > 0)
+                        {
+                            output.Write(copyBuf, 0, n);
+                        }
+                    }
+                }
+            }
+        }
+
+        private static JsonObject FindNode(JsonObject root, string entryPath)
+        {
+            JsonObject cur = root;
+            string[] segments = entryPath.Split('/');
+            for (int i = 0; i < segments.Length; i++)
+            {
+                object filesVal;
+                if (!cur.TryGet("files", out filesVal)) return null;
+                JsonObject files = filesVal as JsonObject;
+                if (files == null) return null;
+                object childVal;
+                if (!files.TryGet(segments[i], out childVal)) return null;
+                cur = childVal as JsonObject;
+                if (cur == null) return null;
+            }
+            return cur;
+        }
+
+        public static int UpdateAsarEntries(string asarPath, string tempPath, string[] setPaths, byte[][] setContents, string[] addPaths, byte[][] addContents, int blockSize)
+        {
+            int headerSize;
+            long oldDataStart;
+            byte[] headerBytes = ReadHeaderJsonBytes(asarPath, out headerSize, out oldDataStart);
+            JsonObject header = MiniJson.Parse(Encoding.UTF8.GetString(headerBytes)) as JsonObject;
+            long archiveLength = new FileInfo(asarPath).Length;
+            long oldPayloadLength = archiveLength - oldDataStart;
+            if (oldPayloadLength < 0) throw new InvalidDataException("app.asar 长度异常: " + asarPath);
+
+            long nextOffset = oldPayloadLength;
+            List<byte[]> appends = new List<byte[]>();
+            int applied = 0;
+
+            using (SHA256 wholeSha = SHA256.Create())
+            using (SHA256 blockSha = SHA256.Create())
+            {
+                if (setPaths != null)
+                {
+                    for (int i = 0; i < setPaths.Length; i++)
+                    {
+                        string entryPath = setPaths[i];
+                        byte[] content = setContents[i];
+                        JsonObject node = FindNode(header, entryPath);
+                        if (node == null) throw new InvalidDataException("app.asar 缺少条目: " + entryPath);
+                        if (node.ContainsKey("link")) throw new InvalidDataException("app.asar 条目是软链接，拒绝改写: " + entryPath);
+                        if (GetBoolProp(node, "unpacked")) throw new InvalidDataException("app.asar 条目是 unpacked，拒绝改写: " + entryPath);
+
+                        node.Set("offset", nextOffset.ToString(CultureInfo.InvariantCulture));
+                        node.Set("size", (long)content.Length);
+                        if (node.ContainsKey("integrity"))
+                        {
+                            node.Set("integrity", IntegrityToJson(ComputeBytesIntegrity(content, blockSize, wholeSha, blockSha)));
+                        }
+                        appends.Add(content);
+                        nextOffset += content.Length;
+                        applied++;
+                    }
+                }
+
+                if (addPaths != null)
+                {
+                    for (int i = 0; i < addPaths.Length; i++)
+                    {
+                        string entryPath = addPaths[i];
+                        byte[] content = addContents[i];
+                        int lastSlash = entryPath.LastIndexOf('/');
+                        if (lastSlash <= 0) throw new InvalidDataException("app.asar 条目路径无效: " + entryPath);
+                        string parentPath = entryPath.Substring(0, lastSlash);
+                        string name = entryPath.Substring(lastSlash + 1);
+                        JsonObject parentNode = FindNode(header, parentPath);
+                        object filesVal;
+                        if (parentNode == null || !parentNode.TryGet("files", out filesVal)) continue;
+                        JsonObject files = filesVal as JsonObject;
+                        if (files == null || files.ContainsKey(name)) continue;
+
+                        JsonObject newNode = new JsonObject();
+                        newNode.Set("size", (long)content.Length);
+                        newNode.Set("offset", nextOffset.ToString(CultureInfo.InvariantCulture));
+                        newNode.Set("integrity", IntegrityToJson(ComputeBytesIntegrity(content, blockSize, wholeSha, blockSha)));
+                        files.Set(name, newNode);
+                        appends.Add(content);
+                        nextOffset += content.Length;
+                        applied++;
+                    }
+                }
+            }
+
+            if (applied == 0) return 0;
+
+            StringBuilder sb = new StringBuilder(headerBytes.Length + 1024);
+            MiniJson.WriteValue(header, sb);
+            byte[] newHeaderBytes = Utf8NoBom.GetBytes(sb.ToString());
+
+            using (FileStream src = File.Open(asarPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            using (FileStream dst = File.Open(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                WriteAsarPrefixAndHeader(dst, newHeaderBytes);
+                src.Position = oldDataStart;
+                byte[] copyBuf = new byte[1024 * 1024];
+                int n;
+                while ((n = src.Read(copyBuf, 0, copyBuf.Length)) > 0)
+                {
+                    dst.Write(copyBuf, 0, n);
+                }
+                for (int i = 0; i < appends.Count; i++)
+                {
+                    if (appends[i].Length > 0) dst.Write(appends[i], 0, appends[i].Length);
+                }
+            }
+
+            List<string> expectedPaths = new List<string>(256);
+            CollectEntryPaths(header, "", expectedPaths);
+            int verifyHeaderSize;
+            long verifyDataStart;
+            byte[] verifyBytes = ReadHeaderJsonBytes(tempPath, out verifyHeaderSize, out verifyDataStart);
+            JsonObject verifyHeader = MiniJson.Parse(Encoding.UTF8.GetString(verifyBytes)) as JsonObject;
+            List<string> actualPaths = new List<string>(256);
+            CollectEntryPaths(verifyHeader, "", actualPaths);
+            if (actualPaths.Count != expectedPaths.Count)
+            {
+                throw new InvalidDataException("app.asar 头部改写后条目数不一致: " + expectedPaths.Count + " -> " + actualPaths.Count);
+            }
+            return applied;
+        }
+
+        private static string DecodeUtf8StripBom(byte[] bytes)
+        {
+            if (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)
+            {
+                return Encoding.UTF8.GetString(bytes, 3, bytes.Length - 3);
+            }
+            return Encoding.UTF8.GetString(bytes);
+        }
+
+        private static byte[] ReadEntryExact(FileStream fs, long dataStart, long offset, long size)
+        {
+            if (size <= 0) return new byte[0];
+            byte[] buf = new byte[size];
+            fs.Position = dataStart + offset;
+            int read = 0;
+            while (read < buf.Length)
+            {
+                int n = fs.Read(buf, read, buf.Length - read);
+                if (n <= 0) throw new IOException("ASAR 条目读取不完整");
+                read += n;
+            }
+            return buf;
+        }
+
+        private sealed class JsEntryInfo
+        {
+            public string EntryPath;
+            public string FileName;
+            public long Offset;
+            public long Size;
+        }
+
+        private static void CollectDirsWithJs(JsonObject node, string prefix, int depth, List<string> dirs, Dictionary<string, bool> hasIndex)
+        {
+            if (depth > 3) return;
+            object filesVal;
+            if (!node.TryGet("files", out filesVal)) return;
+            JsonObject files = filesVal as JsonObject;
+            if (files == null) return;
+            bool anyJs = false;
+            bool idxJs = false;
+            for (int i = 0; i < files.Entries.Count; i++)
+            {
+                string name = files.Entries[i].Key;
+                JsonObject child = files.Entries[i].Value as JsonObject;
+                if (child == null) continue;
+                if (child.ContainsKey("files"))
+                {
+                    string sub = prefix.Length == 0 ? name : prefix + "/" + name;
+                    CollectDirsWithJs(child, sub, depth + 1, dirs, hasIndex);
+                }
+                else if (name.EndsWith(".js", StringComparison.OrdinalIgnoreCase))
+                {
+                    anyJs = true;
+                    if (name.StartsWith("index-", StringComparison.OrdinalIgnoreCase)) idxJs = true;
+                }
+            }
+            if (anyJs && prefix.Length > 0)
+            {
+                dirs.Add(prefix);
+                hasIndex[prefix] = idxJs;
+            }
+        }
+
+        private static List<JsEntryInfo> GetJsEntriesInDir(JsonObject header, string dirPath)
+        {
+            List<JsEntryInfo> list = new List<JsEntryInfo>();
+            JsonObject dirNode = FindNode(header, dirPath);
+            if (dirNode == null) return list;
+            object filesVal;
+            if (!dirNode.TryGet("files", out filesVal)) return list;
+            JsonObject files = filesVal as JsonObject;
+            if (files == null) return list;
+            for (int i = 0; i < files.Entries.Count; i++)
+            {
+                string name = files.Entries[i].Key;
+                JsonObject child = files.Entries[i].Value as JsonObject;
+                if (child == null || child.ContainsKey("files")) continue;
+                if (!name.EndsWith(".js", StringComparison.OrdinalIgnoreCase)) continue;
+                JsEntryInfo info = new JsEntryInfo();
+                info.EntryPath = dirPath + "/" + name;
+                info.FileName = name;
+                info.Offset = GetInt64Prop(child, "offset");
+                info.Size = GetInt64Prop(child, "size");
+                list.Add(info);
+            }
+            list.Sort(delegate(JsEntryInfo a, JsEntryInfo b)
+            {
+                return string.Compare(a.FileName, b.FileName, StringComparison.OrdinalIgnoreCase);
+            });
+            return list;
+        }
+
+        public static FrontendAsarScanResult ScanFrontendAsar(
+            string asarPath,
+            string language,
+            string baseLanguageList,
+            string languageListPattern,
+            object[][] hardcodedRules,
+            string slashModulePattern,
+            string displayNamesMarker,
+            int maxWorkers)
+        {
+            int headerSize;
+            long dataStart;
+            byte[] headerBytes = ReadHeaderJsonBytes(asarPath, out headerSize, out dataStart);
+            JsonObject header = MiniJson.Parse(Encoding.UTF8.GetString(headerBytes)) as JsonObject;
+            if (header == null) throw new InvalidDataException("无效的 ion-dist.asar 头部");
+
+            const string whitelistAnchor = "\"en-US\",\"de-DE\",\"fr-FR\",\"ko-KR\",\"ja-JP\"";
+            string assetsDir = null;
+            List<JsEntryInfo> jsEntries = GetJsEntriesInDir(header, "assets/v1");
+            if (jsEntries.Count > 0)
+            {
+                assetsDir = "assets/v1";
+            }
+            else
+            {
+                List<string> candidateDirs = new List<string>();
+                Dictionary<string, bool> hasIndex = new Dictionary<string, bool>(StringComparer.Ordinal);
+                CollectDirsWithJs(header, "", 0, candidateDirs, hasIndex);
+                candidateDirs.Sort(delegate(string a, string b)
+                {
+                    bool ai = hasIndex[a];
+                    bool bi = hasIndex[b];
+                    if (ai != bi) return bi ? 1 : -1;
+                    return string.Compare(a, b, StringComparison.OrdinalIgnoreCase);
+                });
+                using (FileStream probeFs = File.Open(asarPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+                {
+                    for (int d = 0; d < candidateDirs.Count; d++)
+                    {
+                        List<JsEntryInfo> entries = GetJsEntriesInDir(header, candidateDirs[d]);
+                        bool found = false;
+                        for (int e = 0; e < entries.Count; e++)
+                        {
+                            string t = DecodeUtf8StripBom(ReadEntryExact(probeFs, dataStart, entries[e].Offset, entries[e].Size));
+                            if (t.IndexOf(whitelistAnchor, StringComparison.Ordinal) >= 0)
+                            {
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (found)
+                        {
+                            assetsDir = candidateDirs[d];
+                            jsEntries = entries;
+                            break;
+                        }
+                    }
+                }
+                if (assetsDir == null)
+                {
+                    for (int d = 0; d < candidateDirs.Count; d++)
+                    {
+                        if (hasIndex[candidateDirs[d]])
+                        {
+                            assetsDir = candidateDirs[d];
+                            jsEntries = GetJsEntriesInDir(header, assetsDir);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            FrontendAsarScanResult res = new FrontendAsarScanResult();
+            res.AssetsDir = assetsDir;
+            res.TotalJsFiles = jsEntries.Count;
+            res.ModifiedTexts = new Dictionary<string, string>(StringComparer.Ordinal);
+
+            using (FileStream i18nFs = File.Open(asarPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                JsonObject enUsNode = FindNode(header, "i18n/en-US.json");
+                if (enUsNode != null && !enUsNode.ContainsKey("files"))
+                {
+                    res.HasEnUsJson = true;
+                    res.EnUsJsonText = DecodeUtf8StripBom(ReadEntryExact(i18nFs, dataStart, GetInt64Prop(enUsNode, "offset"), GetInt64Prop(enUsNode, "size")));
+                }
+                JsonObject dynNode = FindNode(header, "i18n/dynamic/en-US.json");
+                if (dynNode != null && !dynNode.ContainsKey("files"))
+                {
+                    res.HasDynamicEnUs = true;
+                    res.DynamicEnUsBytes = ReadEntryExact(i18nFs, dataStart, GetInt64Prop(dynNode, "offset"), GetInt64Prop(dynNode, "size"));
+                }
+            }
+
+            if (assetsDir == null || jsEntries.Count == 0)
+            {
+                res.WhitelistMatchedNames = new string[0];
+                res.WhitelistChangedNames = new string[0];
+                res.WhitelistAlreadyNames = new string[0];
+                res.HardcodedLogEntries = new string[0];
+                res.SlashCandidatePaths = new string[0];
+                res.SlashCandidateTexts = new string[0];
+                res.DisplayNameTargetPaths = new string[0];
+                res.DisplayNameAlreadyPaths = new string[0];
+                return res;
+            }
+
+            CompiledFrontendRules compiled = new CompiledFrontendRules(hardcodedRules);
+            Regex langListRe = new Regex(languageListPattern, RegexOptions.Compiled);
+            string langReplacement = baseLanguageList + ",\"" + language + "\"]";
+            Regex slashRe = string.IsNullOrEmpty(slashModulePattern) ? null : new Regex(slashModulePattern, RegexOptions.Compiled);
+
+            int total = jsEntries.Count;
+            bool[] wlMatched = new bool[total];
+            bool[] wlChanged = new bool[total];
+            bool[] wlAlready = new bool[total];
+            int[] hcCounts = new int[total];
+            bool[] slashMatched = new bool[total];
+            bool[] dnTarget = new bool[total];
+            bool[] dnAlready = new bool[total];
+            string[] modifiedOut = new string[total];
+            string[] slashTextOut = new string[total];
+
+            int workers = total < 16 ? 1 : Math.Max(1, Math.Min(maxWorkers, 12));
+            int nextIdx = -1;
+            int scanned = 0;
+            Exception firstErr = null;
+            Parallel.For(0, workers, new ParallelOptions { MaxDegreeOfParallelism = workers }, delegate(int w)
+            {
+                using (FileStream fs = File.Open(asarPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+                {
+                    while (true)
+                    {
+                        if (Volatile.Read(ref firstErr) != null) return;
+                        int i = Interlocked.Increment(ref nextIdx);
+                        if (i >= total) return;
+                        try
+                        {
+                            JsEntryInfo entry = jsEntries[i];
+                            byte[] raw = ReadEntryExact(fs, dataStart, entry.Offset, entry.Size);
+                            string text = DecodeUtf8StripBom(raw);
+                            string cur = text;
+                            bool dirty = false;
+
+                            // 1. Register-Language
+                            if (cur.IndexOf(whitelistAnchor, StringComparison.Ordinal) >= 0)
+                            {
+                                wlMatched[i] = true;
+                                if (langListRe.IsMatch(cur))
+                                {
+                                    string updated = langListRe.Replace(cur, langReplacement);
+                                    if (string.Equals(updated, cur, StringComparison.Ordinal))
+                                    {
+                                        wlAlready[i] = true;
+                                    }
+                                    else
+                                    {
+                                        cur = updated;
+                                        dirty = true;
+                                        wlChanged[i] = true;
+                                    }
+                                }
+                            }
+
+                            // 2. Patch-HardcodedFrontendStrings
+                            int hcCount;
+                            string afterHc = FrontendPatcher.PatchText(cur, compiled, out hcCount);
+                            if (hcCount > 0 && !string.Equals(afterHc, cur, StringComparison.OrdinalIgnoreCase))
+                            {
+                                cur = afterHc;
+                                dirty = true;
+                                hcCounts[i] = hcCount;
+                            }
+
+                            // 3. Patch-SlashCommandMenu candidate detection
+                            if (slashRe != null && slashRe.IsMatch(cur))
+                            {
+                                slashMatched[i] = true;
+                                slashTextOut[i] = cur;
+                            }
+
+                            // 4. Patch-LanguageDisplayNames detection
+                            bool hasMarker = !string.IsNullOrEmpty(displayNamesMarker) && cur.IndexOf(displayNamesMarker, StringComparison.Ordinal) >= 0;
+                            if (hasMarker)
+                            {
+                                dnAlready[i] = true;
+                            }
+                            else if (cur.IndexOf("Intl.DisplayNames", StringComparison.Ordinal) >= 0)
+                            {
+                                dnTarget[i] = true;
+                                dirty = true;
+                            }
+
+                            if (dirty)
+                            {
+                                modifiedOut[i] = cur;
+                            }
+
+                            int done = Interlocked.Increment(ref scanned);
+                            if (done % 500 == 0 || done == total)
+                            {
+                                Console.WriteLine("  scanned " + done + "/" + total + " JS files");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Interlocked.CompareExchange(ref firstErr, ex, null);
+                            return;
+                        }
+                    }
+                }
+            });
+            if (firstErr != null) throw new IOException(firstErr.Message, firstErr);
+
+            List<string> wlMatchedList = new List<string>();
+            List<string> wlChangedList = new List<string>();
+            List<string> wlAlreadyList = new List<string>();
+            List<string> hcLogs = new List<string>();
+            List<string> slashPaths = new List<string>();
+            List<string> slashTexts = new List<string>();
+            List<string> dnTargets = new List<string>();
+            List<string> dnAlreadys = new List<string>();
+            int hcPatchedFiles = 0;
+            int hcTotalRepl = 0;
+
+            for (int i = 0; i < total; i++)
+            {
+                string path = jsEntries[i].EntryPath;
+                string name = jsEntries[i].FileName;
+                if (wlMatched[i]) wlMatchedList.Add(name);
+                if (wlChanged[i]) wlChangedList.Add(name);
+                if (wlAlready[i]) wlAlreadyList.Add(name);
+                if (hcCounts[i] > 0)
+                {
+                    hcPatchedFiles++;
+                    hcTotalRepl += hcCounts[i];
+                    hcLogs.Add(name + " (" + hcCounts[i] + " replacements)");
+                }
+                if (slashMatched[i])
+                {
+                    slashPaths.Add(path);
+                    slashTexts.Add(slashTextOut[i]);
+                }
+                if (dnTarget[i]) dnTargets.Add(path);
+                if (dnAlready[i]) dnAlreadys.Add(path);
+                if (modifiedOut[i] != null)
+                {
+                    res.ModifiedTexts[path] = modifiedOut[i];
+                }
+            }
+
+            res.WhitelistMatchedNames = wlMatchedList.ToArray();
+            res.WhitelistChangedNames = wlChangedList.ToArray();
+            res.WhitelistAlreadyNames = wlAlreadyList.ToArray();
+            res.HardcodedPatchedFiles = hcPatchedFiles;
+            res.HardcodedTotalReplacements = hcTotalRepl;
+            res.HardcodedLogEntries = hcLogs.ToArray();
+            res.SlashCandidatePaths = slashPaths.ToArray();
+            res.SlashCandidateTexts = slashTexts.ToArray();
+            res.DisplayNameTargetPaths = dnTargets.ToArray();
+            res.DisplayNameAlreadyPaths = dnAlreadys.ToArray();
+            return res;
+        }
+
+        private sealed class CopyChunk
+        {
+            public bool FromSource;
+            public long SourceOffset;
+            public long Length;
+            public byte[] Data;
+        }
+
+        private static void InsertOverlayEntry(JsonObject root, string entryPath, JsonObject fileNode)
+        {
+            string[] segments = entryPath.Split('/');
+            JsonObject cur = root;
+            for (int i = 0; i < segments.Length - 1; i++)
+            {
+                object filesVal;
+                JsonObject files;
+                if (!cur.TryGet("files", out filesVal) || (files = filesVal as JsonObject) == null)
+                {
+                    files = new JsonObject();
+                    cur.Set("files", files);
+                }
+                object nextVal;
+                JsonObject next;
+                if (!files.TryGet(segments[i], out nextVal) || (next = nextVal as JsonObject) == null || !next.ContainsKey("files"))
+                {
+                    next = new JsonObject();
+                    next.Set("files", new JsonObject());
+                    files.Set(segments[i], next);
+                }
+                cur = next;
+            }
+            object leafFilesVal;
+            JsonObject leafFiles;
+            if (!cur.TryGet("files", out leafFilesVal) || (leafFiles = leafFilesVal as JsonObject) == null)
+            {
+                leafFiles = new JsonObject();
+                cur.Set("files", leafFiles);
+            }
+            leafFiles.Set(segments[segments.Length - 1], fileNode);
+        }
+
+        private static void RebuildTreePlan(
+            JsonObject node,
+            string prefix,
+            Dictionary<string, byte[]> overlays,
+            Dictionary<string, IntegrityResult> overlayIntegrities,
+            List<CopyChunk> plan,
+            ref long outOffset,
+            StringBuilder sb)
+        {
+            sb.Append("{\"files\":{");
+            object filesVal;
+            JsonObject files = (node.TryGet("files", out filesVal) ? filesVal as JsonObject : null);
+            if (files != null)
+            {
+                List<KeyValuePair<string, object>> sorted = new List<KeyValuePair<string, object>>(files.Entries);
+                sorted.Sort(delegate(KeyValuePair<string, object> a, KeyValuePair<string, object> b)
+                {
+                    return string.Compare(a.Key, b.Key, StringComparison.OrdinalIgnoreCase);
+                });
+                for (int i = 0; i < sorted.Count; i++)
+                {
+                    if (i > 0) sb.Append(',');
+                    string name = sorted[i].Key;
+                    string rel = prefix.Length == 0 ? name : prefix + "/" + name;
+                    MiniJson.WriteString(name, sb);
+                    sb.Append(':');
+                    JsonObject child = sorted[i].Value as JsonObject;
+                    if (child != null && child.ContainsKey("files"))
+                    {
+                        RebuildTreePlan(child, rel, overlays, overlayIntegrities, plan, ref outOffset, sb);
+                        continue;
+                    }
+                    if (child != null && child.ContainsKey("link"))
+                    {
+                        throw new InvalidDataException("暂不支持包含软链接的 ASAR: " + rel);
+                    }
+                    byte[] overlayData;
+                    if (overlays.TryGetValue(rel, out overlayData))
+                    {
+                        IntegrityResult h = overlayIntegrities[rel];
+                        sb.Append("{\"size\":");
+                        sb.Append(overlayData.Length.ToString(CultureInfo.InvariantCulture));
+                        sb.Append(",\"offset\":\"");
+                        sb.Append(outOffset.ToString(CultureInfo.InvariantCulture));
+                        sb.Append("\",\"integrity\":{\"algorithm\":\"SHA256\",\"hash\":\"");
+                        sb.Append(h.Hash);
+                        sb.Append("\",\"blockSize\":");
+                        sb.Append(h.BlockSize.ToString(CultureInfo.InvariantCulture));
+                        sb.Append(",\"blocks\":[");
+                        for (int b = 0; b < h.Blocks.Length; b++)
+                        {
+                            if (b > 0) sb.Append(',');
+                            sb.Append('"');
+                            sb.Append(h.Blocks[b]);
+                            sb.Append('"');
+                        }
+                        sb.Append("]}}");
+                        CopyChunk c = new CopyChunk();
+                        c.FromSource = false;
+                        c.Data = overlayData;
+                        c.Length = overlayData.Length;
+                        plan.Add(c);
+                        outOffset += overlayData.Length;
+                    }
+                    else if (child != null && GetBoolProp(child, "unpacked"))
+                    {
+                        MiniJson.WriteValue(child, sb);
+                    }
+                    else if (child != null)
+                    {
+                        long oldOff = GetInt64Prop(child, "offset");
+                        long size = GetInt64Prop(child, "size");
+                        JsonObject updated = new JsonObject();
+                        for (int e = 0; e < child.Entries.Count; e++)
+                        {
+                            string k = child.Entries[e].Key;
+                            if (k == "offset") updated.Set("offset", outOffset.ToString(CultureInfo.InvariantCulture));
+                            else if (k == "size") updated.Set("size", size);
+                            else updated.Set(k, child.Entries[e].Value);
+                        }
+                        if (!updated.ContainsKey("offset")) updated.Set("offset", outOffset.ToString(CultureInfo.InvariantCulture));
+                        if (!updated.ContainsKey("size")) updated.Set("size", size);
+                        MiniJson.WriteValue(updated, sb);
+
+                        if (size > 0)
+                        {
+                            if (plan.Count > 0 && plan[plan.Count - 1].FromSource &&
+                                plan[plan.Count - 1].SourceOffset + plan[plan.Count - 1].Length == oldOff)
+                            {
+                                plan[plan.Count - 1].Length += size;
+                            }
+                            else
+                            {
+                                CopyChunk c = new CopyChunk();
+                                c.FromSource = true;
+                                c.SourceOffset = oldOff;
+                                c.Length = size;
+                                plan.Add(c);
+                            }
+                            outOffset += size;
+                        }
+                    }
+                }
+            }
+            sb.Append("}}");
+        }
+
+        public static bool HasOverlayChanges(string sourceAsarPath, Dictionary<string, byte[]> overlays)
+        {
+            if (overlays == null || overlays.Count == 0) return false;
+            int headerSize;
+            long dataStart;
+            byte[] headerBytes = ReadHeaderJsonBytes(sourceAsarPath, out headerSize, out dataStart);
+            JsonObject header = MiniJson.Parse(Encoding.UTF8.GetString(headerBytes)) as JsonObject;
+            if (header == null) return true;
+
+            using (FileStream fs = File.Open(sourceAsarPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                foreach (KeyValuePair<string, byte[]> kv in overlays)
+                {
+                    JsonObject node = FindNode(header, kv.Key);
+                    if (node == null || node.ContainsKey("files") || node.ContainsKey("link") || GetBoolProp(node, "unpacked"))
+                    {
+                        return true;
+                    }
+                    long sz = GetInt64Prop(node, "size");
+                    if (sz != kv.Value.Length) return true;
+                    long off = GetInt64Prop(node, "offset");
+                    byte[] existing = ReadEntryExact(fs, dataStart, off, sz);
+                    for (int i = 0; i < existing.Length; i++)
+                    {
+                        if (existing[i] != kv.Value[i]) return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        public static void RebuildAsarWithOverlays(string sourceAsarPath, string tempAsarPath, Dictionary<string, byte[]> overlays, int blockSize, int maxWorkers)
+        {
+            int headerSize;
+            long oldDataStart;
+            byte[] headerBytes = ReadHeaderJsonBytes(sourceAsarPath, out headerSize, out oldDataStart);
+            JsonObject header = MiniJson.Parse(Encoding.UTF8.GetString(headerBytes)) as JsonObject;
+            if (header == null) throw new InvalidDataException("无效的 ASAR 头部: " + sourceAsarPath);
+
+            string[] overlayKeys = new string[overlays.Count];
+            byte[][] overlayVals = new byte[overlays.Count][];
+            int idx = 0;
+            foreach (KeyValuePair<string, byte[]> kv in overlays)
+            {
+                overlayKeys[idx] = kv.Key;
+                overlayVals[idx] = kv.Value;
+                idx++;
+            }
+
+            IntegrityResult[] overlayHashes = new IntegrityResult[overlayKeys.Length];
+            int workers = overlayKeys.Length < 8 ? 1 : Math.Max(1, Math.Min(maxWorkers, 12));
+            if (workers == 1)
+            {
+                using (SHA256 wholeSha = SHA256.Create())
+                using (SHA256 blockSha = SHA256.Create())
+                {
+                    for (int i = 0; i < overlayKeys.Length; i++)
+                    {
+                        overlayHashes[i] = ComputeBytesIntegrity(overlayVals[i], blockSize, wholeSha, blockSha);
+                    }
+                }
+            }
+            else
+            {
+                int nextIdx = -1;
+                Parallel.For(0, workers, new ParallelOptions { MaxDegreeOfParallelism = workers }, delegate(int w)
+                {
+                    using (SHA256 wholeSha = SHA256.Create())
+                    using (SHA256 blockSha = SHA256.Create())
+                    {
+                        while (true)
+                        {
+                            int k = Interlocked.Increment(ref nextIdx);
+                            if (k >= overlayKeys.Length) return;
+                            overlayHashes[k] = ComputeBytesIntegrity(overlayVals[k], blockSize, wholeSha, blockSha);
+                        }
+                    }
+                });
+            }
+
+            Dictionary<string, IntegrityResult> integrityMap = new Dictionary<string, IntegrityResult>(overlayKeys.Length, StringComparer.Ordinal);
+            for (int i = 0; i < overlayKeys.Length; i++)
+            {
+                integrityMap[overlayKeys[i]] = overlayHashes[i];
+                if (FindNode(header, overlayKeys[i]) == null)
+                {
+                    InsertOverlayEntry(header, overlayKeys[i], new JsonObject());
+                }
+            }
+
+            List<CopyChunk> plan = new List<CopyChunk>(1024);
+            long outOffset = 0;
+            StringBuilder headerSb = new StringBuilder(headerBytes.Length + overlayKeys.Length * 220);
+            RebuildTreePlan(header, "", overlays, integrityMap, plan, ref outOffset, headerSb);
+            byte[] newHeaderBytes = Utf8NoBom.GetBytes(headerSb.ToString());
+
+            byte[] copyBuf = new byte[1024 * 1024];
+            using (FileStream src = File.Open(sourceAsarPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            using (FileStream dst = File.Open(tempAsarPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                WriteAsarPrefixAndHeader(dst, newHeaderBytes);
+                for (int i = 0; i < plan.Count; i++)
+                {
+                    CopyChunk chunk = plan[i];
+                    if (chunk.FromSource)
+                    {
+                        src.Position = oldDataStart + chunk.SourceOffset;
+                        long remaining = chunk.Length;
+                        while (remaining > 0)
+                        {
+                            int wanted = (int)Math.Min(copyBuf.Length, remaining);
+                            int n = src.Read(copyBuf, 0, wanted);
+                            if (n <= 0) throw new IOException("复制原始 ASAR 数据时提前结束");
+                            dst.Write(copyBuf, 0, n);
+                            remaining -= n;
+                        }
+                    }
+                    else if (chunk.Data.Length > 0)
+                    {
+                        dst.Write(chunk.Data, 0, chunk.Data.Length);
+                    }
+                }
+            }
+        }
+    }
+
+    public static class ExeIntegrityHelper
+    {
+        private static readonly byte[] ResourcesAnchor = Encoding.ASCII.GetBytes("resources");
+
+        private static bool MatchAt(byte[] buf, int pos, int validLen, byte[] pat)
+        {
+            if (pos < 0 || pos + pat.Length > validLen) return false;
+            for (int i = 0; i < pat.Length; i++)
+            {
+                if (buf[pos + i] != pat[i]) return false;
+            }
+            return true;
+        }
+
+        public static long[] FindMarkerOffsets(string exePath, string[] asarNames)
+        {
+            int targetCount = asarNames.Length;
+            byte[][][] patterns = new byte[targetCount][][];
+            int[][] anchorOffsets = new int[targetCount][];
+            int[,] counts = new int[targetCount, 5];
+            long[,] firstHashOffsets = new long[targetCount, 5];
+            long[,] lastMatchStarts = new long[targetCount, 5];
+
+            const string tail = "\",\"alg\":\"SHA256\",\"value\":\"";
+            for (int t = 0; t < targetCount; t++)
+            {
+                string name = asarNames[t];
+                string[] cands = new string[5];
+                cands[0] = "{\"file\":\"resources\\\\" + name + tail;
+                cands[1] = "resources\\\\" + name + tail;
+                cands[2] = "{\"file\":\"resources/" + name + tail;
+                cands[3] = "resources/" + name + tail;
+                cands[4] = "resources\\" + name + tail;
+                patterns[t] = new byte[5][];
+                anchorOffsets[t] = new int[5];
+                for (int c = 0; c < 5; c++)
+                {
+                    patterns[t][c] = Encoding.ASCII.GetBytes(cands[c]);
+                    anchorOffsets[t][c] = cands[c].IndexOf("resources", StringComparison.Ordinal);
+                    lastMatchStarts[t, c] = -1L;
+                }
+            }
+
+            long fileLength;
+            const int chunkSize = 4 * 1024 * 1024;
+            const int overlap = 256;
+            byte[] buf = new byte[chunkSize + overlap];
+
+            using (FileStream fs = File.Open(exePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                fileLength = fs.Length;
+                int carry = 0;
+                long chunkFileStart = 0;
+                while (true)
+                {
+                    int read = fs.Read(buf, carry, chunkSize);
+                    if (read <= 0) break;
+                    int valid = carry + read;
+
+                    int pos = 0;
+                    int limit = valid - ResourcesAnchor.Length;
+                    while (pos <= limit)
+                    {
+                        int hit = Array.IndexOf(buf, (byte)'r', pos, limit - pos + 1);
+                        if (hit < 0) break;
+                        if (buf[hit + 1] == (byte)'e' && buf[hit + 2] == (byte)'s' && buf[hit + 3] == (byte)'o' &&
+                            buf[hit + 4] == (byte)'u' && buf[hit + 5] == (byte)'r' && buf[hit + 6] == (byte)'c' &&
+                            buf[hit + 7] == (byte)'e' && buf[hit + 8] == (byte)'s')
+                        {
+                            for (int t = 0; t < targetCount; t++)
+                            {
+                                for (int c = 0; c < 5; c++)
+                                {
+                                    int start = hit - anchorOffsets[t][c];
+                                    if (MatchAt(buf, start, valid, patterns[t][c]))
+                                    {
+                                        long absStart = chunkFileStart + start;
+                                        if (absStart > lastMatchStarts[t, c])
+                                        {
+                                            lastMatchStarts[t, c] = absStart;
+                                            counts[t, c]++;
+                                            if (counts[t, c] == 1)
+                                            {
+                                                firstHashOffsets[t, c] = absStart + patterns[t][c].Length;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        pos = hit + 1;
+                    }
+
+                    if (valid > overlap)
+                    {
+                        int keep = overlap;
+                        Buffer.BlockCopy(buf, valid - keep, buf, 0, keep);
+                        chunkFileStart += (valid - keep);
+                        carry = keep;
+                    }
+                    else
+                    {
+                        carry = valid;
+                    }
+                }
+            }
+
+            long[] result = new long[targetCount];
+            for (int t = 0; t < targetCount; t++)
+            {
+                bool found = false;
+                for (int c = 0; c < 5; c++)
+                {
+                    if (counts[t, c] == 0) continue;
+                    if (counts[t, c] > 1)
+                    {
+                        throw new InvalidDataException("Could not find a unique Claude.exe " + asarNames[t] + " integrity marker. Claude bundle format may have changed.");
+                    }
+                    long hashOffset = firstHashOffsets[t, c];
+                    if (hashOffset + 64 > fileLength)
+                    {
+                        throw new InvalidDataException("Claude.exe " + asarNames[t] + " integrity marker has invalid bounds.");
+                    }
+                    result[t] = hashOffset;
+                    found = true;
+                    break;
+                }
+                if (!found)
+                {
+                    throw new InvalidDataException("Could not find Claude.exe " + asarNames[t] + " integrity marker. Claude bundle format may have changed.");
+                }
+            }
+            return result;
+        }
+    }
+}
 '@
 
 function Patch-HardcodedFrontendStrings {
@@ -2981,8 +5597,8 @@ function Patch-HardcodedFrontendStrings {
 
     $replacements = @(Get-FrontendHardcodedReplacements $Language)
 
-    # 预处理：过滤结构性跳过规则，plain 规则一次性编译 Regex，
-    # 避免 (文件 × 规则) 循环里反复拼 pattern、调函数、分配哈希表。
+    # 预处理：过滤结构性跳过规则，记录每条规则是否为 plain UI 文本。
+    # C# 引擎直接基于 Aho-Corasick + 引号边界扫描，无需在 PowerShell 里逐条预编译数千个 Regex。
     $prepared = New-Object 'System.Collections.Generic.List[object[]]'
     foreach ($pair in $replacements) {
         $source = [string]$pair[0]
@@ -2990,16 +5606,8 @@ function Patch-HardcodedFrontendStrings {
         if (Test-StructuralJsReplacement $source) {
             continue
         }
-        if (Test-PlainUiTextReplacement $source) {
-            $pattern = '(?<quote>["''`])' + [System.Text.RegularExpressions.Regex]::Escape($source) + '\k<quote>'
-            $prepared.Add([object[]]@(
-                [System.Text.RegularExpressions.Regex]::new($pattern),
-                $source,
-                $target
-            ))
-        } else {
-            $prepared.Add([object[]]@($null, $source, $target))
-        }
+        $isPlain = Test-PlainUiTextReplacement $source
+        $prepared.Add([object[]]@([bool]$isPlain, $source, $target))
     }
 
     Write-Host "  scanning frontend JS for hardcoded strings: $($jsFiles.Count) files, $($prepared.Count) replacement rules" -ForegroundColor DarkGray
@@ -3162,12 +5770,28 @@ function Patch-SlashCommandMenu {
         return
     }
     $config = Get-SlashCommandGlossConfig $Language
-    $candidates = @(
-        foreach ($file in (Get-ChildItem (Join-Path $assetsDir '*.js') -File)) {
-            $text = [IO.File]::ReadAllText($file.FullName, [Text.Encoding]::UTF8)
-            if ([regex]::IsMatch($text, $config.Profile.module_pattern)) { @{ File = $file; Text = $text } }
-        }
-    )
+    $jsFiles = @(Get-ChildItem (Join-Path $assetsDir '*.js') -File -ErrorAction SilentlyContinue)
+    if (-not ("ClaudeZhPatch.FrontendPatcher" -as [type]) -and $script:FrontendPatcherCSharp) {
+        try { Add-Type -TypeDefinition $script:FrontendPatcherCSharp -ErrorAction Stop } catch {}
+    }
+    if ("ClaudeZhPatch.FrontendPatcher" -as [type]) {
+        $filePaths = [string[]]@($jsFiles | ForEach-Object { $_.FullName })
+        $workers = [Math]::Max(1, [Math]::Min([Environment]::ProcessorCount, 12))
+        $matchedPaths = [ClaudeZhPatch.FrontendPatcher]::FindFilesMatchingRegex($filePaths, [string]$config.Profile.module_pattern, $workers)
+        $candidates = @(
+            foreach ($p in $matchedPaths) {
+                @{ File = [IO.FileInfo]::new($p); Text = [IO.File]::ReadAllText($p, [Text.Encoding]::UTF8) }
+            }
+        )
+    }
+    else {
+        $candidates = @(
+            foreach ($file in $jsFiles) {
+                $text = [IO.File]::ReadAllText($file.FullName, [Text.Encoding]::UTF8)
+                if ([regex]::IsMatch($text, $config.Profile.module_pattern)) { @{ File = $file; Text = $text } }
+            }
+        )
+    }
     if ($candidates.Count -ne 1) {
         Write-Host '  [WARNING] Slash command gloss skipped: expected one menu component' -ForegroundColor DarkYellow
         return
@@ -4412,30 +7036,59 @@ function Install-WindowsLanguagePack {
             Assert-AsarReplaceable -Path $asarPath
         }
         Remove-LegacyAppxForkArtifacts
-        $patchTarget = Initialize-FrontendPatchTarget $resourcesPath
 
-        Write-Step "[4/7] 写入 $label 资源"
-        Install-LanguageFiles $resourcesPath $pack $LanguageCode
-
-        Write-Step "[5/7] 注册中文语言"
-        Register-Language $resourcesPath $LanguageCode
-
-        Write-Step "[6/7] 汉化硬编码界面文本"
-        Patch-HardcodedFrontendStrings $resourcesPath $LanguageCode
-        Patch-SlashCommandMenu $resourcesPath $LanguageCode
-        Patch-LanguageDisplayNames $resourcesPath
-        # 前端同样固定加载 en-US 词库，把中文词库合并进去才能覆盖仅存在于词库的文案。
-        $mergedFrontend = Merge-LocaleOverride (Join-Path $resourcesPath "ion-dist\i18n") $LanguageCode
-        if ($mergedFrontend -gt 0) {
-            Write-Host "  ion-dist.asar 已把 $LanguageCode 词库覆盖进 i18n/en-US.json（$mergedFrontend 条）" -ForegroundColor Green
+        $bundleMode = Get-FrontendBundleMode $resourcesPath
+        if ($bundleMode -eq "Asar") {
+            if (-not ("ClaudeZhPatch.AsarHelper" -as [type]) -and $script:FrontendPatcherCSharp) {
+                try { Add-Type -TypeDefinition $script:FrontendPatcherCSharp -ErrorAction Stop } catch {}
+            }
         }
-        # 前端补丁阶段可能耗时数分钟，MSIX 版可能在期间被重新激活；写 app.asar 前再确认一次。
-        $null = Stop-ClaudeProcesses -RequireStopped
-        Patch-DesktopShellLocale $resourcesPath $LanguageCode
-        Complete-FrontendPatchTarget $patchTarget
-        Close-FrontendPatchTarget $patchTarget
-        $usedAsarFrontend = $patchTarget.Mode -eq "Asar"
-        $patchTarget = $null
+        $useDirectAsar = ($bundleMode -eq "Asar") -and [bool]("ClaudeZhPatch.AsarHelper" -as [type])
+
+        if ($useDirectAsar) {
+            Write-Step "[4/7] 写入 $label 桌面资源"
+            Install-LanguageFiles $resourcesPath $pack $LanguageCode -DesktopOnly
+
+            Write-Step "[5/7] 扫描并汉化前端资源 (ion-dist.asar)"
+            Patch-AsarFrontendDirect $resourcesPath $pack $LanguageCode
+
+            Write-Step "[6/7] 汉化主进程菜单并同步完整性哈希"
+            $null = Stop-ClaudeProcesses -RequireStopped
+            Patch-DesktopShellLocale $resourcesPath $LanguageCode -SkipIntegritySync
+            Sync-ClaudeExeAsarIntegrity $resourcesPath
+            $usedAsarFrontend = $true
+        }
+        else {
+            $patchTarget = Initialize-FrontendPatchTarget $resourcesPath
+
+            Write-Step "[4/7] 写入 $label 资源"
+            Install-LanguageFiles $resourcesPath $pack $LanguageCode
+
+            Write-Step "[5/7] 注册中文语言"
+            Register-Language $resourcesPath $LanguageCode
+
+            Write-Step "[6/7] 汉化硬编码界面文本"
+            Patch-HardcodedFrontendStrings $resourcesPath $LanguageCode
+            Patch-SlashCommandMenu $resourcesPath $LanguageCode
+            Patch-LanguageDisplayNames $resourcesPath
+            # 前端同样固定加载 en-US 词库，把中文词库合并进去才能覆盖仅存在于词库的文案。
+            $mergedFrontend = Merge-LocaleOverride (Join-Path $resourcesPath "ion-dist\i18n") $LanguageCode
+            if ($mergedFrontend -gt 0) {
+                Write-Host "  ion-dist.asar 已把 $LanguageCode 词库覆盖进 i18n/en-US.json（$mergedFrontend 条）" -ForegroundColor Green
+            }
+            # 前端补丁阶段可能耗时数分钟，MSIX 版可能在期间被重新激活；写 app.asar 前再确认一次。
+            $null = Stop-ClaudeProcesses -RequireStopped
+            $usedAsarFrontend = $patchTarget.Mode -eq "Asar"
+            if ($usedAsarFrontend) {
+                Patch-DesktopShellLocale $resourcesPath $LanguageCode -SkipIntegritySync
+            }
+            else {
+                Patch-DesktopShellLocale $resourcesPath $LanguageCode
+            }
+            Complete-FrontendPatchTarget $patchTarget
+            Close-FrontendPatchTarget $patchTarget
+            $patchTarget = $null
+        }
 
         $appVersion = Get-ClaudeExeProductVersion $claudePath
         Patch-CoworkService $resourcesPath $appVersion

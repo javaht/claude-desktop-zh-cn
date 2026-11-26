@@ -23,7 +23,9 @@ param(
 
     # 非交互安装（脚本调用、自动化）默认不允许接管 WindowsApps 的所有权。
     # 需要显式授权，避免在没人确认的情况下静默改动系统保护目录的 ACL。
-    [switch]$AllowTakeOwnership
+    [switch]$AllowTakeOwnership,
+
+    [string]$OriginalScoop = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -49,6 +51,7 @@ if ($OriginalUserSid) { $env:CLAUDE_ZH_ORIGINAL_USER_SID = $OriginalUserSid }
 if ($OriginalUserProfile) { $env:CLAUDE_ZH_ORIGINAL_USER_PROFILE = $OriginalUserProfile }
 if ($OriginalAppData) { $env:CLAUDE_ZH_ORIGINAL_APPDATA = $OriginalAppData }
 if ($OriginalLocalAppData) { $env:CLAUDE_ZH_ORIGINAL_LOCALAPPDATA = $OriginalLocalAppData }
+if ($OriginalScoop) { $env:CLAUDE_ZH_ORIGINAL_SCOOP = $OriginalScoop }
 
 function Start-InstallLog {
     try {
@@ -299,11 +302,11 @@ function Get-CustomClaudePaths {
 
 function Get-ScoopClaudePaths {
     $scoopRoots = @()
-    if ($env:SCOOP) { $scoopRoots += $env:SCOOP }
     if ($env:CLAUDE_ZH_ORIGINAL_SCOOP) { $scoopRoots += $env:CLAUDE_ZH_ORIGINAL_SCOOP }
     if ($env:CLAUDE_ZH_ORIGINAL_USER_PROFILE) {
         $scoopRoots += Join-Path $env:CLAUDE_ZH_ORIGINAL_USER_PROFILE "scoop"
     }
+    if ($env:SCOOP) { $scoopRoots += $env:SCOOP }
     $userProfile = [Environment]::GetFolderPath('UserProfile')
     if ($userProfile) {
         $scoopRoots += Join-Path $userProfile "scoop"
@@ -7114,7 +7117,7 @@ function Install-WindowsLanguagePack {
     catch {
         Write-Host ""
         Write-Host "安装过程中出现错误，Claude Desktop 可能处于不完整状态。" -ForegroundColor Red
-        Write-Host "  建议运行卸载命令恢复原始状态：install-windows.bat → 选择卸载。" -ForegroundColor DarkYellow
+        Write-Host "  建议从项目目录重新运行 install-windows.ps1，选择「恢复原样 / 卸载补丁」。" -ForegroundColor DarkYellow
         Write-Host "  详细日志: $script:InstallLogPath" -ForegroundColor DarkGray
         if ($script:DetectedMultipleClaudeInstalls) {
             Write-MultipleClaudeFailureHint

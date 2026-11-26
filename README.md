@@ -2,7 +2,7 @@
 
 一个用于 Claude Desktop 的本地中文界面补丁，支持简体中文、繁體中文（台灣）和繁體中文（香港）。
 
-macOS 双击 `install-mac.command`；Windows 双击 `install-windows.bat` 后按 UAC 提示授权；Linux（官方 deb 包，或 Fedora 等发行版用社区脚本 [claude-desktop-rpm](https://github.com/ajithakdev/claude-desktop-rpm/) 安装）在终端运行 `./install-linux.sh`。脚本会给 Claude Desktop 添加中文语言选项并安装中文界面资源。
+macOS 双击 `install-mac.command`；Windows 在项目目录的终端中启动 [`install-windows.ps1`](#windows) 后按 UAC 提示授权；Linux（官方 deb 包，或 Fedora 等发行版用社区脚本 [claude-desktop-rpm](https://github.com/ajithakdev/claude-desktop-rpm/) 安装）在终端运行 `./install-linux.sh`。脚本会给 Claude Desktop 添加中文语言选项并安装中文界面资源。
 
 本项目支持官方账号和第三方 API，但不同安装模式覆盖的界面与 Cowork 兼容性不同，请先阅读下方的模式说明。第三方 API 配置可参考 [这篇教程](https://linux.do/t/topic/2032192)。
 
@@ -54,7 +54,7 @@ macOS 双击 `install-mac.command`；Windows 双击 `install-windows.bat` 后按
 - macOS、Windows 或 Linux（官方 deb 包，或面向 Fedora 等 RPM 发行版的第三方脚本 claude-desktop-rpm）
 - 已安装 Claude Desktop
 - macOS 需要可用的 Python 3；脚本优先使用 `/usr/bin/python3`，不存在时从 `PATH` 查找 `python3`
-- Windows 需要系统自带的 Windows PowerShell（`powershell.exe`）；批处理入口会自动请求管理员权限
+- Windows 首选稳定版 PowerShell 7.6 或更新版本（`pwsh.exe`），也可回退到系统自带的 Windows PowerShell 5.1（`powershell.exe`）。Windows Terminal 可选。
 - Linux 需要 Python 3 和 `flock`（util-linux），以 Claude Desktop 5.x 为基准（4.x 仍可安装中文前端，但菜单栏与官方账号页可能回落英文）。脚本会自动识别官方 deb 包（`/usr/lib/claude-desktop/resources`）与第三方脚本 claude-desktop-rpm（Fedora 等 RPM 发行版，将官方 deb 解包安装到 `~/.local/lib/claude-desktop`），也可用环境变量 `CLAUDE_RESOURCES` 直接指定资源目录、用 `CLAUDE_DESKTOP_PREFIX` 指定 claude-desktop-rpm 安装前缀。安装目录可写时不会调用 `sudo`，只有官方 deb 包等只读目录才需要。
 
 ## 使用方式
@@ -85,8 +85,22 @@ CC Switch skills 同步会扫描 `~/.cc-switch/skills` 下包含 `SKILL.md` 的�
 ### Windows
 
 1. 退出 Claude Desktop。
-2. 下载或克隆本项目。
-3. 双击 `install-windows.bat`；脚本会复制安装文件到当前用户的临时目录，并弹出 UAC 管理员授权窗口。
+2. 下载并解压完整项目，或克隆本项目。保留 `install-windows.ps1` 同级的 `scripts/` 和 `resources/` 目录。
+3. 在项目目录打开 PowerShell（可以使用 Windows Terminal，无需提前以管理员身份打开），然后运行：
+
+   ```powershell
+   pwsh -NoProfile -ExecutionPolicy Bypass -File .\install-windows.ps1
+   ```
+
+   还没有 PowerShell 7？优先从 Microsoft Store 安装 [PowerShell 7](https://www.microsoft.com/store/apps/9MZ1SNWT0N5D) 和可选的 [Windows Terminal](https://apps.microsoft.com/detail/9n0dx20hk701)。商店不可用，或当前账户的商店版 PowerShell 无法用管理员凭据启动时，请从 [PowerShell 官方 GitHub Releases](https://github.com/PowerShell/PowerShell/releases/latest) 获取稳定版，参照[微软安装指南](https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell-on-windows)安装后重新打开终端。
+
+   也可以先用系统自带的 Windows PowerShell 5.1 启动入口：
+
+   ```powershell
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install-windows.ps1
+   ```
+
+   两条命令都会优先选择 **Windows Terminal + PowerShell 7.6 或更高稳定版**。没有 Windows Terminal 时直接启动 PowerShell 7；找不到可用的新版 PowerShell 时用 Windows PowerShell 5.1。脚本暂存文件后按需弹出 UAC，取消授权不会修改 Claude。`Bypass` 仅作用于此次启动的 PowerShell 进程（以及继承该设置的子进程），不会修改全局策略，也不能覆盖组织组策略；若仍被拦截，请联系管理员。
 4. 先选择操作：
    - `1` 安装中文补丁（第三方 API 模式，例如 DeepSeek）：安装中文资源、注册中文语言并汉化前端 bundle 与主进程菜单。脚本会在必要时就地改写 `app.asar` 补入桌面词库；Claude `4.29+` 会重建 `ion-dist.asar` 并更新 `Claude.exe` 中对应的完整性哈希，原有 Authenticode 签名会失效；同时脚本会自动修补 `cowork-svc.exe` 的客户端签名校验分支，彻底解决 Cowork 工作区因签名失效报 `RPC pipe closed` 的问题（卸载时自动恢复官方原包）。安装后 `English` 界面同样会显示中文（词库被合并覆盖进 `en-US`），切换语言无法回到纯英文，需要卸载或恢复备份才能还原。若 Claude 装在 `WindowsApps` 下且管理员拿不到写权限，脚本会接管该目录的所有权（所有者从 TrustedInstaller 改为 Administrators，卸载后不自动恢复，详见下文注意事项）。第三方模型需在网关或 CC Switch 中映射为 Claude/Anthropic 风格名称。
    - `2` 恢复原样 / 卸载补丁。
@@ -96,9 +110,13 @@ CC Switch skills 同步会扫描 `~/.cc-switch/skills` 下包含 `SKILL.md` 的�
 6. 选择语言：`1`=简体中文，`2`=繁體中文（台灣），`3`=繁體中文（香港）。
 7. 脚本会备份被修改的文件、写入中文资源并重启 Claude Desktop。Claude `4.29+` 的 `ion-dist.asar` 会先解包到临时目录，完成汉化后再重打包并更新 `Claude.exe` 内的 ASAR 头哈希。如果没有自动切换，打开左下角账号菜单，选择 `Language` -> 对应的中文选项。
 
-支持官网安装包（包括历史 Squirrel 版本与官网 MSIX 包）以及 Scoop（`scoop install extras/claude`）安装。安装器会自动识别当前系统安装的最新版本并跳过历史升级残留的旧版本目录。若安装在非标准自定义路径，可设置环境变量 `CLAUDE_PATH`（或通过参数 `-ClaudePath`）指定目录后运行脚本。
+支持官网安装包（包括历史 Squirrel 版本与官网 MSIX 包）以及 Scoop（`scoop install extras/claude`）安装。安装器会自动识别当前系统安装的最新版本并跳过历史升级残留的旧版本目录。若安装在非标准自定义路径，可设置环境变量 `CLAUDE_PATH`（或通过参数 `-ClaudePath`）指定目录；相对路径以项目目录为准。
 
-> **关于 Microsoft Store 商店版**：从微软应用商店（Microsoft Store）安装的包受 Windows 内核防篡改保护（Process Trust Label），系统强制禁止改写程序目录文件（管理员提权与接管所有权均无法绕过），因此**不支持直接对微软商店版打补丁**。请卸载商店版，并前往官网下载安装包（`ClaudeSetup.exe`）进行安装，即可正常使用本补丁。
+也可跳过菜单，例如 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\install-windows.ps1 install zh-TW`。可用操作为 `install`、`uninstall`、`disable-updates`、`enable-updates`、`sync-skills` 和 `unsync-skills`。显式传入操作时不经过 Windows Terminal，会等待安装器退出并返回其退出码；无人值守时请在已有管理员权限的进程中运行。
+
+如果 Windows Terminal 启动失败，确认前一次安装窗口已关闭后，可在启动命令末尾加 `-NoTerminal` 直接启动 PowerShell。启动器会显示暂存日志目录，其中 `install-windows-launch.log` 记录启动过程，`install-windows.log` 记录实际安装过程。
+
+> **关于 Claude Desktop 的 Microsoft Store 商店版**：从微软应用商店（Microsoft Store）安装的包受 Windows 内核防篡改保护（Process Trust Label），系统强制禁止改写程序目录文件（管理员提权与接管所有权均无法绕过），因此**不支持直接对微软商店版打补丁**。请卸载商店版，并前往官网下载安装包（`ClaudeSetup.exe`）进行安装，即可正常使用本补丁。
 
 ### Linux（官方 deb 包 / Fedora 等 RPM 发行版）
 
@@ -134,7 +152,7 @@ git pull
 ## 文件说明
 
 - `install-mac.command`：macOS 双击运行入口。
-- `install-windows.bat`：Windows 安装 / 恢复菜单入口。
+- `install-windows.ps1`：Windows 安装 / 恢复入口，按需暂存文件并请求管理员权限。
 - `install-linux.sh`：Linux 安装 / 恢复菜单入口（自动识别 deb 包与 claude-desktop-rpm）。
 - `scripts/install_windows.ps1`：Windows 汉化安装和卸载脚本。
 - `scripts/install_linux.sh`：Linux 汉化安装和卸载脚本；识别安装位置、按需提权，备份保存在 XDG 状态目录。`install-linux.sh` 的菜单会调用它，也可直接带参数调用。
@@ -162,35 +180,26 @@ macOS / Windows 安装时，会尝试给本地 `SlashCommandMenuPopupBody` 中�
 
 ## 开发与回归测试
 
-测试只使用合成菜单和临时目录，不启动或修改已安装的 Claude，不需要管理员权限。运行需要 Python 3.10+、Node.js，以及用于检查 Windows 逻辑的 PowerShell 5.1 或 PowerShell 7：
+测试只使用合成菜单和临时目录，不启动或修改已安装的 Claude，不需要管理员权限。运行需要 Python 3.10+、Node.js；Windows 回归套件使用 PowerShell 7.6 或更新的稳定版。
 
 ```bash
 python -I -m unittest discover -s tests -v
 ```
 
-```bash
-powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-StructuralReplacements.ps1
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File tests/Test-WindowsInstallerLauncher.ps1
 ```
 
-```bash
-powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-SlashCommandMenu.ps1
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/Test-WindowsInstallerLauncher.ps1
 ```
 
-```bash
-powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-AsarFrontend.ps1
-powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-AsarIntegrity.ps1
-powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-AsarFrontendWorkflow.ps1
-powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-WriteAccess.ps1
-powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-ProcessStop.ps1
-powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-AsarReplace.ps1
-```
-
-PowerShell 7 环境可将 `powershell` 替换为 `pwsh`。测试覆盖高风险词跳过、三地 i18n、Windows 真实 C# 快速路径与备用路径、菜单点击/高亮、语言切换、幂等、备份顺序、进程停止失败中止和 asar 锁文件预检。合成测试不能替代完整客户端的视觉验收。
+第二条 PowerShell 命令验证系统 5.1 的启动和回退兼容性。完整命令见 [CI 回归工作流](.github/workflows/tests.yml)。测试覆盖启动参数与 UAC 取消、三地 i18n、Windows 真实 C# 快速路径与备用路径、ASAR、菜单交互、备份顺序与权限。合成测试不能替代完整客户端的视觉验收。
 
 如需对已安装 Claude 的实际 `ion-dist.asar` 做逐文件无损往返验证，可传入包路径：
 
-```bash
-powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-AsarRoundTrip.ps1 -ArchivePath "C:\Program Files\WindowsApps\Claude_4.29.0.0_x64__pzs8sxrjxfjjc\app\resources\ion-dist.asar"
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File tests/Test-AsarRoundTrip.ps1 -ArchivePath "C:\Program Files\WindowsApps\Claude_4.29.0.0_x64__pzs8sxrjxfjjc\app\resources\ion-dist.asar"
 ```
 
 ## macOS 脚本会做什么

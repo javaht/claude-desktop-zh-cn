@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Load-InstallerFunctions.ps1') -FunctionNames @(
     'Find-ClaudePath',
     'Get-ClaudeExePath',
@@ -10,6 +10,7 @@ $ErrorActionPreference = 'Stop'
 
 $temp = Join-Path ([IO.Path]::GetTempPath()) ('claude-desktop-appx-' + [guid]::NewGuid().ToString('N'))
 $origScoop = $env:SCOOP
+$origCallerScoop = $env:CLAUDE_ZH_ORIGINAL_SCOOP
 $origCladePath = $env:CLAUDE_PATH
 
 try {
@@ -86,6 +87,17 @@ try {
         throw "Get-ScoopClaudePaths failed to find mock scoop installation! Paths found: $($scoopPaths -join ', ')"
     }
 
+    # 提权后的 SCOOP 可能指向另一个账户；应优先使用启动器传递的原用户路径。
+    $callerScoop = Join-Path $temp 'caller-scoop'
+    $callerCurrent = Join-Path $callerScoop 'apps\claude\current'
+    New-Item -ItemType Directory -Path (Join-Path $callerCurrent 'resources') -Force | Out-Null
+    [IO.File]::WriteAllText((Join-Path $callerCurrent 'claude.exe'), 'x')
+    $env:CLAUDE_ZH_ORIGINAL_SCOOP = $callerScoop
+    $scoopPaths = @(Get-ScoopClaudePaths)
+    if ($scoopPaths[0] -ne $callerCurrent) {
+        throw '提权后必须优先查找原用户的 Scoop 安装。'
+    }
+
     # --- Test 4: Get-CustomClaudePaths handles CLAUDE_PATH ---
     $mockCustom = Join-Path $temp 'custom_install'
     New-Item -ItemType Directory -Path (Join-Path $mockCustom 'resources') -Force | Out-Null
@@ -112,6 +124,7 @@ try {
 }
 finally {
     $env:SCOOP = $origScoop
+    $env:CLAUDE_ZH_ORIGINAL_SCOOP = $origCallerScoop
     $env:CLAUDE_PATH = $origCladePath
     if (Test-Path -LiteralPath $temp) {
         Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue

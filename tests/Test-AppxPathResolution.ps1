@@ -1,5 +1,6 @@
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Load-InstallerFunctions.ps1') -FunctionNames @(
+    'Test-IsMicrosoftStorePackage',
     'Find-ClaudePath',
     'Get-ClaudeExePath',
     'Get-ClaudeExeProductVersion',
@@ -23,7 +24,7 @@ try {
     New-Item -ItemType Directory -Path $newPkgDir -Force | Out-Null
     New-Item -ItemType Directory -Path $oldestPkgDir -Force | Out-Null
 
-    # Mock Get-ClaudeAppxPackages returning in arbitrary order
+    # Mock Get-ClaudeAppxPackages returning same-channel packages in arbitrary order
     function script:Get-ClaudeAppxPackages {
         return @(
             [pscustomobject]@{
@@ -32,12 +33,12 @@ try {
                 InstallLocation = $oldPkgDir
             },
             [pscustomobject]@{
-                Name = 'AnthropicPBC.Claude'
+                Name = 'Claude'
                 Version = '5.11492.5.0'
                 InstallLocation = $newPkgDir
             },
             [pscustomobject]@{
-                Name = 'AnthropicPBC.Claude'
+                Name = 'Claude'
                 Version = '3.6556.2.0'
                 InstallLocation = $oldestPkgDir
             }

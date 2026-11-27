@@ -65,6 +65,6 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo Administrator installer finished.
+echo Installer finished.
 timeout /t 3 >nul 2>&1
 exit /b 0

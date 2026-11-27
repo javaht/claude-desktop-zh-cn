@@ -384,24 +384,57 @@ function Write-MultipleClaudeFailureHint {
 function Get-ClaudeAppxPackages {
     # 商店版包名可能调整（issue #194：2.19675.0 起由 Claude 改名为 AnthropicPBC.Claude），
     # 按名称/发布者模糊匹配，误报由调用方对 resources 目录的校验兜底。
+    $sid = [string]$env:CLAUDE_ZH_ORIGINAL_USER_SID
+    if ($sid) {
+        try {
+            return @(Get-AppxPackage -User $sid -ErrorAction Stop | Where-Object {
+                    ($_.Name -like "*Claude*") -or ($_.Publisher -like "*Anthropic*")
+                })
+        }
+        catch {
+            # 某些旧版系统不支持 -User，回退到当前提权上下文。
+        }
+    }
     return @(Get-AppxPackage -ErrorAction SilentlyContinue | Where-Object {
             ($_.Name -like "*Claude*") -or ($_.Publisher -like "*Anthropic*")
         })
 }
 
+function Test-IsMicrosoftStorePackage {
+    param($Package)
+
+    if ($null -eq $Package) {
+        return $false
+    }
+    return ([string]$Package.Name -match '^AnthropicPBC\.')
+}
+
 function Find-ClaudePath {
     $packages = @(Get-ClaudeAppxPackages |
-        Where-Object { $_.InstallLocation -and (Test-Path $_.InstallLocation) } |
-        Sort-Object `
-            @{ Expression = {
-                try { [System.Version]$_.Version } catch { [System.Version]::new(0, 0) }
-            }; Descending = $true })
+        Where-Object { $_.InstallLocation -and (Test-Path -LiteralPath $_.InstallLocation) })
     if ($packages.Count -gt 0) {
-        return $packages[0].InstallLocation
+        # 微软商店版（AnthropicPBC.*）受系统内核防篡改保护，无法就地写入补丁；
+        # 同时检测到官网 MSIX 版与商店版时，自动优先选择官网版。
+        $officialPackages = @($packages | Where-Object { -not (Test-IsMicrosoftStorePackage $_) })
+        $storePackages = @($packages | Where-Object { Test-IsMicrosoftStorePackage $_ })
+        $candidates = $packages
+        if ($officialPackages.Count -gt 0 -and $storePackages.Count -gt 0) {
+            Write-Host "  [提示] 同时检测到官网 MSIX 版与 Microsoft Store 商店版，已自动优先选择官网版。" -ForegroundColor DarkYellow
+            $candidates = $officialPackages
+        }
+        $selected = @($candidates |
+            Sort-Object `
+                @{ Expression = {
+                    try { [System.Version]$_.Version } catch { [System.Version]::new(0, 0) }
+                }; Descending = $true })
+        return $selected[0].InstallLocation
     }
 
     $fallback = Get-ChildItem "C:\Program Files\WindowsApps" -Directory -Filter "*Claude*" -ErrorAction SilentlyContinue |
         Sort-Object `
+            @{ Expression = {
+                if ($_.Name -match '^AnthropicPBC\.') { 1 } else { 0 }
+            }; Ascending = $true },
             @{ Expression = {
                 if ($_.Name -match '_(\d+(?:\.\d+)+)_') {
                     try { [System.Version]$Matches[1] } catch { [System.Version]::new(0, 0) }
@@ -6942,6 +6975,49 @@ function Stop-ClaudeProcesses {
     return $true
 }
 
+function Get-AppxEntryForPath {
+    # 从已安装目录反推该 MSIX/AppX 包的可激活条目（PFN!AppId）。
+    # 旧实现用 Get-StartApps 的模糊通配取“第一个”，在官网版与商店版同时存在时
+    # 会选错包，导致“补丁打在 A、重启的却是 B”。这里改为按安装路径精确匹配。
+    param([string]$Path)
+
+    if (-not $Path) {
+        return $null
+    }
+    $normalized = ([string]$Path).TrimEnd('\', '/')
+    $pkg = Get-ClaudeAppxPackages |
+        Where-Object { $_.InstallLocation -and (([string]$_.InstallLocation).TrimEnd('\', '/') -ieq $normalized) } |
+        Select-Object -First 1
+    if (-not $pkg) {
+        return $null
+    }
+
+    $appId = "Claude"
+    $manifest = Join-Path $pkg.InstallLocation "AppxManifest.xml"
+    if (Test-Path -LiteralPath $manifest) {
+        try {
+            [xml]$xml = Get-Content -LiteralPath $manifest -Raw
+            $apps = @($xml.Package.Applications.Application)
+            $executable = $apps | Where-Object {
+                $_.Executable -and ([System.IO.Path]::GetFileName(([string]$_.Executable -replace '\\', '/')) -ieq 'Claude.exe')
+            } | Select-Object -First 1
+            if (-not $executable) {
+                $executable = $apps | Select-Object -First 1
+            }
+            if ($executable -and $executable.Id) {
+                $appId = [string]$executable.Id
+            }
+        }
+        catch {
+        }
+    }
+    return [pscustomobject]@{
+        AppID             = "$($pkg.PackageFamilyName)!$appId"
+        PackageFamilyName = [string]$pkg.PackageFamilyName
+        Name              = [string]$pkg.Name
+    }
+}
+
 function Restart-Claude {
     param([string]$ClaudePath)
 
@@ -6951,15 +7027,29 @@ function Restart-Claude {
     # (直接启动 exe 会被更新器误判为 Squirrel 解包安装而报 "Can not find Squirrel",
     #  Cowork 客户端校验也只能靠签名回退)
     if ($ClaudePath -match "WindowsApps") {
+        $app = $null
         try {
-            $app = Get-StartApps -ErrorAction Stop | Where-Object { $_.AppID -like "*Claude_*!*" } | Select-Object -First 1
-            if ($app -and $app.AppID) {
-                Start-Process -FilePath "explorer.exe" -ArgumentList "shell:AppsFolder\$($app.AppID)"
-                Write-Host "  已通过 AppX 激活重启 Claude Desktop ($($app.AppID))" -ForegroundColor Green
-                return
+            $app = Get-AppxEntryForPath $ClaudePath
+        }
+        catch {
+            $app = $null
+        }
+        # 兜底：仅在无法按安装路径匹配时，才退回到开始菜单中类似 Claude 的第一项。
+        if (-not $app) {
+            try {
+                $fallbackApp = Get-StartApps -ErrorAction Stop | Where-Object { $_.AppID -like "*Claude*!*" } | Select-Object -First 1
+                if ($fallbackApp -and $fallbackApp.AppID) {
+                    $app = [pscustomobject]@{ AppID = $fallbackApp.AppID }
+                }
             }
-        } catch {
-            Write-Host "  [提示] AppX 激活不可用($($_.Exception.Message))，改用直接启动。" -ForegroundColor DarkYellow
+            catch {
+                Write-Host "  [提示] AppX 激活不可用($($_.Exception.Message))，改用直接启动。" -ForegroundColor DarkYellow
+            }
+        }
+        if ($app -and $app.AppID) {
+            Start-Process -FilePath "explorer.exe" -ArgumentList "shell:AppsFolder\$($app.AppID)"
+            Write-Host "  已通过 AppX 激活重启 Claude Desktop ($($app.AppID))" -ForegroundColor Green
+            return
         }
     }
 
